@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { SignOutButton } from "@/components/sign-out-button";
+import { LogoMark } from "@/components/logo";
 import type { Company, Profile } from "@/lib/types";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -64,9 +65,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex min-h-svh">
       <aside className="hidden w-60 shrink-0 border-r bg-muted/20 p-4 md:flex md:flex-col md:justify-between print:hidden">
         <div>
-          <div className="mb-6 px-3">
-            <p className="font-semibold leading-tight">{company?.name ?? "EquipQR"}</p>
-            <p className="text-xs text-muted-foreground">{profile.full_name}</p>
+          <div className="mb-6 flex items-center gap-2 px-3">
+            <LogoMark className="size-7" />
+            <div className="min-w-0">
+              <p className="truncate font-semibold leading-tight">{company?.name ?? "EquipQR"}</p>
+              <p className="truncate text-xs text-muted-foreground">{profile.full_name}</p>
+            </div>
           </div>
           <DashboardNav />
         </div>
@@ -74,7 +78,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </aside>
       <div className="flex-1">
         <header className="flex items-center justify-between border-b p-4 md:hidden print:hidden">
-          <p className="font-semibold">{company?.name ?? "EquipQR"}</p>
+          <div className="flex items-center gap-2">
+            <LogoMark className="size-7" />
+            <p className="font-semibold">{company?.name ?? "EquipQR"}</p>
+          </div>
           <SignOutButton />
         </header>
         <main className="p-6">{children}</main>

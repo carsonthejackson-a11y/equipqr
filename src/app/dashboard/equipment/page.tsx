@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { HardHat } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -9,6 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { EmptyState } from "@/components/empty-state";
 import { NewEquipmentDialog } from "./new-equipment-dialog";
 import type { Equipment, EquipmentType } from "@/lib/types";
 
@@ -39,17 +41,12 @@ export default async function EquipmentPage() {
       </div>
 
       {!equipmentTypes || equipmentTypes.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            Create an equipment type first, then add equipment here.
-          </CardContent>
-        </Card>
+        <EmptyState icon={HardHat} message="Create an equipment type first, then add equipment here." />
       ) : !equipment || equipment.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            No equipment yet. Add your first unit to generate its QR code.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={HardHat}
+          message="No equipment yet. Add your first unit to generate its QR code."
+        />
       ) : (
         <Card>
           <Table>

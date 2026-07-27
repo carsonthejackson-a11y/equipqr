@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
 import { NewEquipmentTypeDialog } from "./new-type-dialog";
 import type { EquipmentType } from "@/lib/types";
 
@@ -25,11 +27,10 @@ export default async function EquipmentTypesPage() {
       </div>
 
       {!types || types.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            No equipment types yet. Create one to start building a troubleshooting guide.
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Wrench}
+          message="No equipment types yet. Create one to start building a troubleshooting guide."
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {types.map((type) => (

@@ -14,7 +14,8 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { ArrowDown, ArrowUp, Pencil, Trash2 } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { ArrowDown, ArrowUp, ListChecks, Pencil, Trash2 } from "lucide-react";
 import type { GuideStep } from "@/lib/types";
 import {
   createGuideStep,
@@ -107,11 +108,7 @@ export function GuideStepsEditor({
       </div>
 
       {steps.length === 0 ? (
-        <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No steps yet. Add the first thing a customer should try.
-          </CardContent>
-        </Card>
+        <EmptyState icon={ListChecks} message="No steps yet. Add the first thing a customer should try." />
       ) : (
         <div className="space-y-3">
           {steps

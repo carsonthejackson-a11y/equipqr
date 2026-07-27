@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -10,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge } from "@/components/status-badge";
+import { EmptyState } from "@/components/empty-state";
 import { cn } from "@/lib/utils";
 import type { Equipment, RequestStatus, ServiceRequest } from "@/lib/types";
 
@@ -68,7 +70,7 @@ export default async function RequestsPage({
             className={cn(
               "rounded-full border px-3 py-1 text-sm",
               activeStatus === f.value
-                ? "bg-foreground text-background"
+                ? "border-primary bg-primary text-primary-foreground"
                 : "text-muted-foreground hover:bg-accent"
             )}
           >
@@ -78,11 +80,7 @@ export default async function RequestsPage({
       </div>
 
       {!requests || requests.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            No requests here yet.
-          </CardContent>
-        </Card>
+        <EmptyState icon={Inbox} message="No requests here yet." />
       ) : (
         <Card>
           <Table>
