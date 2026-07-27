@@ -119,8 +119,12 @@ begin
     raise exception 'Must be authenticated';
   end if;
 
-  if exists (select 1 from profiles where id = auth.uid()) then
-    raise exception 'Profile already exists for this user';
+  -- Idempotent: if this user already has a profile (e.g. a retry, or the
+  -- onboarding fallback firing after the metadata-based auto-create already
+  -- ran), just return their existing company instead of erroring.
+  select company_id into v_company_id from profiles where id = auth.uid();
+  if v_company_id is not null then
+    return v_company_id;
   end if;
 
   v_slug := lower(regexp_replace(p_company_name, '[^a-zA-Z0-9]+', '-', 'g'))
