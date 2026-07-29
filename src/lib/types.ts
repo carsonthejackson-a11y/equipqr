@@ -18,6 +18,17 @@ export type Profile = {
   created_at: string;
 };
 
+export type Customer = {
+  id: string;
+  company_id: string;
+  name: string;
+  address: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  created_at: string;
+};
+
 export type EquipmentType = {
   id: string;
   company_id: string;
@@ -40,9 +51,13 @@ export type Equipment = {
   id: string;
   company_id: string;
   equipment_type_id: string;
+  customer_id: string | null;
   name: string;
   serial_number: string | null;
   location: string | null;
+  address: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
   qr_token: string;
   created_at: string;
 };
@@ -56,6 +71,10 @@ export type ServiceRequest = {
   contact_email: string | null;
   contact_phone: string | null;
   status: RequestStatus;
+  resolution_summary: string | null;
+  resolution_recommendations: string | null;
+  resolved_at: string | null;
+  resolution_email_sent_at: string | null;
   created_at: string;
 };
 

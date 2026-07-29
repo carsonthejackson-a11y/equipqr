@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -13,19 +14,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Equipment, EquipmentType } from "@/lib/types";
+import type { Customer, Equipment, EquipmentType } from "@/lib/types";
 import { deleteEquipment, updateEquipment } from "../actions";
 
 export function EditEquipmentForm({
   equipment,
   equipmentTypes,
+  customers,
 }: {
   equipment: Equipment;
   equipmentTypes: EquipmentType[];
+  customers: Customer[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [customerId, setCustomerId] = useState(equipment.customer_id ?? "");
+  const [address, setAddress] = useState(equipment.address ?? "");
+  const [contactName, setContactName] = useState(equipment.contact_name ?? "");
+  const [contactPhone, setContactPhone] = useState(equipment.contact_phone ?? "");
+
+  function handleCustomerChange(value: string | null) {
+    setCustomerId(value ?? "");
+    const customer = customers.find((c) => c.id === value);
+    if (customer) {
+      setAddress(customer.address ?? "");
+      setContactName(customer.contact_name ?? "");
+      setContactPhone(customer.contact_phone ?? "");
+    }
+  }
 
   async function handleSave(formData: FormData) {
     setError(null);
@@ -77,11 +94,63 @@ export function EditEquipmentForm({
         </Select>
       </div>
       <div className="space-y-2">
+        <Label htmlFor="customerId">Customer</Label>
+        <Select
+          name="customerId"
+          value={customerId}
+          onValueChange={handleCustomerChange}
+          items={Object.fromEntries(customers.map((c) => [c.id, c.name]))}
+        >
+          <SelectTrigger id="customerId" className="w-full">
+            <SelectValue placeholder="No customer" />
+          </SelectTrigger>
+          <SelectContent>
+            {customers.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-sm text-muted-foreground">
+          Changing the customer fills in the address and contact below.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="address">Address</Label>
+        <Textarea
+          id="address"
+          name="address"
+          rows={2}
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="contactName">Site contact name</Label>
+        <Input
+          id="contactName"
+          name="contactName"
+          value={contactName}
+          onChange={(e) => setContactName(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="contactPhone">Site contact phone</Label>
+        <Input
+          id="contactPhone"
+          name="contactPhone"
+          type="tel"
+          value={contactPhone}
+          onChange={(e) => setContactPhone(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
         <Label htmlFor="serialNumber">Serial number</Label>
         <Input id="serialNumber" name="serialNumber" defaultValue={equipment.serial_number ?? ""} />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="location">Location</Label>
+        <Label htmlFor="location">Location within site</Label>
         <Input id="location" name="location" defaultValue={equipment.location ?? ""} />
       </div>
       <div className="flex gap-2">

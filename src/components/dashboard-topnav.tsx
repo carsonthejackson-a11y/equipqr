@@ -5,11 +5,11 @@ import { usePathname } from "next/navigation";
 import { dashboardNavLinks, isNavLinkActive } from "@/components/dashboard-nav-links";
 import { cn } from "@/lib/utils";
 
-export function DashboardNav() {
+export function DashboardTopNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex flex-col gap-1">
+    <nav className="flex gap-1.5 overflow-x-auto border-b bg-muted/20 px-4 py-2 print:hidden md:hidden">
       {dashboardNavLinks.map(({ href, label, icon: Icon }) => {
         const active = isNavLinkActive(pathname, href);
         return (
@@ -17,11 +17,13 @@ export function DashboardNav() {
             key={href}
             href={href}
             className={cn(
-              "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-              active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+              "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+              active
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             )}
           >
-            <Icon className="size-4" />
+            <Icon className="size-3.5" />
             {label}
           </Link>
         );

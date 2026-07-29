@@ -12,21 +12,23 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/empty-state";
 import { NewEquipmentDialog } from "./new-equipment-dialog";
-import type { Equipment, EquipmentType } from "@/lib/types";
+import type { Customer, Equipment, EquipmentType } from "@/lib/types";
 
 export default async function EquipmentPage() {
   const supabase = await createClient();
 
-  const [{ data: equipment }, { data: equipmentTypes }] = await Promise.all([
+  const [{ data: equipment }, { data: equipmentTypes }, { data: customers }] = await Promise.all([
     supabase
       .from("equipment")
       .select("*")
       .order("created_at", { ascending: false })
       .returns<Equipment[]>(),
     supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
+    supabase.from("customers").select("*").order("name").returns<Customer[]>(),
   ]);
 
   const typeById = new Map((equipmentTypes ?? []).map((t) => [t.id, t]));
+  const customerById = new Map((customers ?? []).map((c) => [c.id, c]));
 
   return (
     <div className="space-y-6">
@@ -37,7 +39,7 @@ export default async function EquipmentPage() {
             Physical units in the field, each with its own QR code.
           </p>
         </div>
-        <NewEquipmentDialog equipmentTypes={equipmentTypes ?? []} />
+        <NewEquipmentDialog equipmentTypes={equipmentTypes ?? []} customers={customers ?? []} />
       </div>
 
       {!equipmentTypes || equipmentTypes.length === 0 ? (
@@ -54,6 +56,7 @@ export default async function EquipmentPage() {
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
+                <TableHead>Customer</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Serial #</TableHead>
               </TableRow>
@@ -67,6 +70,9 @@ export default async function EquipmentPage() {
                     </Link>
                   </TableCell>
                   <TableCell>{typeById.get(item.equipment_type_id)?.name ?? "—"}</TableCell>
+                  <TableCell>
+                    {item.customer_id ? customerById.get(item.customer_id)?.name ?? "—" : "—"}
+                  </TableCell>
                   <TableCell>{item.location ?? "—"}</TableCell>
                   <TableCell>{item.serial_number ?? "—"}</TableCell>
                 </TableRow>

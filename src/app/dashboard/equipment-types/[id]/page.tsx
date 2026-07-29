@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { BackLink } from "@/components/back-link";
 import type { EquipmentType, GuideStep } from "@/lib/types";
 import { EditTypeForm } from "./edit-type-form";
 import { GuideStepsEditor } from "./guide-steps-editor";
@@ -32,6 +33,7 @@ export default async function EquipmentTypeDetailPage({
   return (
     <div className="space-y-8">
       <div>
+        <BackLink href="/dashboard/equipment-types" label="Back to equipment types" />
         <h1 className="text-2xl font-semibold">{type.name}</h1>
         <p className="text-muted-foreground">Equipment type details and troubleshooting guide.</p>
       </div>

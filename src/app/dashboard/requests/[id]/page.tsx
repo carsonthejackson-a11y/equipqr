@@ -3,8 +3,10 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { BackLink } from "@/components/back-link";
 import type { Equipment, ServiceRequest, ServiceRequestMedia } from "@/lib/types";
 import { StatusControl } from "./status-control";
+import { CloseRequestDialog } from "./close-request-dialog";
 import { MediaGallery } from "./media-gallery";
 
 export default async function ServiceRequestDetailPage({
@@ -48,6 +50,7 @@ export default async function ServiceRequestDetailPage({
 
   return (
     <div className="max-w-2xl space-y-6">
+      <BackLink href="/dashboard/requests" label="Back to requests" />
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">
@@ -63,7 +66,10 @@ export default async function ServiceRequestDetailPage({
             Submitted {new Date(serviceRequest.created_at).toLocaleString()}
           </p>
         </div>
-        <StatusControl requestId={serviceRequest.id} status={serviceRequest.status} />
+        <div className="flex shrink-0 items-center gap-2">
+          <StatusControl requestId={serviceRequest.id} status={serviceRequest.status} />
+          <CloseRequestDialog request={serviceRequest} />
+        </div>
       </div>
 
       <Card>
@@ -74,6 +80,32 @@ export default async function ServiceRequestDetailPage({
           <p className="whitespace-pre-wrap">{serviceRequest.description}</p>
         </CardContent>
       </Card>
+
+      {serviceRequest.resolution_summary && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Close-out summary</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="whitespace-pre-wrap">{serviceRequest.resolution_summary}</p>
+            {serviceRequest.resolution_recommendations && (
+              <div>
+                <p className="font-medium">Recommendations</p>
+                <p className="whitespace-pre-wrap text-muted-foreground">
+                  {serviceRequest.resolution_recommendations}
+                </p>
+              </div>
+            )}
+            <p className="text-muted-foreground">
+              {serviceRequest.resolved_at &&
+                `Closed ${new Date(serviceRequest.resolved_at).toLocaleString()}`}
+              {serviceRequest.resolution_email_sent_at
+                ? " · Emailed to customer"
+                : " · Not emailed to customer"}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

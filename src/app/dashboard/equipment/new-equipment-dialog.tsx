@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -20,14 +21,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { EquipmentType } from "@/lib/types";
+import type { Customer, EquipmentType } from "@/lib/types";
 import { createEquipment } from "./actions";
 
-export function NewEquipmentDialog({ equipmentTypes }: { equipmentTypes: EquipmentType[] }) {
+export function NewEquipmentDialog({
+  equipmentTypes,
+  customers,
+}: {
+  equipmentTypes: EquipmentType[];
+  customers: Customer[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [customerId, setCustomerId] = useState("");
+  const [address, setAddress] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+
+  function handleCustomerChange(value: string | null) {
+    setCustomerId(value ?? "");
+    const customer = customers.find((c) => c.id === value);
+    setAddress(customer?.address ?? "");
+    setContactName(customer?.contact_name ?? "");
+    setContactPhone(customer?.contact_phone ?? "");
+  }
 
   async function handleSubmit(formData: FormData) {
     setSubmitting(true);
@@ -61,7 +80,7 @@ export function NewEquipmentDialog({ equipmentTypes }: { equipmentTypes: Equipme
         <DialogHeader>
           <DialogTitle>New equipment</DialogTitle>
         </DialogHeader>
-        <form action={handleSubmit} className="space-y-4">
+        <form action={handleSubmit} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
           {error && <p className="text-sm text-destructive">{error}</p>}
           <div className="space-y-2">
             <Label htmlFor="name">Name / label</Label>
@@ -87,11 +106,63 @@ export function NewEquipmentDialog({ equipmentTypes }: { equipmentTypes: Equipme
             </Select>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="customerId">Customer (optional)</Label>
+            <Select
+              name="customerId"
+              value={customerId}
+              onValueChange={handleCustomerChange}
+              items={Object.fromEntries(customers.map((c) => [c.id, c.name]))}
+            >
+              <SelectTrigger id="customerId" className="w-full">
+                <SelectValue placeholder="No customer" />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Selecting a customer fills in the address and contact below.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="address">Address (optional)</Label>
+            <Textarea
+              id="address"
+              name="address"
+              rows={2}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="contactName">Site contact name (optional)</Label>
+            <Input
+              id="contactName"
+              name="contactName"
+              value={contactName}
+              onChange={(e) => setContactName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="contactPhone">Site contact phone (optional)</Label>
+            <Input
+              id="contactPhone"
+              name="contactPhone"
+              type="tel"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="serialNumber">Serial number (optional)</Label>
             <Input id="serialNumber" name="serialNumber" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="location">Location (optional)</Label>
+            <Label htmlFor="location">Location within site (optional)</Label>
             <Input id="location" name="location" placeholder="e.g. Building A, Floor 2" />
           </div>
           <DialogFooter>

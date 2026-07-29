@@ -3,18 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
-export async function createEquipment(formData: FormData) {
+export async function createCustomer(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
-  const equipmentTypeId = String(formData.get("equipmentTypeId") ?? "");
-  const customerId = String(formData.get("customerId") ?? "").trim();
-  const serialNumber = String(formData.get("serialNumber") ?? "").trim();
-  const location = String(formData.get("location") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const contactName = String(formData.get("contactName") ?? "").trim();
+  const contactEmail = String(formData.get("contactEmail") ?? "").trim();
   const contactPhone = String(formData.get("contactPhone") ?? "").trim();
 
-  if (!name || !equipmentTypeId) {
-    return { error: "Name and equipment type are required" };
+  if (!name) {
+    return { error: "Name is required" };
   }
 
   const supabase = await createClient();
@@ -28,16 +25,13 @@ export async function createEquipment(formData: FormData) {
   }
 
   const { data, error } = await supabase
-    .from("equipment")
+    .from("customers")
     .insert({
       company_id: profile.company_id,
-      equipment_type_id: equipmentTypeId,
-      customer_id: customerId || null,
       name,
-      serial_number: serialNumber || null,
-      location: location || null,
       address: address || null,
       contact_name: contactName || null,
+      contact_email: contactEmail || null,
       contact_phone: contactPhone || null,
     })
     .select("id")
@@ -47,35 +41,29 @@ export async function createEquipment(formData: FormData) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/equipment");
+  revalidatePath("/dashboard/customers");
   return { id: data.id };
 }
 
-export async function updateEquipment(id: string, formData: FormData) {
+export async function updateCustomer(id: string, formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
-  const equipmentTypeId = String(formData.get("equipmentTypeId") ?? "");
-  const customerId = String(formData.get("customerId") ?? "").trim();
-  const serialNumber = String(formData.get("serialNumber") ?? "").trim();
-  const location = String(formData.get("location") ?? "").trim();
   const address = String(formData.get("address") ?? "").trim();
   const contactName = String(formData.get("contactName") ?? "").trim();
+  const contactEmail = String(formData.get("contactEmail") ?? "").trim();
   const contactPhone = String(formData.get("contactPhone") ?? "").trim();
 
-  if (!name || !equipmentTypeId) {
-    return { error: "Name and equipment type are required" };
+  if (!name) {
+    return { error: "Name is required" };
   }
 
   const supabase = await createClient();
   const { error } = await supabase
-    .from("equipment")
+    .from("customers")
     .update({
       name,
-      equipment_type_id: equipmentTypeId,
-      customer_id: customerId || null,
-      serial_number: serialNumber || null,
-      location: location || null,
       address: address || null,
       contact_name: contactName || null,
+      contact_email: contactEmail || null,
       contact_phone: contactPhone || null,
     })
     .eq("id", id);
@@ -84,19 +72,19 @@ export async function updateEquipment(id: string, formData: FormData) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/equipment");
-  revalidatePath(`/dashboard/equipment/${id}`);
+  revalidatePath("/dashboard/customers");
+  revalidatePath(`/dashboard/customers/${id}`);
   return { success: true };
 }
 
-export async function deleteEquipment(id: string) {
+export async function deleteCustomer(id: string) {
   const supabase = await createClient();
-  const { error } = await supabase.from("equipment").delete().eq("id", id);
+  const { error } = await supabase.from("customers").delete().eq("id", id);
 
   if (error) {
     return { error: error.message };
   }
 
-  revalidatePath("/dashboard/equipment");
+  revalidatePath("/dashboard/customers");
   return { success: true };
 }

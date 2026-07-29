@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
-import type { RequestStatus } from "@/lib/types";
+import type { RequestStatus, ServiceRequest } from "@/lib/types";
 
 export async function updateRequestStatus(id: string, status: RequestStatus) {
   const supabase = await createClient();
@@ -18,4 +19,115 @@ export async function updateRequestStatus(id: string, status: RequestStatus) {
   revalidatePath("/dashboard/requests");
   revalidatePath(`/dashboard/requests/${id}`);
   return { success: true };
+}
+
+export async function closeServiceRequest(id: string, formData: FormData) {
+  const summary = String(formData.get("summary") ?? "").trim();
+  const recommendations = String(formData.get("recommendations") ?? "").trim();
+  const sendEmail = formData.get("sendEmail") === "on";
+  const emailTo = String(formData.get("emailTo") ?? "").trim();
+
+  if (!summary) {
+    return { error: "Summary of work performed is required" };
+  }
+
+  if (sendEmail && !emailTo) {
+    return { error: "Enter an email address, or uncheck emailing the customer" };
+  }
+
+  const supabase = await createClient();
+
+  const { data: serviceRequest } = await supabase
+    .from("service_requests")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle<ServiceRequest>();
+
+  if (!serviceRequest) {
+    return { error: "Service request not found" };
+  }
+
+  let emailSentAt: string | null = null;
+
+  if (sendEmail) {
+    const [{ data: equipment }, { data: company }] = await Promise.all([
+      supabase.from("equipment").select("name").eq("id", serviceRequest.equipment_id).maybeSingle(),
+      supabase.from("companies").select("name").eq("id", serviceRequest.company_id).maybeSingle(),
+    ]);
+
+    const sent = await sendResolutionEmail({
+      to: emailTo,
+      companyName: company?.name ?? "Your service provider",
+      equipmentName: equipment?.name ?? "your equipment",
+      contactName: serviceRequest.contact_name,
+      summary,
+      recommendations,
+    });
+
+    if (sent) {
+      emailSentAt = new Date().toISOString();
+    }
+  }
+
+  const { error } = await supabase
+    .from("service_requests")
+    .update({
+      status: "resolved",
+      resolution_summary: summary,
+      resolution_recommendations: recommendations || null,
+      resolved_at: new Date().toISOString(),
+      ...(emailSentAt ? { resolution_email_sent_at: emailSentAt } : {}),
+    })
+    .eq("id", id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath("/dashboard/requests");
+  revalidatePath(`/dashboard/requests/${id}`);
+  return { success: true, emailSent: !!emailSentAt, emailAttempted: sendEmail };
+}
+
+async function sendResolutionEmail(params: {
+  to: string;
+  companyName: string;
+  equipmentName: string;
+  contactName: string;
+  summary: string;
+  recommendations: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const fromEmail = process.env.RESEND_FROM_EMAIL;
+
+  if (!apiKey || !fromEmail) {
+    console.warn("RESEND_API_KEY or RESEND_FROM_EMAIL not configured — skipping resolution email");
+    return false;
+  }
+
+  const resend = new Resend(apiKey);
+
+  try {
+    await resend.emails.send({
+      from: fromEmail,
+      to: params.to,
+      subject: `${params.equipmentName}: service completed`,
+      text: [
+        `Hi ${params.contactName || "there"},`,
+        "",
+        `Your service request for ${params.equipmentName} has been completed. Here's a summary of what was done:`,
+        "",
+        params.summary,
+        params.recommendations ? `\nRecommendations:\n${params.recommendations}` : null,
+        "",
+        `— ${params.companyName}`,
+      ]
+        .filter((line) => line !== null)
+        .join("\n"),
+    });
+    return true;
+  } catch (err) {
+    console.error("Failed to send resolution email", err);
+    return false;
+  }
 }

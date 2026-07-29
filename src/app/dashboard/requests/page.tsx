@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox } from "lucide-react";
+import { ChevronDown, Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui/card";
 import {
@@ -16,10 +16,9 @@ import { cn } from "@/lib/utils";
 import type { Equipment, RequestStatus, ServiceRequest } from "@/lib/types";
 
 const filters: { label: string; value: RequestStatus | "all" }[] = [
-  { label: "All", value: "all" },
+  { label: "All open", value: "all" },
   { label: "New", value: "new" },
   { label: "In progress", value: "in_progress" },
-  { label: "Resolved", value: "resolved" },
 ];
 
 export default async function RequestsPage({
@@ -32,18 +31,29 @@ export default async function RequestsPage({
 
   const supabase = await createClient();
 
-  let query = supabase
+  let openQuery = supabase
     .from("service_requests")
     .select("*")
+    .neq("status", "resolved")
     .order("created_at", { ascending: false });
 
   if (activeStatus !== "all") {
-    query = query.eq("status", activeStatus);
+    openQuery = openQuery.eq("status", activeStatus);
   }
 
-  const { data: requests } = await query.returns<ServiceRequest[]>();
+  const [{ data: openRequests }, { data: resolvedRequests }] = await Promise.all([
+    openQuery.returns<ServiceRequest[]>(),
+    supabase
+      .from("service_requests")
+      .select("*")
+      .eq("status", "resolved")
+      .order("resolved_at", { ascending: false, nullsFirst: false })
+      .returns<ServiceRequest[]>(),
+  ]);
 
-  const equipmentIds = [...new Set((requests ?? []).map((r) => r.equipment_id))];
+  const equipmentIds = [
+    ...new Set([...(openRequests ?? []), ...(resolvedRequests ?? [])].map((r) => r.equipment_id)),
+  ];
   const { data: equipment } =
     equipmentIds.length > 0
       ? await supabase
@@ -79,8 +89,8 @@ export default async function RequestsPage({
         ))}
       </div>
 
-      {!requests || requests.length === 0 ? (
-        <EmptyState icon={Inbox} message="No requests here yet." />
+      {!openRequests || openRequests.length === 0 ? (
+        <EmptyState icon={Inbox} message="No open requests." />
       ) : (
         <Card>
           <Table>
@@ -93,7 +103,7 @@ export default async function RequestsPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {requests.map((req) => (
+              {openRequests.map((req) => (
                 <TableRow key={req.id}>
                   <TableCell>
                     <Link href={`/dashboard/requests/${req.id}`} className="font-medium hover:underline">
@@ -110,6 +120,50 @@ export default async function RequestsPage({
             </TableBody>
           </Table>
         </Card>
+      )}
+
+      {resolvedRequests && resolvedRequests.length > 0 && (
+        <details className="group rounded-lg border">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-4 text-sm font-medium">
+            <span>Service history ({resolvedRequests.length} closed)</span>
+            <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Equipment</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Closed</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {resolvedRequests.map((req) => (
+                  <TableRow key={req.id}>
+                    <TableCell>
+                      <Link
+                        href={`/dashboard/requests/${req.id}`}
+                        className="font-medium hover:underline"
+                      >
+                        {equipmentById.get(req.equipment_id)?.name ?? "Unknown equipment"}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{req.contact_name}</TableCell>
+                    <TableCell>
+                      {req.resolved_at
+                        ? new Date(req.resolved_at).toLocaleString()
+                        : new Date(req.created_at).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={req.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </details>
       )}
     </div>
   );

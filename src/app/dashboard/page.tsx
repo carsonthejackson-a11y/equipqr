@@ -5,15 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 export default async function DashboardOverviewPage() {
   const supabase = await createClient();
 
-  const [{ count: equipmentCount }, { count: typeCount }, { count: openRequestCount }] =
-    await Promise.all([
-      supabase.from("equipment").select("*", { count: "exact", head: true }),
-      supabase.from("equipment_types").select("*", { count: "exact", head: true }),
-      supabase
-        .from("service_requests")
-        .select("*", { count: "exact", head: true })
-        .neq("status", "resolved"),
-    ]);
+  const [
+    { count: equipmentCount },
+    { count: typeCount },
+    { count: openRequestCount },
+    { count: customerCount },
+  ] = await Promise.all([
+    supabase.from("equipment").select("*", { count: "exact", head: true }),
+    supabase.from("equipment_types").select("*", { count: "exact", head: true }),
+    supabase
+      .from("service_requests")
+      .select("*", { count: "exact", head: true })
+      .neq("status", "resolved"),
+    supabase.from("customers").select("*", { count: "exact", head: true }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -22,7 +27,20 @@ export default async function DashboardOverviewPage() {
         <p className="text-muted-foreground">A quick snapshot of your account.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link href="/dashboard/customers">
+          <Card className="transition-colors hover:bg-accent/50">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Customers
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold">{customerCount ?? 0}</p>
+            </CardContent>
+          </Card>
+        </Link>
+
         <Link href="/dashboard/requests">
           <Card className="transition-colors hover:bg-accent/50">
             <CardHeader>
