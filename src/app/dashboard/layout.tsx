@@ -29,7 +29,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const notificationEmail = meta.pending_notification_email;
     const fullName = meta.pending_full_name;
 
+    console.log("[onboarding-debug] no profile yet for user", user.id, {
+      metaKeys: Object.keys(meta ?? {}),
+      companyName,
+      notificationEmail,
+      fullName,
+    });
+
     if (!companyName || !notificationEmail) {
+      console.log("[onboarding-debug] missing pending_* metadata, redirecting to /onboarding");
       redirect("/onboarding");
     }
 
@@ -40,6 +48,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     });
 
     if (error) {
+      console.log("[onboarding-debug] create_company_and_profile RPC error:", error.message);
       redirect("/onboarding");
     }
 
@@ -48,6 +57,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
       .select("*")
       .eq("id", user.id)
       .maybeSingle<Profile>();
+
+    console.log("[onboarding-debug] post-create profile lookup:", createdProfile);
 
     profile = createdProfile;
   }
