@@ -17,24 +17,8 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
 
     if (!error) {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      console.log("[auth-confirm-debug] verifyOtp succeeded", {
-        userId: user?.id,
-        metaKeys: Object.keys(user?.user_metadata ?? {}),
-        pendingCompanyName: user?.user_metadata?.pending_company_name,
-      });
       return NextResponse.redirect(`${origin}${next}`);
     }
-
-    console.log("[auth-confirm-debug] verifyOtp error:", error.message);
-  } else {
-    console.log("[auth-confirm-debug] missing token_hash or type on request", {
-      tokenHash,
-      type,
-      url: request.url,
-    });
   }
 
   return NextResponse.redirect(`${origin}/login`);

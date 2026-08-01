@@ -134,8 +134,17 @@ begin
   values (p_company_name, v_slug, p_notification_email)
   returning id into v_company_id;
 
+  -- The dashboard can fire two near-simultaneous requests right after email
+  -- confirmation (router prefetch racing the real navigation), so a second
+  -- concurrent call can reach this same point before the first commits. If
+  -- we lose that race, adopt the winner's company instead of erroring.
   insert into profiles (id, company_id, full_name, role)
-  values (auth.uid(), v_company_id, p_full_name, 'owner');
+  values (auth.uid(), v_company_id, p_full_name, 'owner')
+  on conflict (id) do nothing;
+
+  if not found then
+    select company_id into v_company_id from profiles where id = auth.uid();
+  end if;
 
   return v_company_id;
 end;

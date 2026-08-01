@@ -29,38 +29,32 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const notificationEmail = meta.pending_notification_email;
     const fullName = meta.pending_full_name;
 
-    console.log("[onboarding-debug] no profile yet for user", user.id, {
-      metaKeys: Object.keys(meta ?? {}),
-      companyName,
-      notificationEmail,
-      fullName,
-    });
-
     if (!companyName || !notificationEmail) {
-      console.log("[onboarding-debug] missing pending_* metadata, redirecting to /onboarding");
       redirect("/onboarding");
     }
 
-    const { error } = await supabase.rpc("create_company_and_profile", {
+    const { data: companyId, error } = await supabase.rpc("create_company_and_profile", {
       p_company_name: companyName,
       p_notification_email: notificationEmail,
       p_full_name: fullName ?? "",
     });
 
-    if (error) {
-      console.log("[onboarding-debug] create_company_and_profile RPC error:", error.message);
+    if (error || !companyId) {
       redirect("/onboarding");
     }
 
-    const { data: createdProfile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle<Profile>();
-
-    console.log("[onboarding-debug] post-create profile lookup:", createdProfile);
-
-    profile = createdProfile;
+    // Built directly from the RPC result instead of a follow-up SELECT: the
+    // dashboard can briefly get two near-simultaneous requests right after
+    // email confirmation (router prefetch racing the real navigation), and a
+    // second SELECT for a row the other request just committed is prone to
+    // missing it. The RPC itself is idempotent, so this is always accurate.
+    profile = {
+      id: user.id,
+      company_id: companyId,
+      full_name: fullName ?? null,
+      role: "owner",
+      created_at: new Date().toISOString(),
+    };
   }
 
   if (!profile) {
