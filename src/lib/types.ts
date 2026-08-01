@@ -1,6 +1,7 @@
 export type UserRole = "owner" | "technician";
 export type RequestStatus = "new" | "in_progress" | "resolved";
 export type MediaKind = "image" | "video";
+export type QrCodeSource = "instant" | "batch";
 
 export type Company = {
   id: string;
@@ -58,7 +59,16 @@ export type Equipment = {
   address: string | null;
   contact_name: string | null;
   contact_phone: string | null;
-  qr_token: string;
+  created_at: string;
+};
+
+export type QrCode = {
+  id: string;
+  token: string;
+  company_id: string;
+  equipment_id: string | null;
+  source: QrCodeSource;
+  claimed_at: string | null;
   created_at: string;
 };
 
@@ -86,8 +96,8 @@ export type ServiceRequestMedia = {
   created_at: string;
 };
 
-export type EquipmentGuideResponse = {
-  equipment: { id: string; name: string; qr_token: string };
+export type EquipmentGuide = {
+  equipment: { id: string; name: string };
   company: { id: string; name: string };
   equipment_type: { id: string; name: string; description: string | null };
   steps: {
@@ -97,4 +107,9 @@ export type EquipmentGuideResponse = {
     instructions: string;
     media_url: string | null;
   }[];
-} | null;
+};
+
+export type ResolvedQrCode =
+  | { status: "not_found" }
+  | { status: "unclaimed"; company_id: string }
+  | { status: "claimed"; guide: EquipmentGuide };

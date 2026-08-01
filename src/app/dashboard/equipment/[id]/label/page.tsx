@@ -3,7 +3,7 @@ import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { generateQrDataUrl, getEquipmentPublicUrl } from "@/lib/qr";
 import { BackLink } from "@/components/back-link";
-import type { Customer, Equipment, Company } from "@/lib/types";
+import type { Customer, Equipment, Company, QrCode } from "@/lib/types";
 import { PrintButton } from "./print-button";
 
 export default async function EquipmentLabelPage({
@@ -24,14 +24,24 @@ export default async function EquipmentLabelPage({
     notFound();
   }
 
-  const [{ data: company }, { data: customer }] = await Promise.all([
+  const [{ data: company }, { data: customer }, { data: qrCode }] = await Promise.all([
     supabase.from("companies").select("*").eq("id", equipment.company_id).maybeSingle<Company>(),
     equipment.customer_id
       ? supabase.from("customers").select("*").eq("id", equipment.customer_id).maybeSingle<Customer>()
       : Promise.resolve({ data: null }),
+    supabase.from("qr_codes").select("*").eq("equipment_id", id).maybeSingle<QrCode>(),
   ]);
 
-  const publicUrl = getEquipmentPublicUrl(equipment.qr_token);
+  if (!qrCode) {
+    return (
+      <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 py-10 text-center">
+        <BackLink href={`/dashboard/equipment/${equipment.id}`} label="Back to equipment" />
+        <p className="text-muted-foreground">This equipment doesn&apos;t have a QR code linked yet.</p>
+      </div>
+    );
+  }
+
+  const publicUrl = getEquipmentPublicUrl(qrCode.token);
   const qrDataUrl = await generateQrDataUrl(publicUrl);
 
   return (

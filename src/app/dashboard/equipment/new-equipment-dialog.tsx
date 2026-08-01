@@ -21,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { toast } from "sonner";
 import type { Customer, EquipmentType } from "@/lib/types";
 import { createEquipment } from "./actions";
 
@@ -39,6 +41,7 @@ export function NewEquipmentDialog({
   const [address, setAddress] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [codeSource, setCodeSource] = useState("instant");
 
   function handleCustomerChange(value: string | null) {
     setCustomerId(value ?? "");
@@ -57,6 +60,10 @@ export function NewEquipmentDialog({
     if (result?.error) {
       setError(result.error);
       return;
+    }
+
+    if (result?.codeError) {
+      toast.warning(`Equipment created, but couldn't link that QR code: ${result.codeError}`);
     }
 
     setOpen(false);
@@ -164,6 +171,36 @@ export function NewEquipmentDialog({
           <div className="space-y-2">
             <Label htmlFor="location">Location within site (optional)</Label>
             <Input id="location" name="location" placeholder="e.g. Building A, Floor 2" />
+          </div>
+          <div className="space-y-3 rounded-lg border p-3">
+            <Label>How do you want to set up this equipment&apos;s QR code?</Label>
+            <RadioGroup name="codeSource" value={codeSource} onValueChange={setCodeSource}>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="instant" id="codeSource-instant" className="mt-0.5" />
+                <Label htmlFor="codeSource-instant" className="flex-1 font-normal">
+                  <span className="block font-medium text-foreground">Generate a new code now</span>
+                  <span className="block text-sm text-muted-foreground">
+                    Creates a QR code you can print yourself right away.
+                  </span>
+                </Label>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem value="preprinted" id="codeSource-preprinted" className="mt-0.5" />
+                <Label htmlFor="codeSource-preprinted" className="flex-1 font-normal">
+                  <span className="block font-medium text-foreground">Use a pre-printed code</span>
+                  <span className="block text-sm text-muted-foreground">
+                    Enter the code from one of your physical stickers.
+                  </span>
+                </Label>
+              </div>
+            </RadioGroup>
+            {codeSource === "preprinted" && (
+              <Input
+                name="preprintedCode"
+                placeholder="e.g. AB3D-9F2K"
+                className="font-mono uppercase"
+              />
+            )}
           </div>
           <DialogFooter>
             <Button type="submit" disabled={submitting}>

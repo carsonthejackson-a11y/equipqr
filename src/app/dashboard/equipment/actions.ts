@@ -2,6 +2,41 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { generateInstantToken, normalizeQrCode } from "@/lib/qr";
+
+async function assignCode(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  equipmentId: string,
+  companyId: string,
+  formData: FormData
+) {
+  const codeSource = String(formData.get("codeSource") ?? "instant");
+
+  if (codeSource === "instant") {
+    const { error } = await supabase.from("qr_codes").insert({
+      token: generateInstantToken(),
+      company_id: companyId,
+      equipment_id: equipmentId,
+      source: "instant",
+      claimed_at: new Date().toISOString(),
+    });
+    return error ? error.message : null;
+  }
+
+  if (codeSource === "preprinted") {
+    const rawCode = String(formData.get("preprintedCode") ?? "").trim();
+    if (!rawCode) {
+      return "Enter the code from a pre-printed sticker, or choose to generate one instead";
+    }
+    const { error } = await supabase.rpc("claim_qr_code", {
+      p_token: normalizeQrCode(rawCode),
+      p_equipment_id: equipmentId,
+    });
+    return error ? error.message : null;
+  }
+
+  return null;
+}
 
 export async function createEquipment(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -47,8 +82,10 @@ export async function createEquipment(formData: FormData) {
     return { error: error.message };
   }
 
+  const codeError = await assignCode(supabase, data.id, profile.company_id, formData);
+
   revalidatePath("/dashboard/equipment");
-  return { id: data.id };
+  return { id: data.id, codeError };
 }
 
 export async function updateEquipment(id: string, formData: FormData) {
@@ -98,5 +135,17 @@ export async function deleteEquipment(id: string) {
   }
 
   revalidatePath("/dashboard/equipment");
+  return { success: true };
+}
+
+export async function assignQrCode(equipmentId: string, companyId: string, formData: FormData) {
+  const supabase = await createClient();
+  const codeError = await assignCode(supabase, equipmentId, companyId, formData);
+
+  if (codeError) {
+    return { error: codeError };
+  }
+
+  revalidatePath(`/dashboard/equipment/${equipmentId}`);
   return { success: true };
 }

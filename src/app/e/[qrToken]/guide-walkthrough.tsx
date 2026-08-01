@@ -5,11 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { EquipmentGuideResponse } from "@/lib/types";
+import type { EquipmentGuide } from "@/lib/types";
 
-type Guide = NonNullable<EquipmentGuideResponse>;
-
-export function GuideWalkthrough({ guide }: { guide: Guide }) {
+export function GuideWalkthrough({ guide, qrToken }: { guide: EquipmentGuide; qrToken: string }) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
   const [resolved, setResolved] = useState(false);
@@ -17,7 +15,7 @@ export function GuideWalkthrough({ guide }: { guide: Guide }) {
   const steps = guide.steps;
   const step = steps[stepIndex];
   const isLastStep = stepIndex === steps.length - 1;
-  const requestHref = `/e/${guide.equipment.qr_token}/request`;
+  const requestHref = `/e/${qrToken}/request`;
 
   function handleStillNotWorking() {
     if (isLastStep) {

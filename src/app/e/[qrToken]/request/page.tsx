@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { EquipmentGuideResponse } from "@/lib/types";
+import type { ResolvedQrCode } from "@/lib/types";
 import { ServiceRequestForm } from "./service-request-form";
 
 export default async function ServiceRequestPage({
@@ -11,15 +11,14 @@ export default async function ServiceRequestPage({
   const { qrToken } = await params;
   const supabase = await createClient();
 
-  const { data } = await supabase.rpc("get_equipment_guide", {
-    p_qr_token: qrToken,
-  });
+  const { data } = await supabase.rpc("resolve_qr_code", { p_token: qrToken });
+  const resolved = data as ResolvedQrCode;
 
-  const guide = data as EquipmentGuideResponse;
-
-  if (!guide) {
+  if (!resolved || resolved.status !== "claimed") {
     notFound();
   }
+
+  const { guide } = resolved;
 
   return (
     <div className="mx-auto flex min-h-svh max-w-lg flex-col px-4 py-8">

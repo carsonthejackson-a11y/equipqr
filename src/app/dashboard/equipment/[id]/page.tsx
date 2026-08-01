@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { generateQrDataUrl, getEquipmentPublicUrl } from "@/lib/qr";
 import { BackLink } from "@/components/back-link";
-import type { Customer, Equipment, EquipmentType } from "@/lib/types";
+import type { Customer, Equipment, EquipmentType, QrCode } from "@/lib/types";
 import { EditEquipmentForm } from "./edit-equipment-form";
 import { QrCard } from "./qr-card";
+import { AssignCodeForm } from "./assign-code-form";
 
 export default async function EquipmentDetailPage({
   params,
@@ -24,13 +25,14 @@ export default async function EquipmentDetailPage({
     notFound();
   }
 
-  const [{ data: equipmentTypes }, { data: customers }] = await Promise.all([
+  const [{ data: equipmentTypes }, { data: customers }, { data: qrCode }] = await Promise.all([
     supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
     supabase.from("customers").select("*").order("name").returns<Customer[]>(),
+    supabase.from("qr_codes").select("*").eq("equipment_id", id).maybeSingle<QrCode>(),
   ]);
 
-  const publicUrl = getEquipmentPublicUrl(equipment.qr_token);
-  const qrDataUrl = await generateQrDataUrl(publicUrl);
+  const publicUrl = qrCode ? getEquipmentPublicUrl(qrCode.token) : null;
+  const qrDataUrl = publicUrl ? await generateQrDataUrl(publicUrl) : null;
 
   return (
     <div className="space-y-6">
@@ -46,12 +48,18 @@ export default async function EquipmentDetailPage({
           equipmentTypes={equipmentTypes ?? []}
           customers={customers ?? []}
         />
-        <QrCard
-          qrDataUrl={qrDataUrl}
-          publicUrl={publicUrl}
-          equipmentId={equipment.id}
-          fileName={equipment.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
-        />
+        {qrDataUrl && publicUrl ? (
+          <QrCard
+            qrDataUrl={qrDataUrl}
+            publicUrl={publicUrl}
+            equipmentId={equipment.id}
+            fileName={equipment.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
+          />
+        ) : (
+          <div className="lg:w-80">
+            <AssignCodeForm equipmentId={equipment.id} companyId={equipment.company_id} />
+          </div>
+        )}
       </div>
     </div>
   );
