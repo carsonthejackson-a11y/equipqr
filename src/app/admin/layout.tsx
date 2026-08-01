@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Logo } from "@/components/logo";
@@ -34,7 +35,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             Admin
           </span>
         </div>
-        <SignOutButton />
+        <div className="flex items-center gap-4">
+          <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
+            Back to dashboard
+          </Link>
+          <SignOutButton />
+        </div>
       </header>
       <main className="p-6">{children}</main>
     </div>

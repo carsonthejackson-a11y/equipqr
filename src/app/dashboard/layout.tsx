@@ -61,11 +61,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/onboarding");
   }
 
-  const { data: company } = await supabase
-    .from("companies")
-    .select("*")
-    .eq("id", profile.company_id)
-    .maybeSingle<Company>();
+  const [{ data: company }, { data: isAdmin }] = await Promise.all([
+    supabase.from("companies").select("*").eq("id", profile.company_id).maybeSingle<Company>(),
+    supabase.rpc("is_platform_admin"),
+  ]);
 
   return (
     <div className="flex min-h-svh">
@@ -78,7 +77,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <p className="truncate text-xs text-muted-foreground">{profile.full_name}</p>
             </div>
           </div>
-          <DashboardNav />
+          <DashboardNav isAdmin={!!isAdmin} />
         </div>
         <SignOutButton />
       </aside>
@@ -90,7 +89,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
           <SignOutButton />
         </header>
-        <DashboardTopNav />
+        <DashboardTopNav isAdmin={!!isAdmin} />
         <main className="p-6">{children}</main>
       </div>
     </div>

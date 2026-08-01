@@ -1,4 +1,13 @@
-import { LayoutGrid, Users, Wrench, HardHat, Inbox, Settings, type LucideIcon } from "lucide-react";
+import {
+  LayoutGrid,
+  Users,
+  Wrench,
+  HardHat,
+  Inbox,
+  Settings,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
 
 export type DashboardNavLink = {
   href: string;
@@ -14,6 +23,12 @@ export const dashboardNavLinks: DashboardNavLink[] = [
   { href: "/dashboard/requests", label: "Requests", icon: Inbox },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
+
+export const adminNavLink: DashboardNavLink = {
+  href: "/admin/qr-codes",
+  label: "Admin",
+  icon: ShieldCheck,
+};
 
 export function isNavLinkActive(pathname: string, href: string) {
   if (href === "/dashboard") return pathname === href;

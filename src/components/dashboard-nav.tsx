@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { dashboardNavLinks, isNavLinkActive } from "@/components/dashboard-nav-links";
+import { adminNavLink, dashboardNavLinks, isNavLinkActive } from "@/components/dashboard-nav-links";
 import { cn } from "@/lib/utils";
 
-export function DashboardNav() {
+export function DashboardNav({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
+  const links = isAdmin ? [...dashboardNavLinks, adminNavLink] : dashboardNavLinks;
 
   return (
     <nav className="flex flex-col gap-1">
-      {dashboardNavLinks.map(({ href, label, icon: Icon }) => {
+      {links.map(({ href, label, icon: Icon }) => {
         const active = isNavLinkActive(pathname, href);
         return (
           <Link
