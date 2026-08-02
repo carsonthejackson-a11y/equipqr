@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { QrScanButton } from "@/components/qr-scan-button";
+import { normalizeQrCode } from "@/lib/qr";
 import { assignQrCode } from "../actions";
 
 export function AssignCodeForm({
@@ -19,6 +21,7 @@ export function AssignCodeForm({
 }) {
   const router = useRouter();
   const [codeSource, setCodeSource] = useState("instant");
+  const [preprintedCode, setPreprintedCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(formData: FormData) {
@@ -60,7 +63,16 @@ export function AssignCodeForm({
             </div>
           </RadioGroup>
           {codeSource === "preprinted" && (
-            <Input name="preprintedCode" placeholder="e.g. AB3D-9F2K" className="font-mono uppercase" />
+            <div className="flex gap-2">
+              <Input
+                name="preprintedCode"
+                placeholder="e.g. AB3D-9F2K"
+                className="font-mono uppercase"
+                value={preprintedCode}
+                onChange={(e) => setPreprintedCode(e.target.value)}
+              />
+              <QrScanButton onScan={(code) => setPreprintedCode(normalizeQrCode(code))} />
+            </div>
           )}
           <Button type="submit" className="w-full" disabled={submitting}>
             {submitting ? "Linking..." : "Link code"}

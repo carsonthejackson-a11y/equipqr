@@ -22,8 +22,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { QrScanButton } from "@/components/qr-scan-button";
 import { toast } from "sonner";
 import type { Customer, EquipmentType } from "@/lib/types";
+import { normalizeQrCode } from "@/lib/qr";
 import { createEquipment } from "./actions";
 
 export function NewEquipmentDialog({
@@ -42,6 +44,7 @@ export function NewEquipmentDialog({
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [codeSource, setCodeSource] = useState("instant");
+  const [preprintedCode, setPreprintedCode] = useState("");
 
   function handleCustomerChange(value: string | null) {
     setCustomerId(value ?? "");
@@ -195,11 +198,16 @@ export function NewEquipmentDialog({
               </div>
             </RadioGroup>
             {codeSource === "preprinted" && (
-              <Input
-                name="preprintedCode"
-                placeholder="e.g. AB3D-9F2K"
-                className="font-mono uppercase"
-              />
+              <div className="flex gap-2">
+                <Input
+                  name="preprintedCode"
+                  placeholder="e.g. AB3D-9F2K"
+                  className="font-mono uppercase"
+                  value={preprintedCode}
+                  onChange={(e) => setPreprintedCode(e.target.value)}
+                />
+                <QrScanButton onScan={(code) => setPreprintedCode(normalizeQrCode(code))} />
+              </div>
             )}
           </div>
           <DialogFooter>
