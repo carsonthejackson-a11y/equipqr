@@ -81,6 +81,35 @@ export default async function ServiceRequestDetailPage({
         </CardContent>
       </Card>
 
+      {serviceRequest.ai_summary && (
+        <Card>
+          <CardHeader>
+            <CardTitle>AI summary</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-wrap">{serviceRequest.ai_summary}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {serviceRequest.troubleshooting_path.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Troubleshooting path</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="space-y-1.5 text-sm">
+              {serviceRequest.troubleshooting_path.map((entry, index) => (
+                <li key={index}>
+                  <span className="text-muted-foreground">{index + 1}. {entry.question}</span>{" "}
+                  → <span className="font-medium">{entry.answer}</span>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
+
       {serviceRequest.resolution_summary && (
         <Card>
           <CardHeader>

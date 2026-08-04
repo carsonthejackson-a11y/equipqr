@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
+import { summarizeTroubleshootingPath } from "@/lib/anthropic";
 
 type MediaItem = { storage_path: string; media_type: "image" | "video" };
+type PathEntry = { question: string; answer: string };
 
 type RequestBody = {
   qrToken?: string;
@@ -11,6 +13,7 @@ type RequestBody = {
   contactEmail?: string;
   contactPhone?: string;
   media?: MediaItem[];
+  troubleshootingPath?: PathEntry[];
 };
 
 type SubmitResult = {
@@ -31,6 +34,7 @@ export async function POST(request: Request) {
   }
 
   const media = Array.isArray(body.media) ? body.media : [];
+  const troubleshootingPath = Array.isArray(body.troubleshootingPath) ? body.troubleshootingPath : [];
 
   const supabase = await createClient();
 
@@ -41,6 +45,7 @@ export async function POST(request: Request) {
     p_contact_email: body.contactEmail?.trim() || "",
     p_contact_phone: body.contactPhone?.trim() || "",
     p_media: media,
+    p_troubleshooting_path: troubleshootingPath,
   });
 
   if (error) {
@@ -49,7 +54,17 @@ export async function POST(request: Request) {
 
   const result = data as SubmitResult;
 
-  await sendNotificationEmail(result, body, media.length);
+  const aiSummary = await summarizeTroubleshootingPath({
+    equipmentName: result.equipment_name,
+    description: body.description.trim(),
+    path: troubleshootingPath,
+  });
+
+  if (aiSummary) {
+    await supabase.from("service_requests").update({ ai_summary: aiSummary }).eq("id", result.request_id);
+  }
+
+  await sendNotificationEmail(result, body, media.length, troubleshootingPath, aiSummary);
 
   return NextResponse.json({ id: result.request_id });
 }
@@ -57,7 +72,9 @@ export async function POST(request: Request) {
 async function sendNotificationEmail(
   result: SubmitResult,
   body: RequestBody,
-  mediaCount: number
+  mediaCount: number,
+  troubleshootingPath: PathEntry[],
+  aiSummary: string | null
 ) {
   const apiKey = process.env.RESEND_API_KEY;
   const fromEmail = process.env.RESEND_FROM_EMAIL;
@@ -87,6 +104,11 @@ async function sendNotificationEmail(
         "",
         `Description: ${body.description}`,
         mediaCount > 0 ? `Attachments: ${mediaCount}` : null,
+        aiSummary ? "" : null,
+        aiSummary ? `AI summary: ${aiSummary}` : null,
+        troubleshootingPath.length > 0 ? "" : null,
+        troubleshootingPath.length > 0 ? "Troubleshooting path:" : null,
+        ...troubleshootingPath.map((entry, i) => `${i + 1}. ${entry.question} → ${entry.answer}`),
         "",
         `View in dashboard: ${dashboardUrl}`,
       ]

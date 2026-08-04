@@ -38,13 +38,40 @@ export type EquipmentType = {
   created_at: string;
 };
 
+export type GuideOutcome = "continue" | "resolved" | "escalate";
+
 export type GuideStep = {
   id: string;
   equipment_type_id: string;
-  step_number: number;
   title: string;
-  instructions: string;
+  instructions: string | null;
   media_url: string | null;
+  is_root: boolean;
+  created_at: string;
+};
+
+// A step/option graph keyed by client-side temp ids rather than real UUIDs —
+// shared shape for anything that proposes a whole guide at once (the bulk
+// `replaceGuideGraph` action, and the AI drafting assistant that calls it).
+export type GuideGraphNode = {
+  tempId: string;
+  title: string;
+  instructions: string | null;
+  isRoot: boolean;
+  options: {
+    label: string;
+    outcome: GuideOutcome;
+    nextTempId: string | null;
+  }[];
+};
+
+export type GuideOption = {
+  id: string;
+  guide_step_id: string;
+  label: string;
+  sort_order: number;
+  outcome: GuideOutcome;
+  next_step_id: string | null;
   created_at: string;
 };
 
@@ -85,6 +112,8 @@ export type ServiceRequest = {
   resolution_recommendations: string | null;
   resolved_at: string | null;
   resolution_email_sent_at: string | null;
+  troubleshooting_path: { question: string; answer: string }[];
+  ai_summary: string | null;
   created_at: string;
 };
 
@@ -100,12 +129,19 @@ export type EquipmentGuide = {
   equipment: { id: string; name: string };
   company: { id: string; name: string };
   equipment_type: { id: string; name: string; description: string | null };
+  root_step_id: string | null;
   steps: {
     id: string;
-    step_number: number;
     title: string;
-    instructions: string;
+    instructions: string | null;
     media_url: string | null;
+    is_root: boolean;
+    options: {
+      id: string;
+      label: string;
+      outcome: GuideOutcome;
+      next_step_id: string | null;
+    }[];
   }[];
 };
 

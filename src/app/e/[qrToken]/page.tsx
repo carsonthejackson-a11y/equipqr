@@ -77,7 +77,11 @@ export default async function EquipmentGuidePage({
 
   return (
     <div className="mx-auto flex min-h-svh max-w-lg flex-col px-4 py-8">
-      <GuideWalkthrough guide={resolved.guide} qrToken={qrToken} />
+      <GuideWalkthrough
+        guide={resolved.guide}
+        qrToken={qrToken}
+        aiChatEnabled={!!process.env.ANTHROPIC_API_KEY}
+      />
     </div>
   );
 }

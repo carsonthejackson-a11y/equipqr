@@ -13,6 +13,12 @@ import { X } from "lucide-react";
 const MAX_FILES = 6;
 const MAX_FILE_SIZE_MB = 25;
 
+type PathEntry = { question: string; answer: string };
+
+function pathStorageKey(qrToken: string) {
+  return `troubleshooting-path-${qrToken}`;
+}
+
 export function ServiceRequestForm({ qrToken }: { qrToken: string }) {
   const [description, setDescription] = useState("");
   const [contactName, setContactName] = useState("");
@@ -22,6 +28,16 @@ export function ServiceRequestForm({ qrToken }: { qrToken: string }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+
+  function getTroubleshootingPath(): PathEntry[] {
+    const stored = sessionStorage.getItem(pathStorageKey(qrToken));
+    if (!stored) return [];
+    try {
+      return JSON.parse(stored);
+    } catch {
+      return [];
+    }
+  }
 
   function handleFilesSelected(selected: FileList | null) {
     if (!selected) return;
@@ -89,6 +105,7 @@ export function ServiceRequestForm({ qrToken }: { qrToken: string }) {
           contactEmail,
           contactPhone,
           media,
+          troubleshootingPath: getTroubleshootingPath(),
         }),
       });
 
@@ -97,6 +114,7 @@ export function ServiceRequestForm({ qrToken }: { qrToken: string }) {
         throw new Error(body.error ?? "Something went wrong submitting your request");
       }
 
+      sessionStorage.removeItem(pathStorageKey(qrToken));
       setSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
