@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QrScanButton } from "@/components/qr-scan-button";
 import { normalizeQrCode } from "@/lib/qr";
+import { FEATURES } from "@/lib/features";
 import { assignQrCode } from "../actions";
 
 export function AssignCodeForm({
@@ -51,39 +52,51 @@ export function AssignCodeForm({
           This equipment doesn&apos;t have a QR code yet.
         </p>
         <form action={handleSubmit} className="space-y-4">
-          <RadioGroup name="codeSource" value={codeSource} onValueChange={setCodeSource}>
-            <div className="flex items-start gap-2">
-              <RadioGroupItem value="instant" id="assign-instant" className="mt-0.5" />
-              <Label htmlFor="assign-instant" className="flex-1 font-normal">
-                <span className="block font-medium text-foreground">Generate a new code now</span>
-              </Label>
-            </div>
-            <div className="flex items-start gap-2">
-              <RadioGroupItem value="preprinted" id="assign-preprinted" className="mt-0.5" />
-              <Label htmlFor="assign-preprinted" className="flex-1 font-normal">
-                <span className="block font-medium text-foreground">Use a pre-printed code</span>
-                {!batchQrEnabled && (
-                  <span className="block text-sm text-muted-foreground">
-                    Batch-printed codes are a Pro plan feature.
-                  </span>
-                )}
-              </Label>
-            </div>
-          </RadioGroup>
-          {codeSource === "preprinted" && (
-            <div className="flex gap-2">
-              <Input
-                name="preprintedCode"
-                placeholder="e.g. AB3D-9F2K"
-                className="font-mono uppercase"
-                value={preprintedCode}
-                onChange={(e) => setPreprintedCode(e.target.value)}
-              />
-              <QrScanButton onScan={(code) => setPreprintedCode(normalizeQrCode(code))} />
-            </div>
+          {FEATURES.batchQr ? (
+            <>
+              <RadioGroup name="codeSource" value={codeSource} onValueChange={setCodeSource}>
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="instant" id="assign-instant" className="mt-0.5" />
+                  <Label htmlFor="assign-instant" className="flex-1 font-normal">
+                    <span className="block font-medium text-foreground">Generate a new code now</span>
+                  </Label>
+                </div>
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="preprinted" id="assign-preprinted" className="mt-0.5" />
+                  <Label htmlFor="assign-preprinted" className="flex-1 font-normal">
+                    <span className="block font-medium text-foreground">Use a pre-printed code</span>
+                    {!batchQrEnabled && (
+                      <span className="block text-sm text-muted-foreground">
+                        Batch-printed codes are a Pro plan feature.
+                      </span>
+                    )}
+                  </Label>
+                </div>
+              </RadioGroup>
+              {codeSource === "preprinted" && (
+                <div className="flex gap-2">
+                  <Input
+                    name="preprintedCode"
+                    placeholder="e.g. AB3D-9F2K"
+                    className="font-mono uppercase"
+                    value={preprintedCode}
+                    onChange={(e) => setPreprintedCode(e.target.value)}
+                  />
+                  <QrScanButton onScan={(code) => setPreprintedCode(normalizeQrCode(code))} />
+                </div>
+              )}
+            </>
+          ) : (
+            <input type="hidden" name="codeSource" value="instant" />
           )}
           <Button type="submit" className="w-full" disabled={submitting}>
-            {submitting ? "Linking..." : "Link code"}
+            {submitting
+              ? FEATURES.batchQr
+                ? "Linking..."
+                : "Generating..."
+              : FEATURES.batchQr
+                ? "Link code"
+                : "Generate QR code"}
           </Button>
         </form>
       </CardContent>

@@ -11,7 +11,8 @@ import {
 import { FaqList } from "../_components/faq-item";
 import { billingFaqs } from "../_components/faq-data";
 import { PricingToggle } from "./pricing-toggle";
-import { plans, TRIAL_DAYS } from "@/lib/plans";
+import { plans, TRIAL_DAYS, type Plan } from "@/lib/plans";
+import { FEATURES } from "@/lib/features";
 
 export const metadata: Metadata = {
   title: "Pricing",
@@ -51,10 +52,14 @@ const compareRows: {
     label: "Chat-style AI troubleshooting assistant",
     values: (p) => <FeatureCell included={p.features.aiChat} />,
   },
-  {
-    label: "Pre-printed batch QR sticker orders",
-    values: (p) => <FeatureCell included={p.features.batchQr} />,
-  },
+  ...(FEATURES.batchQr
+    ? [
+        {
+          label: "Pre-printed batch QR sticker orders",
+          values: (p: Plan) => <FeatureCell included={p.features.batchQr} />,
+        },
+      ]
+    : []),
   {
     label: "Custom branding on customer pages",
     values: (p) => <FeatureCell included={p.features.branding} />,

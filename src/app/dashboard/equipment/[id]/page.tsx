@@ -4,6 +4,7 @@ import { generateQrDataUrl, getEquipmentPublicUrl } from "@/lib/qr";
 import { BackLink } from "@/components/back-link";
 import type { Customer, Equipment, EquipmentType, QrCode } from "@/lib/types";
 import { getEntitlements, hasFeature } from "@/lib/billing";
+import { FEATURES } from "@/lib/features";
 import { EditEquipmentForm } from "./edit-equipment-form";
 import { QrCard } from "./qr-card";
 import { AssignCodeForm } from "./assign-code-form";
@@ -33,7 +34,7 @@ export default async function EquipmentDetailPage({
       supabase.from("qr_codes").select("*").eq("equipment_id", id).maybeSingle<QrCode>(),
       getEntitlements(),
     ]);
-  const batchQrEnabled = hasFeature(entitlements, "batchQr");
+  const batchQrEnabled = FEATURES.batchQr && hasFeature(entitlements, "batchQr");
 
   const publicUrl = qrCode ? getEquipmentPublicUrl(qrCode.token) : null;
   const qrDataUrl = publicUrl ? await generateQrDataUrl(publicUrl) : null;

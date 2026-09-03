@@ -5,6 +5,11 @@ Customer Portal. Plan data (pricing, limits, feature flags) lives in `src/lib/pl
 file is the single source of truth; everything else (the DB's `plan_limits` reference table,
 the billing page, the Stripe products you create) should match it.
 
+Note: `PlanFeatures.batchQr` stays defined (Pro/Business `true`, Starter `false`) since the
+billing shape depends on it, but the pre-printed sticker batch feature it gates is parked for
+launch behind `FEATURES.batchQr` (`src/lib/features.ts`) — see `docs/BATCH-QR.md`. No plan
+pricing or limits changed.
+
 ## 1. Create products & prices in the Stripe dashboard
 
 For each plan in `src/lib/plans.ts`, create one Product with two recurring Prices (monthly and

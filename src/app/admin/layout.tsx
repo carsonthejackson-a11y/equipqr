@@ -1,10 +1,18 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Logo } from "@/components/logo";
 import { SignOutButton } from "@/components/sign-out-button";
+import { FEATURES } from "@/lib/features";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // The pre-printed QR batch feature (the only thing under /admin today) is
+  // parked for launch — see docs/BATCH-QR.md. Treat the whole section as
+  // absent rather than gating each page individually.
+  if (!FEATURES.batchQr) {
+    notFound();
+  }
+
   const supabase = await createClient();
 
   const {

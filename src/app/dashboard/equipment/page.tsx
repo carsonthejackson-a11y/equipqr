@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/empty-state";
 import { NewEquipmentDialog } from "./new-equipment-dialog";
 import type { Customer, Equipment, EquipmentType } from "@/lib/types";
 import { getEntitlements, hasFeature } from "@/lib/billing";
+import { FEATURES } from "@/lib/features";
 
 export default async function EquipmentPage() {
   const supabase = await createClient();
@@ -29,7 +30,7 @@ export default async function EquipmentPage() {
       supabase.from("customers").select("*").order("name").returns<Customer[]>(),
       getEntitlements(),
     ]);
-  const batchQrEnabled = hasFeature(entitlements, "batchQr");
+  const batchQrEnabled = FEATURES.batchQr && hasFeature(entitlements, "batchQr");
 
   const typeById = new Map((equipmentTypes ?? []).map((t) => [t.id, t]));
   const customerById = new Map((customers ?? []).map((c) => [c.id, c]));

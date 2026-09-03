@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { Equipment, ResolvedQrCode } from "@/lib/types";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { getPlan } from "@/lib/plans";
+import { FEATURES } from "@/lib/features";
 import { GuideWalkthrough } from "./guide-walkthrough";
 import { ClaimCodeCard } from "./claim-code-card";
 
@@ -22,6 +23,22 @@ export default async function EquipmentGuidePage({
   }
 
   if (resolved.status === "unclaimed") {
+    // The pre-printed batch QR pool (the only way a code ends up unclaimed)
+    // is parked for launch — see docs/BATCH-QR.md. Show the same friendly
+    // "not set up yet" message a customer would see either way, rather than
+    // the staff claim flow.
+    if (!FEATURES.batchQr) {
+      return (
+        <div className="mx-auto flex min-h-svh max-w-lg flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+          <h1 className="text-xl font-semibold">Not set up yet</h1>
+          <p className="text-muted-foreground">
+            This QR code hasn&apos;t been linked to any equipment yet. Please contact the service
+            company.
+          </p>
+        </div>
+      );
+    }
+
     const {
       data: { user },
     } = await supabase.auth.getUser();

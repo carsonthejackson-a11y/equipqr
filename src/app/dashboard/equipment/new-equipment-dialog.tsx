@@ -26,6 +26,7 @@ import { QrScanButton } from "@/components/qr-scan-button";
 import { toast } from "sonner";
 import type { Customer, EquipmentType } from "@/lib/types";
 import { normalizeQrCode } from "@/lib/qr";
+import { FEATURES } from "@/lib/features";
 import { createEquipment } from "./actions";
 
 export function NewEquipmentDialog({
@@ -178,42 +179,46 @@ export function NewEquipmentDialog({
             <Label htmlFor="location">Location within site (optional)</Label>
             <Input id="location" name="location" placeholder="e.g. Building A, Floor 2" />
           </div>
-          <div className="space-y-3 rounded-lg border p-3">
-            <Label>How do you want to set up this equipment&apos;s QR code?</Label>
-            <RadioGroup name="codeSource" value={codeSource} onValueChange={setCodeSource}>
-              <div className="flex items-start gap-2">
-                <RadioGroupItem value="instant" id="codeSource-instant" className="mt-0.5" />
-                <Label htmlFor="codeSource-instant" className="flex-1 font-normal">
-                  <span className="block font-medium text-foreground">Generate a new code now</span>
-                  <span className="block text-sm text-muted-foreground">
-                    Creates a QR code you can print yourself right away.
-                  </span>
-                </Label>
-              </div>
-              <div className="flex items-start gap-2">
-                <RadioGroupItem value="preprinted" id="codeSource-preprinted" className="mt-0.5" />
-                <Label htmlFor="codeSource-preprinted" className="flex-1 font-normal">
-                  <span className="block font-medium text-foreground">Use a pre-printed code</span>
-                  <span className="block text-sm text-muted-foreground">
-                    Enter the code from one of your physical stickers.
-                    {!batchQrEnabled && " Batch-printed codes are a Pro plan feature."}
-                  </span>
-                </Label>
-              </div>
-            </RadioGroup>
-            {codeSource === "preprinted" && (
-              <div className="flex gap-2">
-                <Input
-                  name="preprintedCode"
-                  placeholder="e.g. AB3D-9F2K"
-                  className="font-mono uppercase"
-                  value={preprintedCode}
-                  onChange={(e) => setPreprintedCode(e.target.value)}
-                />
-                <QrScanButton onScan={(code) => setPreprintedCode(normalizeQrCode(code))} />
-              </div>
-            )}
-          </div>
+          {FEATURES.batchQr ? (
+            <div className="space-y-3 rounded-lg border p-3">
+              <Label>How do you want to set up this equipment&apos;s QR code?</Label>
+              <RadioGroup name="codeSource" value={codeSource} onValueChange={setCodeSource}>
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="instant" id="codeSource-instant" className="mt-0.5" />
+                  <Label htmlFor="codeSource-instant" className="flex-1 font-normal">
+                    <span className="block font-medium text-foreground">Generate a new code now</span>
+                    <span className="block text-sm text-muted-foreground">
+                      Creates a QR code you can print yourself right away.
+                    </span>
+                  </Label>
+                </div>
+                <div className="flex items-start gap-2">
+                  <RadioGroupItem value="preprinted" id="codeSource-preprinted" className="mt-0.5" />
+                  <Label htmlFor="codeSource-preprinted" className="flex-1 font-normal">
+                    <span className="block font-medium text-foreground">Use a pre-printed code</span>
+                    <span className="block text-sm text-muted-foreground">
+                      Enter the code from one of your physical stickers.
+                      {!batchQrEnabled && " Batch-printed codes are a Pro plan feature."}
+                    </span>
+                  </Label>
+                </div>
+              </RadioGroup>
+              {codeSource === "preprinted" && (
+                <div className="flex gap-2">
+                  <Input
+                    name="preprintedCode"
+                    placeholder="e.g. AB3D-9F2K"
+                    className="font-mono uppercase"
+                    value={preprintedCode}
+                    onChange={(e) => setPreprintedCode(e.target.value)}
+                  />
+                  <QrScanButton onScan={(code) => setPreprintedCode(normalizeQrCode(code))} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <input type="hidden" name="codeSource" value="instant" />
+          )}
           <DialogFooter>
             <Button type="submit" disabled={submitting}>
               {submitting ? "Creating..." : "Create"}

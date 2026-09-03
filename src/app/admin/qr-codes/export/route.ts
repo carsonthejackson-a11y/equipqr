@@ -2,8 +2,15 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getEquipmentPublicUrl } from "@/lib/qr";
 import type { QrCode } from "@/lib/types";
+import { FEATURES } from "@/lib/features";
 
 export async function GET(request: NextRequest) {
+  // Route handlers aren't wrapped by admin/layout.tsx's notFound() gate, so
+  // this needs its own check. See docs/BATCH-QR.md.
+  if (!FEATURES.batchQr) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const supabase = await createClient();
 
   const {

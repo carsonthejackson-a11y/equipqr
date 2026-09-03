@@ -40,6 +40,13 @@ copy — **owned by the billing workstream**, kept in this exact shape here so a
 trivial. `/pricing`'s comparison table and both pricing-card usages read from it directly;
 don't hardcode plan numbers anywhere else.
 
+Pre-printed sticker batches are parked for launch (`FEATURES.batchQr` in
+`src/lib/features.ts`, default off) and their marketing copy has been removed outright rather
+than flag-gated — see `docs/BATCH-QR.md` for exactly what to restore when it's re-enabled. The
+one exception is `/pricing`'s comparison table, which still has a "Pre-printed batch QR sticker
+orders" row wired to `plan.features.batchQr` — that row is skipped (not deleted) whenever
+`FEATURES.batchQr` is off, since it reflects live plan data rather than static copy.
+
 ## SEO
 
 - `src/app/layout.tsx` sets the site-wide `metadataBase`, title template (`%s · EquipQR`), and

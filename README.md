@@ -51,6 +51,10 @@ companies ─┬─ profiles (role: owner | technician)
 platform_admins   — operate QR code batches across companies, not tied to one
 ```
 
+The `batch` code source, `/admin/*`, and platform admins exist to support pre-printed QR
+sticker batches — parked for launch behind `FEATURES.batchQr` in `src/lib/features.ts`. See
+`docs/BATCH-QR.md` for exactly what re-enabling the flag turns back on.
+
 Every tenant table is protected by Postgres row-level security keyed on `get_my_company_id()`.
 Anything the public (unauthenticated) side needs — resolving a QR token, submitting a service
 request — goes through a `security definer` RPC (`resolve_qr_code`, `submit_service_request`)

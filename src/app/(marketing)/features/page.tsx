@@ -7,7 +7,7 @@ import { PhoneFrame, GuideScreen, RequestScreen } from "../_components/phone-moc
 export const metadata: Metadata = {
   title: "Features",
   description:
-    "AI-drafted troubleshooting guides, chat-style assistance, service requests with photos, AI dispatch summaries, and pre-printed sticker batches — everything EquipQR does for field-service teams.",
+    "AI-drafted troubleshooting guides, chat-style assistance, service requests with photos, and AI dispatch summaries — everything EquipQR does for field-service teams.",
 };
 
 export default function FeaturesPage() {
@@ -96,9 +96,8 @@ export default function FeaturesPage() {
               Stickers, printed your way
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Generate a QR code the instant you add a unit and print it yourself, or order a
-              batch of durable, weatherproof stickers pre-linked and ready to slap on before you
-              head out on the route.
+              Generate a QR code the instant you add a unit, and print it yourself — no waiting
+              on a shipment before you can tag equipment.
             </p>
           </div>
           <div className="rounded-2xl border border-border bg-card p-6">

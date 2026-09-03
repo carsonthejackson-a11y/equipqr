@@ -21,8 +21,7 @@ export default function ContactPage() {
       <div className="mx-auto max-w-2xl text-center">
         <h1 className="font-heading text-4xl font-semibold tracking-tight">Get in touch</h1>
         <p className="mt-3 text-muted-foreground">
-          Questions about pricing, setting up your first guide, or ordering sticker batches —
-          we read every message.
+          Questions about pricing or setting up your first guide — we read every message.
         </p>
       </div>
 

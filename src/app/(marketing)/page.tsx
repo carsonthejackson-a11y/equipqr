@@ -4,7 +4,6 @@ import {
   MessagesSquare,
   Camera,
   Bot,
-  Printer,
   Database,
   Users,
   ArrowRight,
@@ -48,12 +47,6 @@ const features = [
     title: "AI dispatch summary in your inbox",
     description:
       "Every request email includes an AI summary of what the customer already tried, so whoever picks it up knows what to bring.",
-  },
-  {
-    icon: Printer,
-    title: "Pre-printed sticker batches",
-    description:
-      "Print your own QR codes on demand, or order a batch of durable, pre-linked stickers shipped straight to your shop.",
   },
   {
     icon: Database,
