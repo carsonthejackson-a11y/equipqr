@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { generateInstantToken, normalizeQrCode } from "@/lib/qr";
+import { assertCanAddEquipment } from "@/lib/billing";
 
 async function assignCode(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -38,7 +39,9 @@ async function assignCode(
   return null;
 }
 
-export async function createEquipment(formData: FormData) {
+export async function createEquipment(
+  formData: FormData
+): Promise<{ error: string; id?: undefined; codeError?: undefined } | { id: string; codeError: string | null; error?: undefined }> {
   const name = String(formData.get("name") ?? "").trim();
   const equipmentTypeId = String(formData.get("equipmentTypeId") ?? "");
   const customerId = String(formData.get("customerId") ?? "").trim();
@@ -50,6 +53,11 @@ export async function createEquipment(formData: FormData) {
 
   if (!name || !equipmentTypeId) {
     return { error: "Name and equipment type are required" };
+  }
+
+  const limitError = await assertCanAddEquipment();
+  if (limitError) {
+    return limitError;
   }
 
   const supabase = await createClient();

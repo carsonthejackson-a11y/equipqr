@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { classifyGuideOption } from "@/lib/anthropic";
+import { getCompanyPlanFlags } from "@/lib/billing";
+import { getPlan } from "@/lib/plans";
 import type { ResolvedQrCode } from "@/lib/types";
 
 const MAX_MESSAGE_LENGTH = 400;
@@ -32,6 +34,15 @@ export async function POST(request: Request) {
   const step = resolved.guide.steps.find((s) => s.id === body.stepId);
   if (!step) {
     return NextResponse.json({ error: "Unknown step" }, { status: 400 });
+  }
+
+  // Defense in depth: the UI already hides the chat input when the plan
+  // doesn't include aiChat, but the endpoint enforces it too. Fails open
+  // (allows the call) if plan flags can't be determined — billing hiccups
+  // shouldn't take down the public guide.
+  const planFlags = await getCompanyPlanFlags(resolved.guide.company.id);
+  if (planFlags && !getPlan(planFlags.plan_id).features.aiChat) {
+    return NextResponse.json({ error: "AI chat is not available on this plan" }, { status: 403 });
   }
 
   const matchedOptionId = await classifyGuideOption({

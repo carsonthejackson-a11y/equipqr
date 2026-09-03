@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Equipment, ResolvedQrCode } from "@/lib/types";
+import { getCompanyPlanFlags } from "@/lib/billing";
+import { getPlan } from "@/lib/plans";
 import { GuideWalkthrough } from "./guide-walkthrough";
 import { ClaimCodeCard } from "./claim-code-card";
 
@@ -75,12 +77,18 @@ export default async function EquipmentGuidePage({
     );
   }
 
+  // Billing status (trial expired, subscription lapsed, etc.) must never
+  // block this public page — only which *features* are available narrows,
+  // and even that fails open to "enabled" if we can't determine the plan.
+  const planFlags = await getCompanyPlanFlags(resolved.guide.company.id);
+  const planAllowsAiChat = planFlags ? getPlan(planFlags.plan_id).features.aiChat : true;
+
   return (
     <div className="mx-auto flex min-h-svh max-w-lg flex-col px-4 py-8">
       <GuideWalkthrough
         guide={resolved.guide}
         qrToken={qrToken}
-        aiChatEnabled={!!process.env.ANTHROPIC_API_KEY}
+        aiChatEnabled={!!process.env.ANTHROPIC_API_KEY && planAllowsAiChat}
       />
     </div>
   );

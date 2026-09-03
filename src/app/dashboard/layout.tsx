@@ -1,10 +1,20 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { DashboardTopNav } from "@/components/dashboard-topnav";
 import { SignOutButton } from "@/components/sign-out-button";
 import { LogoMark } from "@/components/logo";
+import { LockedScreen } from "@/components/billing/locked-screen";
+import { TrialBanner } from "@/components/billing/trial-banner";
+import { getEntitlements } from "@/lib/billing";
 import type { Company, Profile } from "@/lib/types";
+
+const BILLING_PATH = "/dashboard/settings/billing";
+
+function daysUntil(iso: string) {
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
+}
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
@@ -61,10 +71,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/onboarding");
   }
 
-  const [{ data: company }, { data: isAdmin }] = await Promise.all([
+  const [{ data: company }, { data: isAdmin }, entitlements, headerList] = await Promise.all([
     supabase.from("companies").select("*").eq("id", profile.company_id).maybeSingle<Company>(),
     supabase.rpc("is_platform_admin"),
+    getEntitlements(),
+    headers(),
   ]);
+
+  const pathname = headerList.get("x-pathname") ?? "";
+  const onBillingPage = pathname === BILLING_PATH || pathname.startsWith(`${BILLING_PATH}/`);
+  const isLocked = !!entitlements?.is_locked && !onBillingPage;
+  const trialDaysLeft =
+    entitlements?.is_trialing && entitlements.trial_ends_at
+      ? daysUntil(entitlements.trial_ends_at)
+      : null;
 
   return (
     <div className="flex min-h-svh">
@@ -90,7 +110,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <SignOutButton />
         </header>
         <DashboardTopNav isAdmin={!!isAdmin} />
-        <main className="p-6">{children}</main>
+        {trialDaysLeft !== null && !onBillingPage && <TrialBanner daysLeft={trialDaysLeft} />}
+        <main className="p-6">
+          {isLocked ? <LockedScreen isOwner={profile.role === "owner"} /> : children}
+        </main>
       </div>
     </div>
   );
