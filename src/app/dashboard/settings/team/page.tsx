@@ -1,5 +1,6 @@
 import { requireOwner } from "@/lib/auth";
 import { OwnerOnlyCard } from "@/components/owner-only-card";
+import { SettingsSubnav } from "../settings-subnav";
 import { InviteMemberDialog } from "./invite-member-dialog";
 import { MembersTable } from "./members-table";
 import { PendingInvitations } from "./pending-invitations";
@@ -11,6 +12,7 @@ export default async function TeamPage() {
   if (!ctx) {
     return (
       <div className="space-y-6">
+        <SettingsSubnav />
         <div>
           <h1 className="text-2xl font-semibold">Team</h1>
           <p className="text-muted-foreground">Manage who has access to your company.</p>
@@ -26,6 +28,7 @@ export default async function TeamPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsSubnav />
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Team</h1>

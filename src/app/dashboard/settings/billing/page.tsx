@@ -10,6 +10,7 @@ import type { Profile } from "@/lib/types";
 import { createCheckoutSession, createPortalSession } from "./actions";
 import { PlanCards } from "./plan-cards";
 import { ManageBillingButton } from "./manage-billing-button";
+import { SettingsSubnav } from "../settings-subnav";
 
 const STATUS_LABEL: Record<string, string> = {
   trialing: "Trial",
@@ -58,6 +59,7 @@ export default async function BillingPage() {
   if (profile.role !== "owner") {
     return (
       <div className="space-y-6">
+        <SettingsSubnav />
         <div>
           <h1 className="text-2xl font-semibold">Billing</h1>
           <p className="text-muted-foreground">Plan, usage, and payment details.</p>
@@ -85,6 +87,7 @@ export default async function BillingPage() {
   if (!entitlements) {
     return (
       <div className="space-y-6">
+        <SettingsSubnav />
         <div>
           <h1 className="text-2xl font-semibold">Billing</h1>
           <p className="text-muted-foreground">Plan, usage, and payment details.</p>
@@ -104,6 +107,7 @@ export default async function BillingPage() {
 
   return (
     <div className="space-y-6">
+      <SettingsSubnav />
       <div>
         <h1 className="text-2xl font-semibold">Billing</h1>
         <p className="text-muted-foreground">Plan, usage, and payment details.</p>

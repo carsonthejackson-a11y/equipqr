@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Resend } from "resend";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { buildInviteEmail } from "@/lib/email/invite";
+import { sendEmail } from "@/lib/email/send";
 import type { CompanyMember, Invitation, UserRole } from "@/lib/types";
 
 function inviteUrlFor(token: string): string {
@@ -13,22 +13,8 @@ function inviteUrlFor(token: string): string {
 }
 
 async function sendInviteEmail(companyName: string, email: string, role: UserRole, inviteUrl: string) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
-
-  if (!apiKey || !fromEmail) {
-    console.warn("RESEND_API_KEY or RESEND_FROM_EMAIL not configured — skipping invite email");
-    return;
-  }
-
   const { subject, html, text } = buildInviteEmail({ companyName, inviteUrl, role });
-
-  try {
-    const resend = new Resend(apiKey);
-    await resend.emails.send({ from: fromEmail, to: email, subject, html, text });
-  } catch (err) {
-    console.error("Failed to send invite email", err);
-  }
+  await sendEmail({ to: email, subject, html, text });
 }
 
 // TODO(billing): member limit enforced here once plan_limits ships — check

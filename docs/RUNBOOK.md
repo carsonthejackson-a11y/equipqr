@@ -77,6 +77,30 @@ in Stripe doesn't reflect in the app — billing state (see `docs/BILLING.md`) g
 5. Once caught up, spot-check a few affected companies' billing state in the dashboard against
    Stripe's view of their subscription to confirm they've reconciled.
 
+## Cron jobs
+
+**`GET /api/cron/trial-reminders`** (`src/app/api/cron/trial-reminders/route.ts`) runs daily
+(`vercel.json` schedules it at 13:00 UTC via Vercel Cron) and emails the owner(s) of any company
+whose trial ends within 3 days and that has no active subscription — see
+`docs/EMAILS.md` for the template. It requires an `Authorization: Bearer <CRON_SECRET>` header
+matching the `CRON_SECRET` env var; Vercel Cron sets this automatically for schedules defined in
+`vercel.json` once `CRON_SECRET` is set in the deployment's environment, so the only setup step
+is making sure that env var is actually set there (see `.env.local.example`) — without it the
+route just 401s and the reminder silently never goes out.
+
+**Symptoms it's not running**: companies past their trial-ending window never got a reminder.
+
+1. Check the deployment's environment variables for `CRON_SECRET` — if unset, every invocation
+   401s.
+2. **Vercel Dashboard → your project → Cron Jobs** shows recent invocations and their response
+   codes/timing. A `401` there means the header mismatch above; a `5xx` means the route itself
+   errored — check the function's logs for the underlying Postgres/Resend error.
+3. To run it manually (e.g. to verify after a fix), `curl -H "Authorization: Bearer $CRON_SECRET"
+   https://<your-domain>/api/cron/trial-reminders` — the response body reports
+   `companiesChecked`/`remindedCount`/`emailsSent` for that run.
+4. It's idempotent per company (`companies.trial_reminder_sent_at`), so re-running it after a fix
+   is always safe — companies already flagged just get skipped, not double-emailed.
+
 ## Something's throwing and Sentry isn't configured
 
 If `SENTRY_DSN` isn't set on a deployment, errors are only visible in Vercel's function logs
