@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import { serverEnv } from "@/lib/env";
 
 // Used for "generate a code now" equipment enrollment — same shape as the
 // original DB-generated tokens (24 hex chars), just created app-side since
@@ -17,7 +18,7 @@ export function normalizeQrCode(input: string) {
 }
 
 export function getEquipmentPublicUrl(qrToken: string) {
-  const base = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+  const base = serverEnv.NEXT_PUBLIC_APP_URL;
   return `${base}/e/${qrToken}`;
 }
 

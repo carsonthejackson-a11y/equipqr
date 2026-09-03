@@ -1,10 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { serverEnv } from "@/lib/env";
 import type { GuideGraphNode, GuideOutcome } from "./types";
 
 let client: Anthropic | null = null;
 
 function getClient() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = serverEnv.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY is not configured");
   }
@@ -17,7 +18,7 @@ function getClient() {
 const DRAFTING_MODEL = "claude-sonnet-5";
 const CLASSIFIER_MODEL = "claude-haiku-4-5-20251001";
 
-type DraftGuideNode = {
+export type DraftGuideNode = {
   temp_id: string;
   title: string;
   instructions: string;
@@ -117,6 +118,15 @@ export async function draftTroubleshootingGuide({
     throw new Error("The model returned an empty guide");
   }
 
+  return normalizeDraftNodes(rawNodes);
+}
+
+// Pure — no network, no SDK. Cleans up whatever the model proposed into a
+// graph that's safe to insert: exactly one root, and every "continue"
+// option pointing at a real node in the same draft (anything else becomes
+// "escalate" so it can't produce a dead end or a dangling reference that
+// would violate a DB check constraint later).
+export function normalizeDraftNodes(rawNodes: DraftGuideNode[]): GuideGraphNode[] {
   const validTempIds = new Set(rawNodes.map((n) => n.temp_id));
   const hasRoot = rawNodes.some((n) => n.is_root);
 
