@@ -28,6 +28,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
     const companyName = meta.pending_company_name;
     const notificationEmail = meta.pending_notification_email;
     const fullName = meta.pending_full_name;
+    const pendingInviteToken = meta.pending_invite_token;
+
+    // Someone who signed up via an invite link has no company to create —
+    // send them to accept the invite (which creates their profile) instead
+    // of falling through to onboarding.
+    if (pendingInviteToken) {
+      redirect(`/invite/${pendingInviteToken}`);
+    }
 
     if (!companyName || !notificationEmail) {
       redirect("/onboarding");
@@ -77,7 +85,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <p className="truncate text-xs text-muted-foreground">{profile.full_name}</p>
             </div>
           </div>
-          <DashboardNav isAdmin={!!isAdmin} />
+          <DashboardNav isAdmin={!!isAdmin} role={profile.role} />
         </div>
         <SignOutButton />
       </aside>
@@ -89,7 +97,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
           <SignOutButton />
         </header>
-        <DashboardTopNav isAdmin={!!isAdmin} />
+        <DashboardTopNav isAdmin={!!isAdmin} role={profile.role} />
         <main className="p-6">{children}</main>
       </div>
     </div>

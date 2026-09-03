@@ -1,6 +1,7 @@
 import {
   LayoutGrid,
   Users,
+  Users2,
   Wrench,
   HardHat,
   Inbox,
@@ -13,6 +14,8 @@ export type DashboardNavLink = {
   href: string;
   label: string;
   icon: LucideIcon;
+  // Hidden from technicians — only rendered when the viewer is an owner.
+  ownerOnly?: boolean;
 };
 
 export const dashboardNavLinks: DashboardNavLink[] = [
@@ -21,7 +24,8 @@ export const dashboardNavLinks: DashboardNavLink[] = [
   { href: "/dashboard/equipment-types", label: "Equipment Types", icon: Wrench },
   { href: "/dashboard/equipment", label: "Equipment", icon: HardHat },
   { href: "/dashboard/requests", label: "Requests", icon: Inbox },
-  { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/settings/team", label: "Team", icon: Users2, ownerOnly: true },
+  { href: "/dashboard/settings", label: "Settings", icon: Settings, ownerOnly: true },
 ];
 
 export const adminNavLink: DashboardNavLink = {

@@ -37,7 +37,13 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
+  // A logged-in user hitting /login or /signup with an invite in tow (e.g.
+  // "log in with a different account to accept this invite") should reach
+  // the form instead of being bounced straight to /dashboard.
+  const hasInviteParam =
+    request.nextUrl.searchParams.has("invite") || request.nextUrl.searchParams.has("next");
+
+  if (user && isAuthPage && !hasInviteParam) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
