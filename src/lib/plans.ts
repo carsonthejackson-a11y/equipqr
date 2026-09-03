@@ -13,6 +13,7 @@ export type BillingInterval = "month" | "year";
 
 export type PlanFeatures = {
   aiChat: boolean;
+  /** Pre-printed sticker batches. Also globally gated by FEATURES.batchQr in src/lib/features.ts. */
   batchQr: boolean;
   branding: boolean;
   exportApi: boolean;
@@ -31,6 +32,8 @@ export type Plan = {
   supportLabel: string;
   blurb: string;
   highlights: string[];
+  /** Visually emphasised on pricing pages. */
+  popular?: boolean;
 };
 
 export const plans: Plan[] = [
@@ -48,11 +51,12 @@ export const plans: Plan[] = [
       exportApi: false,
     },
     supportLabel: "Email support",
-    blurb: "For a single tech getting a handle on their equipment list.",
+    blurb: "For a single truck getting off paper and text threads.",
     highlights: [
-      "Up to 50 pieces of equipment",
-      "2 staff seats",
-      "QR troubleshooting guides",
+      "Up to 50 units of equipment",
+      "2 team members",
+      "AI-drafted troubleshooting guides",
+      "Service requests with photo & video",
       "Email support",
     ],
   },
@@ -66,18 +70,19 @@ export const plans: Plan[] = [
     features: {
       aiChat: true,
       batchQr: true,
-      branding: false,
+      branding: true,
       exportApi: false,
     },
     supportLabel: "Priority email support",
-    blurb: "For a growing crew that needs AI-assisted troubleshooting.",
+    blurb: "For a growing crew that wants fewer truck rolls, not more.",
     highlights: [
-      "Up to 300 pieces of equipment",
-      "10 staff seats",
-      "AI chat troubleshooting",
-      "Pre-printed batch QR codes",
+      "Up to 300 units of equipment",
+      "10 team members",
+      "Chat-style AI troubleshooting assistant",
+      "Your logo & colors on customer pages",
       "Priority email support",
     ],
+    popular: true,
   },
   {
     id: "business",
@@ -92,16 +97,14 @@ export const plans: Plan[] = [
       branding: true,
       exportApi: true,
     },
-    supportLabel: "Priority phone & email support",
-    blurb: "For multi-crew operations that need branding and data export.",
+    supportLabel: "Priority support",
+    blurb: "For multi-crew operations that need it all.",
     highlights: [
-      "Up to 1,500 pieces of equipment",
-      "Unlimited staff seats",
-      "AI chat troubleshooting",
-      "Pre-printed batch QR codes",
-      "Custom branding on guides",
-      "Data export API",
-      "Priority phone & email support",
+      "Up to 1,500 units of equipment",
+      "Unlimited team members",
+      "Everything in Pro",
+      "Data export & API access",
+      "Priority support",
     ],
   },
 ];
