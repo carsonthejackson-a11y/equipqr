@@ -4,10 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { adminNavLink, dashboardNavLinks, isNavLinkActive } from "@/components/dashboard-nav-links";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/lib/types";
 
-export function DashboardTopNav({ isAdmin = false }: { isAdmin?: boolean }) {
+export function DashboardTopNav({ isAdmin = false, role }: { isAdmin?: boolean; role: UserRole }) {
   const pathname = usePathname();
-  const links = isAdmin ? [...dashboardNavLinks, adminNavLink] : dashboardNavLinks;
+  const visibleLinks = dashboardNavLinks.filter((link) => !link.ownerOnly || role === "owner");
+  const links = isAdmin ? [...visibleLinks, adminNavLink] : visibleLinks;
 
   return (
     <nav className="flex gap-1.5 overflow-x-auto border-b bg-muted/20 px-4 py-2 print:hidden md:hidden">

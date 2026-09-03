@@ -21,6 +21,40 @@ export type Profile = {
   created_at: string;
 };
 
+export type InvitationStatus = "pending" | "accepted" | "revoked" | "expired";
+
+export type Invitation = {
+  id: string;
+  company_id: string;
+  email: string;
+  role: UserRole;
+  token: string;
+  status: InvitationStatus;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+};
+
+// Shape returned by the get_invitation() RPC — the public accept-invite page
+// only ever sees this, never raw invitation/company ids.
+export type PublicInvitation = {
+  company_name: string;
+  email: string;
+  role: UserRole;
+  status: InvitationStatus;
+  expires_at: string;
+};
+
+// Shape returned by the get_company_members() RPC (profiles joined to
+// auth.users, since profiles has no email column of its own).
+export type CompanyMember = {
+  id: string;
+  full_name: string | null;
+  email: string;
+  role: UserRole;
+  created_at: string;
+};
+
 export type Customer = {
   id: string;
   company_id: string;

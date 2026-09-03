@@ -1,9 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 export async function updateCompanySettings(companyId: string, formData: FormData) {
+  const ctx = await requireOwner();
+  if (!ctx) {
+    return { error: "Only owners can manage this" };
+  }
+  if (ctx.company.id !== companyId) {
+    return { error: "Company not found" };
+  }
+
   const name = String(formData.get("name") ?? "").trim();
   const notificationEmail = String(formData.get("notificationEmail") ?? "").trim();
 
