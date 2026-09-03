@@ -1,0 +1,40 @@
+name: Migrations check
+
+# Migrations are append-only: once a file lands in supabase/migrations/ it
+# has (or may have) already run against a real database, so it can never be
+# edited or removed after the fact — only new files may be added. This
+# fails a PR that modifies or deletes an existing migration file.
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check no existing migration was modified or deleted
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          changed=$(git diff --name-status "$BASE_SHA" "$HEAD_SHA" -- supabase/migrations)
+          echo "$changed"
+
+          # Name-status codes: M = modified, D = deleted, R### = renamed.
+          # A (added) is the only change a migration file should ever see.
+          bad=$(echo "$changed" | grep -E '^(M|D|R)' || true)
+
+          if [ -n "$bad" ]; then
+            echo "::error::One or more existing migration files were modified, renamed, or deleted. Migrations are append-only — add a new migration file instead of editing an old one."
+            echo "$bad"
+            exit 1
+          fi
+
+          echo "OK — every changed file under supabase/migrations/ is a new addition."
