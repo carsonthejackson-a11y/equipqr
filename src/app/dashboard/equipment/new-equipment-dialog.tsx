@@ -31,9 +31,12 @@ import { createEquipment } from "./actions";
 export function NewEquipmentDialog({
   equipmentTypes,
   customers,
+  batchQrEnabled = true,
 }: {
   equipmentTypes: EquipmentType[];
   customers: Customer[];
+  /** Whether the company's plan includes pre-printed batch QR codes (src/lib/plans.ts `batchQr`). Informational only — claiming still works either way. */
+  batchQrEnabled?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -193,6 +196,7 @@ export function NewEquipmentDialog({
                   <span className="block font-medium text-foreground">Use a pre-printed code</span>
                   <span className="block text-sm text-muted-foreground">
                     Enter the code from one of your physical stickers.
+                    {!batchQrEnabled && " Batch-printed codes are a Pro plan feature."}
                   </span>
                 </Label>
               </div>

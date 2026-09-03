@@ -8,6 +8,8 @@ export type Company = {
   name: string;
   slug: string;
   notification_email: string;
+  trial_ends_at: string;
+  stripe_customer_id: string | null;
   created_at: string;
 };
 

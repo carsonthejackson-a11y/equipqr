@@ -15,9 +15,12 @@ import { assignQrCode } from "../actions";
 export function AssignCodeForm({
   equipmentId,
   companyId,
+  batchQrEnabled = true,
 }: {
   equipmentId: string;
   companyId: string;
+  /** Whether the company's plan includes pre-printed batch QR codes (src/lib/plans.ts `batchQr`). Informational only — claiming still works either way. */
+  batchQrEnabled?: boolean;
 }) {
   const router = useRouter();
   const [codeSource, setCodeSource] = useState("instant");
@@ -59,6 +62,11 @@ export function AssignCodeForm({
               <RadioGroupItem value="preprinted" id="assign-preprinted" className="mt-0.5" />
               <Label htmlFor="assign-preprinted" className="flex-1 font-normal">
                 <span className="block font-medium text-foreground">Use a pre-printed code</span>
+                {!batchQrEnabled && (
+                  <span className="block text-sm text-muted-foreground">
+                    Batch-printed codes are a Pro plan feature.
+                  </span>
+                )}
               </Label>
             </div>
           </RadioGroup>

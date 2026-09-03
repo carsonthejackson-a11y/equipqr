@@ -5,6 +5,7 @@ import {
   HardHat,
   Inbox,
   Settings,
+  CreditCard,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -22,6 +23,7 @@ export const dashboardNavLinks: DashboardNavLink[] = [
   { href: "/dashboard/equipment", label: "Equipment", icon: HardHat },
   { href: "/dashboard/requests", label: "Requests", icon: Inbox },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
+  { href: "/dashboard/settings/billing", label: "Billing", icon: CreditCard },
 ];
 
 export const adminNavLink: DashboardNavLink = {

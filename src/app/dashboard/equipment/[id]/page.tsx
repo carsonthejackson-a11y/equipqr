@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { generateQrDataUrl, getEquipmentPublicUrl } from "@/lib/qr";
 import { BackLink } from "@/components/back-link";
 import type { Customer, Equipment, EquipmentType, QrCode } from "@/lib/types";
+import { getEntitlements, hasFeature } from "@/lib/billing";
 import { EditEquipmentForm } from "./edit-equipment-form";
 import { QrCard } from "./qr-card";
 import { AssignCodeForm } from "./assign-code-form";
@@ -25,11 +26,14 @@ export default async function EquipmentDetailPage({
     notFound();
   }
 
-  const [{ data: equipmentTypes }, { data: customers }, { data: qrCode }] = await Promise.all([
-    supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
-    supabase.from("customers").select("*").order("name").returns<Customer[]>(),
-    supabase.from("qr_codes").select("*").eq("equipment_id", id).maybeSingle<QrCode>(),
-  ]);
+  const [{ data: equipmentTypes }, { data: customers }, { data: qrCode }, entitlements] =
+    await Promise.all([
+      supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
+      supabase.from("customers").select("*").order("name").returns<Customer[]>(),
+      supabase.from("qr_codes").select("*").eq("equipment_id", id).maybeSingle<QrCode>(),
+      getEntitlements(),
+    ]);
+  const batchQrEnabled = hasFeature(entitlements, "batchQr");
 
   const publicUrl = qrCode ? getEquipmentPublicUrl(qrCode.token) : null;
   const qrDataUrl = publicUrl ? await generateQrDataUrl(publicUrl) : null;
@@ -57,7 +61,11 @@ export default async function EquipmentDetailPage({
           />
         ) : (
           <div className="lg:w-80">
-            <AssignCodeForm equipmentId={equipment.id} companyId={equipment.company_id} />
+            <AssignCodeForm
+              equipmentId={equipment.id}
+              companyId={equipment.company_id}
+              batchQrEnabled={batchQrEnabled}
+            />
           </div>
         )}
       </div>
