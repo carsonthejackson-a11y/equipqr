@@ -8,9 +8,19 @@ test.describe("public marketing + auth pages", () => {
   test("/ renders the landing page", async ({ page }) => {
     const response = await page.goto("/");
     expect(response?.status()).toBe(200);
-    await expect(page.getByText("EquipQR")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Get started" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("truck roll");
+    // Buttons rendered over <Link> get role="button", so match by href + text.
+    await expect(page.locator('a[href="/signup"]', { hasText: /start free trial/i }).first()).toBeVisible();
+    await expect(page.locator('a[href="/login"]', { hasText: /log in/i }).first()).toBeVisible();
+  });
+
+  test("/pricing lists all three plans", async ({ page }) => {
+    const response = await page.goto("/pricing");
+    expect(response?.status()).toBe(200);
+    for (const plan of ["Starter", "Pro", "Business"]) {
+      await expect(page.getByRole("heading", { name: plan, exact: true }).first()).toBeVisible();
+    }
+    await expect(page.getByText("$79")).toBeVisible();
   });
 
   test("/login renders the login form", async ({ page }) => {
