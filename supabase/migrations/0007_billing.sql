@@ -202,7 +202,9 @@ begin
     -- in src/lib/plans.ts), regardless of any stale/incomplete subscription
     -- plan_id that may be sitting on the row.
     v_plan_id := 'pro';
-  elsif v_plan_id is null then
+  elsif v_is_locked or v_plan_id is null then
+    -- Locked, or no subscription row at all: don't report a stale paid
+    -- plan_id left over from before a subscription lapsed.
     v_plan_id := 'starter';
   end if;
 
@@ -261,7 +263,11 @@ begin
 
   if v_is_trialing then
     v_plan_id := 'pro'; -- TRIAL_PLAN in src/lib/plans.ts
-  elsif v_plan_id is null then
+  elsif v_is_locked or v_plan_id is null then
+    -- Locked (trial over, no active/trialing subscription): don't keep
+    -- reporting a stale paid plan_id left on the subscriptions row from
+    -- before it lapsed — that would let a company that stopped paying keep
+    -- premium features (e.g. AI chat) on the public guide indefinitely.
     v_plan_id := 'starter';
   end if;
 
@@ -302,11 +308,12 @@ begin
 
   if v_trial_active and coalesce(v_status, '') <> 'active' then
     v_plan_id := 'pro'; -- TRIAL_PLAN in src/lib/plans.ts
-  elsif v_plan_id is null or v_status not in ('active', 'trialing') then
-    -- No usable subscription and no active trial: fall back to Starter's
-    -- limit rather than letting an unpaid/locked account add equipment
-    -- without bound.
-    v_plan_id := coalesce(v_plan_id, 'starter');
+  elsif coalesce(v_status, '') not in ('active', 'trialing') then
+    -- No usable subscription (missing, canceled, past_due, unpaid, etc.) and
+    -- no active trial: fall back to Starter's limit rather than letting a
+    -- lapsed/unpaid account keep enforcing whatever higher-tier plan_id is
+    -- still sitting on its subscriptions row from before it lapsed.
+    v_plan_id := 'starter';
   end if;
 
   select equipment_limit into v_limit from plan_limits where id = v_plan_id;

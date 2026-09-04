@@ -6,11 +6,24 @@ import { createClient } from "@/lib/supabase/server";
 // Supabase project's "Confirm signup" (and similar) email templates to point
 // here with a token_hash + type instead of the default {{ .ConfirmationURL }},
 // which uses an older hash-fragment delivery this app never processes.
+
+// Only ever redirect to a same-origin path after confirmation — never follow
+// an absolute/protocol-relative/userinfo-smuggling `next` value, which would
+// be an open redirect (e.g. `next=@evil.com` turned `${origin}${next}` into
+// a URL whose host is attacker-controlled). Mirrors the client-side
+// safeNext() in src/app/(auth)/login/login-form.tsx.
+function safeNext(next: string | null): string {
+  if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")) {
+    return next;
+  }
+  return "/dashboard";
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = safeNext(searchParams.get("next"));
 
   if (tokenHash && type) {
     const supabase = await createClient();

@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { canAddEquipment, getPlan, isPlanId, type Plan, type PlanFeatures, type PlanId } from "@/lib/plans";
+import { canAddEquipment, canAddMember, getPlan, isPlanId, type Plan, type PlanFeatures, type PlanId } from "@/lib/plans";
 
 export type Entitlements = {
   plan_id: PlanId;
@@ -87,6 +87,44 @@ export async function assertCanAddEquipment(): Promise<{ error: string } | null>
   if (!canAddEquipment(plan, entitlements.equipment_count)) {
     return {
       error: `You've reached the ${plan.equipmentLimit}-unit limit of the ${plan.name} plan. Upgrade to add more.`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Guard for inviteMember(): blocks once the company is locked, or once
+ * current members + pending invitations are at the plan's member limit
+ * (trialing companies use TRIAL_PLAN's — currently Pro's — limit, same as
+ * everywhere else entitlements are resolved). Returns null when fine to
+ * proceed. Counts pending invitations too so a company can't out-invite its
+ * seat count by sending more invites than it has room for members.
+ */
+export async function assertCanAddMember(): Promise<{ error: string } | null> {
+  const entitlements = await getEntitlements();
+  if (!entitlements) return null;
+
+  if (entitlements.is_locked) {
+    return { error: "Your trial has ended. Choose a plan on the Billing page to keep going." };
+  }
+
+  const plan = planFor(entitlements);
+  if (plan.memberLimit === null) return null;
+
+  const supabase = await createClient();
+  // RLS ("Owners view own company invitations") already scopes this to the
+  // caller's own company — inviteMember() only reaches here after
+  // requireOwner() has confirmed the caller is an owner.
+  const { count } = await supabase
+    .from("invitations")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+
+  const totalSeats = entitlements.member_count + (count ?? 0);
+  if (!canAddMember(plan, totalSeats)) {
+    return {
+      error: `You've reached the ${plan.memberLimit}-member limit of the ${plan.name} plan (including pending invitations). Upgrade or revoke a pending invite to add more.`,
     };
   }
 

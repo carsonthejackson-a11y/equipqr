@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireOwner } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { assertCanAddMember } from "@/lib/billing";
 import { buildInviteEmail } from "@/lib/email/invite";
 import { sendEmail } from "@/lib/email/send";
 import type { CompanyMember, Invitation, UserRole } from "@/lib/types";
@@ -17,8 +18,6 @@ async function sendInviteEmail(companyName: string, email: string, role: UserRol
   await sendEmail({ to: email, subject, html, text });
 }
 
-// TODO(billing): member limit enforced here once plan_limits ships — check
-// the company's seat count against its plan before inserting a new invite.
 export async function inviteMember(formData: FormData) {
   const ctx = await requireOwner();
   if (!ctx) {
@@ -33,6 +32,11 @@ export async function inviteMember(formData: FormData) {
   }
   if (role !== "owner" && role !== "technician") {
     return { error: "Invalid role" };
+  }
+
+  const limitError = await assertCanAddMember();
+  if (limitError) {
+    return { error: limitError.error };
   }
 
   const supabase = await createClient();
