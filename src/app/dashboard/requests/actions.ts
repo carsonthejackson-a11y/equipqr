@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
+import { buildResolutionEmail } from "@/lib/email/resolution";
+import { sendEmail } from "@/lib/email/send";
 import type { RequestStatus, ServiceRequest } from "@/lib/types";
 
 export async function updateRequestStatus(id: string, status: RequestStatus) {
@@ -97,37 +98,6 @@ async function sendResolutionEmail(params: {
   summary: string;
   recommendations: string;
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
-
-  if (!apiKey || !fromEmail) {
-    console.warn("RESEND_API_KEY or RESEND_FROM_EMAIL not configured — skipping resolution email");
-    return false;
-  }
-
-  const resend = new Resend(apiKey);
-
-  try {
-    await resend.emails.send({
-      from: fromEmail,
-      to: params.to,
-      subject: `${params.equipmentName}: service completed`,
-      text: [
-        `Hi ${params.contactName || "there"},`,
-        "",
-        `Your service request for ${params.equipmentName} has been completed. Here's a summary of what was done:`,
-        "",
-        params.summary,
-        params.recommendations ? `\nRecommendations:\n${params.recommendations}` : null,
-        "",
-        `— ${params.companyName}`,
-      ]
-        .filter((line) => line !== null)
-        .join("\n"),
-    });
-    return true;
-  } catch (err) {
-    console.error("Failed to send resolution email", err);
-    return false;
-  }
+  const { subject, html, text } = buildResolutionEmail(params);
+  return sendEmail({ to: params.to, subject, html, text });
 }

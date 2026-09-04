@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import type { Equipment, ResolvedQrCode } from "@/lib/types";
 import { getCompanyPlanFlags } from "@/lib/billing";
@@ -14,6 +15,19 @@ export default async function EquipmentGuidePage({
 }) {
   const { qrToken } = await params;
   const supabase = await createClient();
+
+  // Fire-and-forget scan tracking: never awaited, and the error path is
+  // swallowed so a slow/failed insert can never block or break this public
+  // page render. record_scan() itself resolves the company/equipment from
+  // the token server-side and silently no-ops on an unknown token.
+  headers()
+    .then((headerList) =>
+      supabase.rpc("record_scan", {
+        p_qr_token: qrToken,
+        p_user_agent: headerList.get("user-agent"),
+      })
+    )
+    .catch(() => {});
 
   const { data } = await supabase.rpc("resolve_qr_code", { p_token: qrToken });
   const resolved = data as ResolvedQrCode;

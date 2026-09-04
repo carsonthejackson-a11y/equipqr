@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
 import { createClient } from "@/lib/supabase/server";
 import { summarizeTroubleshootingPath } from "@/lib/anthropic";
+import { buildServiceRequestNotificationEmail } from "@/lib/email/service-request-notification";
+import { sendEmail } from "@/lib/email/send";
 
 type MediaItem = { storage_path: string; media_type: "image" | "video" };
 type PathEntry = { question: string; answer: string };
@@ -76,46 +77,20 @@ async function sendNotificationEmail(
   troubleshootingPath: PathEntry[],
   aiSummary: string | null
 ) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL;
-
-  if (!apiKey || !fromEmail) {
-    console.warn(
-      "RESEND_API_KEY or RESEND_FROM_EMAIL not configured — skipping service request email"
-    );
-    return;
-  }
-
-  const resend = new Resend(apiKey);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
   const dashboardUrl = `${appUrl}/dashboard/requests/${result.request_id}`;
 
-  try {
-    await resend.emails.send({
-      from: fromEmail,
-      to: result.company_notification_email,
-      subject: `New service request: ${result.equipment_name}`,
-      text: [
-        `A new service request was submitted for ${result.equipment_name}.`,
-        "",
-        `Contact: ${body.contactName}`,
-        body.contactEmail ? `Email: ${body.contactEmail}` : null,
-        body.contactPhone ? `Phone: ${body.contactPhone}` : null,
-        "",
-        `Description: ${body.description}`,
-        mediaCount > 0 ? `Attachments: ${mediaCount}` : null,
-        aiSummary ? "" : null,
-        aiSummary ? `AI summary: ${aiSummary}` : null,
-        troubleshootingPath.length > 0 ? "" : null,
-        troubleshootingPath.length > 0 ? "Troubleshooting path:" : null,
-        ...troubleshootingPath.map((entry, i) => `${i + 1}. ${entry.question} → ${entry.answer}`),
-        "",
-        `View in dashboard: ${dashboardUrl}`,
-      ]
-        .filter(Boolean)
-        .join("\n"),
-    });
-  } catch (err) {
-    console.error("Failed to send service request email", err);
-  }
+  const { subject, html, text } = buildServiceRequestNotificationEmail({
+    equipmentName: result.equipment_name,
+    contactName: body.contactName ?? "",
+    contactEmail: body.contactEmail,
+    contactPhone: body.contactPhone,
+    description: body.description ?? "",
+    mediaCount,
+    aiSummary,
+    troubleshootingPath,
+    dashboardUrl,
+  });
+
+  await sendEmail({ to: result.company_notification_email, subject, html, text });
 }

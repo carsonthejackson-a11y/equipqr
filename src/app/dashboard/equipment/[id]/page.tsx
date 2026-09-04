@@ -27,12 +27,13 @@ export default async function EquipmentDetailPage({
     notFound();
   }
 
-  const [{ data: equipmentTypes }, { data: customers }, { data: qrCode }, entitlements] =
+  const [{ data: equipmentTypes }, { data: customers }, { data: qrCode }, entitlements, { count: scanCount }] =
     await Promise.all([
       supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
       supabase.from("customers").select("*").order("name").returns<Customer[]>(),
       supabase.from("qr_codes").select("*").eq("equipment_id", id).maybeSingle<QrCode>(),
       getEntitlements(),
+      supabase.from("scan_events").select("*", { count: "exact", head: true }).eq("equipment_id", id),
     ]);
   const batchQrEnabled = FEATURES.batchQr && hasFeature(entitlements, "batchQr");
 
@@ -59,6 +60,7 @@ export default async function EquipmentDetailPage({
             publicUrl={publicUrl}
             equipmentId={equipment.id}
             fileName={equipment.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}
+            scanCount={scanCount ?? 0}
           />
         ) : (
           <div className="lg:w-80">

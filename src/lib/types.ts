@@ -10,6 +10,9 @@ export type Company = {
   notification_email: string;
   trial_ends_at: string;
   stripe_customer_id: string | null;
+  welcome_email_sent_at: string | null;
+  trial_reminder_sent_at: string | null;
+  onboarding_dismissed_at: string | null;
   created_at: string;
 };
 
@@ -179,6 +182,15 @@ export type EquipmentGuide = {
       next_step_id: string | null;
     }[];
   }[];
+};
+
+export type ScanEvent = {
+  id: string;
+  qr_code_id: string;
+  company_id: string;
+  equipment_id: string | null;
+  scanned_at: string;
+  user_agent: string | null;
 };
 
 export type ResolvedQrCode =

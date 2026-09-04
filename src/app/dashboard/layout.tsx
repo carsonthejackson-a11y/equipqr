@@ -8,6 +8,8 @@ import { LogoMark } from "@/components/logo";
 import { LockedScreen } from "@/components/billing/locked-screen";
 import { TrialBanner } from "@/components/billing/trial-banner";
 import { getEntitlements } from "@/lib/billing";
+import { buildWelcomeEmail } from "@/lib/email/welcome";
+import { sendEmail } from "@/lib/email/send";
 import type { Company, Profile } from "@/lib/types";
 
 const BILLING_PATH = "/dashboard/settings/billing";
@@ -32,6 +34,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .select("*")
     .eq("id", user.id)
     .maybeSingle<Profile>();
+
+  // Tracks whether THIS request is the one that just created the company, so
+  // the welcome email (below, once `company` is fetched) only ever fires on
+  // that one request rather than every dashboard load.
+  let justCreatedCompany = false;
 
   if (!profile) {
     const meta = user.user_metadata as Record<string, string | undefined>;
@@ -73,6 +80,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       role: "owner",
       created_at: new Date().toISOString(),
     };
+    justCreatedCompany = true;
   }
 
   if (!profile) {
@@ -85,6 +93,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
     getEntitlements(),
     headers(),
   ]);
+
+  // Best-effort, idempotent welcome email — only ever sent once (guarded by
+  // companies.welcome_email_sent_at) and only on the request that actually
+  // created the company, never on a routine dashboard load.
+  if (justCreatedCompany && company && !company.welcome_email_sent_at) {
+    await sendWelcomeEmailOnce(supabase, company, profile.full_name);
+  }
 
   const pathname = headerList.get("x-pathname") ?? "";
   const onBillingPage = pathname === BILLING_PATH || pathname.startsWith(`${BILLING_PATH}/`);
@@ -125,4 +140,34 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </div>
     </div>
   );
+}
+
+// Sends the welcome email and flips companies.welcome_email_sent_at in one
+// go. Swallows every error itself — a failure here must never break a
+// dashboard page load, and the flag is only set on a successful update, so a
+// DB hiccup just means the next `justCreatedCompany` request never happens
+// again (there won't be one) and this simply never retries, which is fine
+// for a nice-to-have welcome email.
+async function sendWelcomeEmailOnce(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  company: Company,
+  recipientName: string | null
+) {
+  try {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const { subject, html, text } = buildWelcomeEmail({
+      companyName: company.name,
+      recipientName,
+      dashboardUrl: `${appUrl}/dashboard`,
+    });
+
+    await sendEmail({ to: company.notification_email, subject, html, text });
+
+    await supabase
+      .from("companies")
+      .update({ welcome_email_sent_at: new Date().toISOString() })
+      .eq("id", company.id);
+  } catch (err) {
+    console.error("Failed to send welcome email:", err);
+  }
 }

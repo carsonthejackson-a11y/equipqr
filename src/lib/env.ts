@@ -39,6 +39,9 @@ const serverEnvSchema = z.object({
   STRIPE_SECRET_KEY: optionalString(),
   STRIPE_WEBHOOK_SECRET: optionalString(),
   SENTRY_DSN: optionalString(),
+  // Shared secret for Vercel Cron -> src/app/api/cron/*. Unset means those
+  // routes reject every request (fail closed), not that the cron is skipped.
+  CRON_SECRET: optionalString(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;

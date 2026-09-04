@@ -10,11 +10,13 @@ export function QrCard({
   publicUrl,
   equipmentId,
   fileName,
+  scanCount,
 }: {
   qrDataUrl: string;
   publicUrl: string;
   equipmentId: string;
   fileName: string;
+  scanCount: number;
 }) {
   return (
     <Card>
@@ -31,6 +33,9 @@ export function QrCard({
           className="rounded-md border"
         />
         <p className="break-all text-center text-xs text-muted-foreground">{publicUrl}</p>
+        <p className="text-xs text-muted-foreground">
+          {scanCount} scan{scanCount === 1 ? "" : "s"} all-time
+        </p>
         <div className="flex w-full flex-col gap-2">
           <Button
             render={<a href={qrDataUrl} download={`${fileName}.png`} />}
