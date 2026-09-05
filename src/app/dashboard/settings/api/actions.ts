@@ -4,9 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireOwner, type CurrentProfile } from "@/lib/auth";
 import { getEntitlements, hasFeature } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
-import { generateApiKey, type ApiScope } from "@/lib/api-auth";
-
-export const MAX_ACTIVE_API_KEYS = 10;
+import { MAX_ACTIVE_API_KEYS, generateApiKey, type ApiScope } from "@/lib/api-auth";
 
 async function requireApiOwner(): Promise<{ ctx: CurrentProfile } | { errorMessage: string }> {
   const ctx = await requireOwner();

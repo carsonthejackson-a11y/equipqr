@@ -15,6 +15,9 @@ import { RATE_LIMITS, checkRateLimit } from "@/lib/rate-limit";
 
 export const API_KEY_PREFIX = "eqr_live_";
 
+/** Max non-revoked keys per company. */
+export const MAX_ACTIVE_API_KEYS = 10;
+
 export type ApiScope = "read" | "write";
 
 export type ApiContext = {

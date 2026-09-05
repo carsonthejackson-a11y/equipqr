@@ -8,7 +8,7 @@ import { OwnerOnlyCard } from "@/components/owner-only-card";
 import type { ApiKey } from "@/lib/types";
 import { SettingsSubnav } from "../settings-subnav";
 import { ApiKeysSection } from "./api-keys-section";
-import { MAX_ACTIVE_API_KEYS } from "./actions";
+import { MAX_ACTIVE_API_KEYS } from "@/lib/api-auth";
 import { EXPORT_ENTITIES } from "./export-entities";
 
 export default async function ApiSettingsPage() {
