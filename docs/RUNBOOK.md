@@ -107,3 +107,34 @@ If `SENTRY_DSN` isn't set on a deployment, errors are only visible in Vercel's f
 (Vercel dashboard → your project → Logs, or `vercel logs`) and the browser console — there's no
 aggregation or alerting. Set `SENTRY_DSN` (see README → Operations) to get that back; no code
 changes are needed, it activates on the next deploy.
+
+## Local throwaway Postgres for migrations
+
+`scripts/local-db/db.sh` spins up a disposable local PostgreSQL 16 cluster that can run every
+file in `supabase/migrations/` in order, so migrations can be sanity-checked without a real
+Supabase project. It uses `scripts/local-db/supabase-shim.sql` to fake just enough of a Supabase
+project (the `auth`/`storage` schemas, `anon`/`authenticated`/`service_role` roles, `pgcrypto`)
+for the migrations to apply as-is.
+
+Three commands cover the whole workflow:
+
+```bash
+scripts/local-db/db.sh start   # create (if needed) + start the cluster, idempotent
+scripts/local-db/db.sh reset   # drop/recreate `equipqr`, apply the shim, then every migration in order
+scripts/local-db/db.sh psql    # open a psql shell against it (extra args pass through to psql)
+```
+
+`scripts/local-db/db.sh stop` shuts the cluster down, and `scripts/local-db/db.sh url` prints the
+connection string (`postgresql://postgres@localhost:54329/equipqr`) — export it as `DATABASE_URL`
+if a local script/test needs it: `export DATABASE_URL="$(scripts/local-db/db.sh url)"`.
+
+`reset` applies each migration file with `psql -v ON_ERROR_STOP=1 -1` (its own transaction) and
+stops on the first failure, printing the file name. A migration that can't run inside a
+transaction (e.g. one doing `ALTER TYPE ... ADD VALUE`) can opt out by making its first line the
+comment `-- local-db: no-transaction`.
+
+Note: this never touches a real Supabase project, and it never modifies anything under
+`supabase/migrations/` — the shim is the only thing that gets adjusted if a future migration needs
+something Supabase-specific that isn't faked yet. If invoked as root, the script transparently
+creates and re-execs itself as a dedicated `pguser` OS account (postgres refuses to run as root);
+run as any normal user, it just uses that user's own `$HOME`.

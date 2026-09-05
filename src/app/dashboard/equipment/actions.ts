@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { generateInstantToken, normalizeQrCode } from "@/lib/qr";
+import { generateShortCode, normalizeQrCode } from "@/lib/qr";
 import { assertCanAddEquipment } from "@/lib/billing";
 
 async function assignCode(
@@ -14,14 +14,25 @@ async function assignCode(
   const codeSource = String(formData.get("codeSource") ?? "instant");
 
   if (codeSource === "instant") {
-    const { error } = await supabase.from("qr_codes").insert({
-      token: generateInstantToken(),
-      company_id: companyId,
-      equipment_id: equipmentId,
-      source: "instant",
-      claimed_at: new Date().toISOString(),
-    });
-    return error ? error.message : null;
+    // New codes use the 8-char short code as the URL token too (see
+    // src/lib/qr.ts). The DB enforces uniqueness; retry on the rare collision.
+    let lastError: string | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const shortCode = generateShortCode();
+      const { error } = await supabase.from("qr_codes").insert({
+        token: shortCode,
+        short_code: shortCode,
+        company_id: companyId,
+        equipment_id: equipmentId,
+        source: "instant",
+        status: "active",
+        claimed_at: new Date().toISOString(),
+      });
+      if (!error) return null;
+      lastError = error.message;
+      if (error.code !== "23505") break; // not a unique violation — don't retry
+    }
+    return lastError;
   }
 
   if (codeSource === "preprinted") {

@@ -56,3 +56,32 @@ describe("getEquipmentPublicUrl", () => {
     expect(getEquipmentPublicUrl("tok123")).toBe("http://localhost:3000/e/tok123");
   });
 });
+
+describe("short codes", () => {
+  it("generates 8 chars from the unambiguous alphabet", async () => {
+    const { generateShortCode, SHORT_CODE_ALPHABET } = await import("./qr");
+    for (let i = 0; i < 50; i++) {
+      const code = generateShortCode();
+      expect(code).toHaveLength(8);
+      for (const ch of code) expect(SHORT_CODE_ALPHABET).toContain(ch);
+    }
+  });
+
+  it("normalizes typed input and formats with a dash", async () => {
+    const { normalizeShortCode, formatShortCode } = await import("./qr");
+    expect(normalizeShortCode("ab3d-9f2k")).toBe("AB3D9F2K");
+    expect(normalizeShortCode(" ab3d 9f2k ")).toBe("AB3D9F2K");
+    expect(normalizeShortCode("0123456789abcdef01234567")).toBeNull();
+    expect(formatShortCode("AB3D9F2K")).toBe("AB3D-9F2K");
+    expect(formatShortCode("0123456789abcdef01234567")).toBe("0123456789abcdef01234567");
+  });
+
+  it("renders QR codes at error-correction level H", async () => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+    const { generateQrSvg, QR_ERROR_CORRECTION } = await import("./qr");
+    expect(QR_ERROR_CORRECTION).toBe("H");
+    const svg = await generateQrSvg("https://app.equipqr.com/e/AB3D9F2K");
+    expect(svg).toContain("<svg");
+  });
+});

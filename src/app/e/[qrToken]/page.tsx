@@ -36,6 +36,17 @@ export default async function EquipmentGuidePage({
     notFound();
   }
 
+  if (resolved.status === "retired") {
+    return (
+      <div className="mx-auto flex min-h-svh max-w-lg flex-col items-center justify-center gap-2 px-4 py-8 text-center">
+        <h1 className="text-xl font-semibold">This code has been retired</h1>
+        <p className="text-muted-foreground">
+          This QR code is no longer linked to any equipment. Please contact the service company.
+        </p>
+      </div>
+    );
+  }
+
   if (resolved.status === "unclaimed") {
     // The pre-printed batch QR pool (the only way a code ends up unclaimed)
     // is parked for launch — see docs/BATCH-QR.md. Show the same friendly
