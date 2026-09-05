@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { generateShortCode } from "@/lib/qr";
+import { generateShortCode } from "@/lib/short-code";
 
 /** How many times to retry a short-code insert before giving up on collisions. */
 const CODE_ATTEMPTS = 3;

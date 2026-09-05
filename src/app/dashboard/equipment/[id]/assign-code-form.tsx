@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QrScanButton } from "@/components/qr-scan-button";
-import { normalizeQrCode } from "@/lib/qr";
+import { normalizeQrCode } from "@/lib/short-code";
 import { FEATURES } from "@/lib/features";
 import { assignQrCode } from "../actions";
 

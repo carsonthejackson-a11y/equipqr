@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { normalizeShortCode } from "@/lib/qr";
+// From @/lib/short-code, not @/lib/qr: this module is imported by the public
+// scan page's client components, and @/lib/qr pulls the `qrcode` renderer
+// (~150KB) into whatever bundle imports it.
+import { normalizeShortCode } from "@/lib/short-code";
 import type { RequestPriority } from "@/lib/types";
 
 // Pure, dependency-light helpers shared by the public scan flow:

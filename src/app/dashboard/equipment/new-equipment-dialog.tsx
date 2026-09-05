@@ -26,7 +26,7 @@ import { QrScanButton } from "@/components/qr-scan-button";
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { toast } from "sonner";
 import type { Customer, EquipmentType } from "@/lib/types";
-import { normalizeQrCode } from "@/lib/qr";
+import { normalizeQrCode } from "@/lib/short-code";
 import { FEATURES } from "@/lib/features";
 import { createEquipment } from "./actions";
 

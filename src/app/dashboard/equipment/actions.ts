@@ -237,7 +237,24 @@ export async function deleteEquipment(id: string) {
 
 export async function assignQrCode(equipmentId: string, companyId: string, formData: FormData) {
   const supabase = await createClient();
-  const codeError = await assignCode(supabase, equipmentId, companyId, formData);
+
+  // Both ids arrive from the browser, so neither can be trusted: inserting an
+  // instant code with *our* company_id but *another tenant's* equipment_id
+  // passes the qr_codes RLS check (which only looks at company_id) and would
+  // make that unit's name, location, photo and guide resolve publicly under a
+  // code we control. RLS scopes this lookup to the caller's own company, so a
+  // foreign id simply doesn't come back.
+  const { data: equipment } = await supabase
+    .from("equipment")
+    .select("id, company_id")
+    .eq("id", equipmentId)
+    .maybeSingle<Pick<Equipment, "id" | "company_id">>();
+
+  if (!equipment || equipment.company_id !== companyId) {
+    return { error: "Equipment not found" };
+  }
+
+  const codeError = await assignCode(supabase, equipment.id, equipment.company_id, formData);
 
   if (codeError) {
     return { error: codeError };

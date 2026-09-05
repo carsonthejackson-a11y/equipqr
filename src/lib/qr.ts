@@ -15,27 +15,20 @@ import { serverEnv } from "@/lib/env";
 //   - accepted everywhere a token is, with or without the dash, any case.
 // Legacy 24-hex tokens and batch "XXXX-XXXX" tokens keep resolving forever.
 
-export const SHORT_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
-export const SHORT_CODE_LENGTH = 8;
+// The pure short-code helpers live in src/lib/short-code.ts so client
+// components can use them without pulling the `qrcode` renderer (and
+// serverEnv) into the browser bundle. Re-exported here so every existing
+// `from "@/lib/qr"` import keeps working.
+export {
+  SHORT_CODE_ALPHABET,
+  SHORT_CODE_LENGTH,
+  formatShortCode,
+  generateShortCode,
+  normalizeQrCode,
+  normalizeShortCode,
+} from "@/lib/short-code";
 
-/** Generates a candidate short code. Uniqueness is enforced by the DB (unique index); on the rare collision the insert fails and the caller retries. */
-export function generateShortCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(SHORT_CODE_LENGTH));
-  return Array.from(bytes, (b) => SHORT_CODE_ALPHABET[b % SHORT_CODE_ALPHABET.length]).join("");
-}
-
-/** Strips everything but A–Z/2–9 and uppercases. Returns null when the result can't be a short code. */
-export function normalizeShortCode(input: string): string | null {
-  const cleaned = input.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return cleaned.length === SHORT_CODE_LENGTH ? cleaned : null;
-}
-
-/** "ABCD2345" -> "ABCD-2345" for labels and UI. Passes anything else through untouched. */
-export function formatShortCode(code: string): string {
-  const normalized = normalizeShortCode(code);
-  if (!normalized) return code;
-  return `${normalized.slice(0, 4)}-${normalized.slice(4)}`;
-}
+import { normalizeQrCode, normalizeShortCode } from "@/lib/short-code";
 
 /**
  * @deprecated Legacy 24-hex instant tokens. Kept only so anything still
@@ -45,14 +38,6 @@ export function formatShortCode(code: string): string {
 export function generateInstantToken() {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-// Pre-printed batch codes look like "AB3D-9F2K". Normalizes whatever a
-// person typed (spacing, casing, missing dash) into that canonical form.
-export function normalizeQrCode(input: string) {
-  const cleaned = input.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (cleaned.length !== 8) return cleaned;
-  return `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`;
 }
 
 // ----------------------------------------------------------------------------

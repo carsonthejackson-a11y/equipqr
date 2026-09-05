@@ -152,6 +152,25 @@ export async function assignRequest(id: string, userId: string | null) {
     return { error: "Service request not found" };
   }
 
+  // `userId` comes straight off the wire, and service_requests.assigned_to
+  // only has a foreign key to profiles(id) — nothing stops it pointing at
+  // another tenant's user, whose first name would then show up on this
+  // request's public /r/<token> page. RLS on profiles is company-scoped, so
+  // resolving the id first is the ownership check.
+  let assigneeName: string | null = null;
+  if (userId) {
+    const { data: assignee } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle<Pick<Profile, "full_name">>();
+
+    if (!assignee) {
+      return { error: "That teammate isn't part of your company" };
+    }
+    assigneeName = assignee.full_name ?? null;
+  }
+
   const now = new Date().toISOString();
   const { error } = await supabase
     .from("service_requests")
@@ -160,16 +179,6 @@ export async function assignRequest(id: string, userId: string | null) {
 
   if (error) {
     return { error: error.message };
-  }
-
-  let assigneeName: string | null = null;
-  if (userId) {
-    const { data: assignee } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", userId)
-      .maybeSingle<Pick<Profile, "full_name">>();
-    assigneeName = assignee?.full_name ?? null;
   }
 
   await emitRequestActivity(supabase, {
