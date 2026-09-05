@@ -9,6 +9,8 @@ const items = [
   { href: "/dashboard/settings/team", label: "Team" },
   { href: "/dashboard/settings/billing", label: "Billing" },
   { href: "/dashboard/settings/account", label: "Account" },
+  { href: "/dashboard/settings/branding", label: "Branding" },
+  { href: "/dashboard/settings/api", label: "API" },
 ];
 
 // Unlike the main dashboard nav, "/dashboard/settings" (company settings) is
