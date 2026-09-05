@@ -19,6 +19,16 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
 export const OPEN_REQUEST_STATUSES: RequestStatus[] = ["new", "in_progress", "scheduled", "on_hold"];
 export const CLOSED_REQUEST_STATUSES: RequestStatus[] = ["resolved", "canceled"];
 
+/** Canonical display order for every status — the inbox's StatusControl and any other full-status <select> should map over this instead of hand-rolling their own list. */
+export const REQUEST_STATUS_ORDER: RequestStatus[] = [
+  "new",
+  "in_progress",
+  "scheduled",
+  "on_hold",
+  "resolved",
+  "canceled",
+];
+
 const requestStatusStyles: Record<RequestStatus, string> = {
   new: "bg-primary/15 text-primary border-primary/20",
   in_progress: "bg-amber-500/15 text-amber-700 border-amber-500/20 dark:text-amber-400",
@@ -49,6 +59,9 @@ const priorityStyles: Record<RequestPriority, string> = {
 export function PriorityBadge({ priority }: { priority: RequestPriority }) {
   return <Badge className={cn(priorityStyles[priority], "border")}>{REQUEST_PRIORITY_LABELS[priority]}</Badge>;
 }
+
+/** Low -> urgent, for any full-priority <select> (PriorityControl, the inbox filter). */
+export const REQUEST_PRIORITY_ORDER: RequestPriority[] = ["low", "normal", "high", "urgent"];
 
 export const EQUIPMENT_STATUS_LABELS: Record<EquipmentStatus, string> = {
   active: "Active",
