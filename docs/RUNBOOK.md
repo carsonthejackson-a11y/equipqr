@@ -133,6 +133,30 @@ stops on the first failure, printing the file name. A migration that can't run i
 transaction (e.g. one doing `ALTER TYPE ... ADD VALUE`) can opt out by making its first line the
 comment `-- local-db: no-transaction`.
 
+### Impersonating a role in psql
+
+There is no PostgREST in front of this cluster, so the GUCs a real Supabase request would carry
+have to be set by hand. Two are worth knowing:
+
+```sql
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';  -- auth.uid()
+```
+
+```sql
+-- Pretend to be the service-role key. is_service_role() (migration 0018) reads this claim,
+-- which is what makes submit_service_request() return company_notification_email.
+set request.jwt.claim.role = 'service_role';
+...
+reset request.jwt.claim.role;
+```
+
+`reset role` / `reset request.jwt.claim.sub` drop back. Note the two are independent: the shim's
+`auth.uid()` reads `request.jwt.claim.sub` only, so setting the role claim doesn't disturb it, and
+`set role service_role` (the Postgres role) is a separate thing again — it's what makes a GRANT
+check pass, while the claim is what `is_service_role()` looks at. `scripts/local-db/smoke.sql`
+exercises both, including the assertion that `check_rate_limit()` is now denied to `anon`.
+
 Note: this never touches a real Supabase project, and it never modifies anything under
 `supabase/migrations/` — the shim is the only thing that gets adjusted if a future migration needs
 something Supabase-specific that isn't faked yet. If invoked as root, the script transparently

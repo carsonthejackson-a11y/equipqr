@@ -1,15 +1,21 @@
 import "server-only";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // Fixed-window rate limiting backed by the `rate_limits` table via the
 // `check_rate_limit()` RPC (migration 0013). DB-backed so it works across
 // Vercel's serverless instances; the RPC is atomic so concurrent requests
 // can't both slip under the limit.
 //
-// Fails OPEN: if the RPC errors (migration not applied, DB hiccup) the
-// request is allowed and the failure is logged. A rate limiter must never
-// take the public request form down with it.
+// Called through the SERVICE-ROLE client: the RPC takes both the bucket key
+// and the limit from its caller, so migration 0018 revoked it from `anon`
+// (anyone with the public anon key could otherwise pre-fill `sr:ip:<victim>`
+// and 429 real customers off the request form).
+//
+// Fails OPEN: if the RPC errors (migration not applied, DB hiccup) or no
+// service-role key is configured, the request is allowed and the failure is
+// logged once. A rate limiter must never take the public request form down
+// with it.
 
 export type RateLimitRule = {
   /** Max hits per window. */
@@ -50,12 +56,36 @@ export function getClientIpFromHeaders(headers: HeaderLookup): string {
 }
 
 /**
+ * Whether we've already told the logs that rate limiting is off. Module
+ * scope, so it's once per server process rather than once per request — an
+ * unconfigured deployment would otherwise log this on every public hit.
+ */
+let warnedNoServiceRole = false;
+
+/** The service-role client, or null when `SUPABASE_SERVICE_ROLE_KEY` isn't configured. */
+function adminClientOrNull(): ReturnType<typeof createAdminClient> | null {
+  try {
+    return createAdminClient();
+  } catch {
+    if (!warnedNoServiceRole) {
+      warnedNoServiceRole = true;
+      console.warn(
+        "SUPABASE_SERVICE_ROLE_KEY is not configured — rate limiting is DISABLED (all requests allowed). Set it to turn the limiter back on."
+      );
+    }
+    return null;
+  }
+}
+
+/**
  * Returns true when the call is within limits. `key` should include a scope
  * prefix so different routes never share a bucket, e.g. `sr:ip:1.2.3.4`.
  */
 export async function checkRateLimit(key: string, rule: RateLimitRule): Promise<boolean> {
   try {
-    const supabase = await createClient();
+    const supabase = adminClientOrNull();
+    if (!supabase) return true;
+
     const { data, error } = await supabase.rpc("check_rate_limit", {
       p_key: key,
       p_limit: rule.limit,

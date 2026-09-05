@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { summarizeTroubleshootingPath } from "@/lib/anthropic";
 import { buildServiceRequestNotificationEmail } from "@/lib/email/service-request-notification";
 import { buildRequestReceivedEmail, brandingForEmail } from "@/lib/email/request-status";
@@ -23,13 +25,38 @@ type SubmitResult = {
   public_token: string;
   company_id: string;
   company_name: string;
-  company_notification_email: string;
+  /** Service-role callers only — null on an anon call (migration 0018). */
+  company_notification_email: string | null;
   company_phone: string | null;
   company_logo_path: string | null;
   company_brand_color: string | null;
   customer_updates_enabled: boolean;
   equipment_name: string;
 };
+
+/** Once per server process, not once per submission. */
+let warnedNoServiceRole = false;
+
+/**
+ * The client that runs `submit_service_request`. Migration 0018 only returns
+ * the company's internal `notification_email` to the service role, so the
+ * admin client is what makes the staff notification email possible. Without a
+ * service-role key the submission still works end to end — it just can't tell
+ * staff about it, which we say out loud once.
+ */
+async function submitClient(): Promise<SupabaseClient> {
+  try {
+    return createAdminClient();
+  } catch {
+    if (!warnedNoServiceRole) {
+      warnedNoServiceRole = true;
+      console.warn(
+        "SUPABASE_SERVICE_ROLE_KEY is not configured — staff notification emails for new service requests will be skipped (the company's notification address is only returned to the service role)."
+      );
+    }
+    return createClient();
+  }
+}
 
 export async function POST(request: Request) {
   const raw = (await request.json().catch(() => null)) as Record<string, unknown> | null;
@@ -49,8 +76,9 @@ export async function POST(request: Request) {
   const body = parsed.data;
 
   const supabase = await createClient();
+  const writer = await submitClient();
 
-  const { data, error } = await supabase.rpc("submit_service_request", {
+  const { data, error } = await writer.rpc("submit_service_request", {
     p_qr_token: body.qrToken,
     p_description: body.description,
     p_contact_name: body.contactName,
@@ -104,6 +132,9 @@ async function sendStaffNotification(
   body: { contactName: string; contactEmail: string; contactPhone: string; description: string; media: unknown[]; troubleshootingPath: PathEntry[]; priority: "low" | "normal" | "high" },
   aiSummary: string | null
 ) {
+  // Null when the RPC ran without the service-role key — see submitClient().
+  if (!result.company_notification_email) return;
+
   const dashboardUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/requests/${result.request_id}`;
 
   const { subject, html, text } = buildServiceRequestNotificationEmail({
