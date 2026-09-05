@@ -182,6 +182,9 @@ an unknown `/e/[qrToken]`, and `/api/health`. It never creates data.
   corresponding Vercel environment variable and redeploy. Supabase anon-key rotation also
   invalidates existing sessions — expect users to be signed out.
 - **Incidents**: see `docs/RUNBOOK.md`.
+- **Data export & API access** (Business plan): CSV export at `/api/export/[entity]`
+  (session-authenticated, from `/dashboard/settings/api`) and a public v1 REST API at
+  `/api/v1/*` authenticated with per-company API keys — see `docs/API.md`.
 
 ## Contributing
 
