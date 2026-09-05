@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent worktrees (see docs/NOW-ROADMAP-BRIEF.md) — never lint those.
+    ".claude/**",
   ]),
 ]);
 

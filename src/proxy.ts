@@ -7,11 +7,12 @@ export async function proxy(request: NextRequest) {
 
 // Everything that needs a Supabase session refresh runs through here —
 // /dashboard, /login, /signup, /invite, /auth, /onboarding, /admin. Route
-// handlers (/api/*) and the public QR scan pages (/e/*) build their own
-// Supabase clients per request and never read the refreshed cookie, so
-// they're excluded rather than paying for an auth round-trip on every hit.
+// handlers (/api/*), the public QR scan pages (/e/*) and the public request
+// status pages (/r/*) build their own Supabase clients per request and never
+// read the refreshed cookie, so they're excluded rather than paying for an
+// auth round-trip on every hit.
 export const config = {
   matcher: [
-    "/((?!api/|e/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|icon|opengraph-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api/|e/|r/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|icon|opengraph-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

@@ -21,8 +21,22 @@ export function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/**
+ * Optional sender branding for customer-facing emails (Pro+ "logo & colors").
+ * Resolve it with resolveBranding() in src/lib/branding.ts — that applies the
+ * plan gate — and pass the result straight through. Staff-facing emails
+ * (new-request notification, invites, trial reminders) stay EquipQR-branded.
+ */
+export type EmailBrand = {
+  name: string;
+  color: string;
+  onColor: string;
+  logoUrl: string | null;
+};
+
 export type RenderEmailOptions = {
   heading: string;
+  brand?: EmailBrand;
   /** Pre-built inner HTML (already escaped by the caller where needed). */
   bodyHtml: string;
   cta?: EmailCta;
@@ -31,7 +45,15 @@ export type RenderEmailOptions = {
 };
 
 /** Renders the full HTML document for a transactional email — teal header, card body, optional CTA button and footer note. */
-export function renderEmail({ heading, bodyHtml, cta, footerNote }: RenderEmailOptions): string {
+export function renderEmail({ heading, bodyHtml, cta, footerNote, brand }: RenderEmailOptions): string {
+  const headerColor = brand?.color ?? BRAND_COLOR;
+  const headerText = brand?.onColor ?? "#ffffff";
+  const headerContent = brand
+    ? brand.logoUrl
+      ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.name)}" height="32" style="display:block;max-height:32px;width:auto;" />`
+      : `<span style="color:${headerText};font-size:17px;font-weight:700;letter-spacing:-0.01em;">${escapeHtml(brand.name)}</span>`
+    : `<span style="color:#ffffff;font-size:17px;font-weight:700;letter-spacing:-0.01em;">EquipQR</span>`;
+  const poweredBy = brand ? `${escapeHtml(brand.name)} · powered by EquipQR` : "EquipQR";
   return `<!doctype html>
 <html>
   <head>
@@ -45,8 +67,8 @@ export function renderEmail({ heading, bodyHtml, cta, footerNote }: RenderEmailO
         <td align="center">
           <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid ${BORDER_COLOR};">
             <tr>
-              <td style="background:${BRAND_COLOR};padding:18px 28px;">
-                <span style="color:#ffffff;font-size:17px;font-weight:700;letter-spacing:-0.01em;">EquipQR</span>
+              <td style="background:${headerColor};padding:18px 28px;">
+                ${headerContent}
               </td>
             </tr>
             <tr>
@@ -58,7 +80,7 @@ export function renderEmail({ heading, bodyHtml, cta, footerNote }: RenderEmailO
                     ? `<p style="margin:28px 0 0;">
                   <a
                     href="${cta.url}"
-                    style="display:inline-block;background:${BRAND_COLOR};color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;"
+                    style="display:inline-block;background:${headerColor};color:${headerText};text-decoration:none;padding:11px 22px;border-radius:8px;font-size:14px;font-weight:600;"
                   >
                     ${escapeHtml(cta.label)}
                   </a>
@@ -77,7 +99,7 @@ export function renderEmail({ heading, bodyHtml, cta, footerNote }: RenderEmailO
                 : ""
             }
           </table>
-          <p style="margin:16px 0 0;font-size:12px;color:${MUTED_COLOR};">EquipQR</p>
+          <p style="margin:16px 0 0;font-size:12px;color:${MUTED_COLOR};">${poweredBy}</p>
         </td>
       </tr>
     </table>

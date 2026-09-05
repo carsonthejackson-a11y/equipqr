@@ -102,7 +102,7 @@ cp .env.local.example .env.local
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase → Project Settings → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase → Project Settings → API |
 | `NEXT_PUBLIC_APP_URL` | Yes (defaults to `http://localhost:3000`) | Your deployed domain in production |
-| `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase → Project Settings → API. Only needed for server-side scripts that must bypass RLS — the app itself runs on the anon key + RLS |
+| `SUPABASE_SERVICE_ROLE_KEY` | No, but strongly recommended | Supabase → Project Settings → API. Bypasses RLS. Needed for: staff notification emails on new service requests (the company's notification address is only returned to the service role — see migration 0018), rate limiting (`check_rate_limit` is service-role only), `/api/v1/*` (API-key requests have no session for RLS to scope), and the Stripe webhook. Without it the app still runs on the anon key + RLS, but those four are skipped/disabled |
 | `RESEND_API_KEY` | No — service-request/resolution emails are silently skipped without it | [resend.com/api-keys](https://resend.com/api-keys) |
 | `RESEND_FROM_EMAIL` | No | Must be on a domain [verified in Resend](https://resend.com/domains) |
 | `ANTHROPIC_API_KEY` | No — AI guide drafting and the customer chat assist are hidden without it | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
@@ -182,6 +182,9 @@ an unknown `/e/[qrToken]`, and `/api/health`. It never creates data.
   corresponding Vercel environment variable and redeploy. Supabase anon-key rotation also
   invalidates existing sessions — expect users to be signed out.
 - **Incidents**: see `docs/RUNBOOK.md`.
+- **Data export & API access** (Business plan): CSV export at `/api/export/[entity]`
+  (session-authenticated, from `/dashboard/settings/api`) and a public v1 REST API at
+  `/api/v1/*` authenticated with per-company API keys — see `docs/API.md`.
 
 ## Contributing
 
