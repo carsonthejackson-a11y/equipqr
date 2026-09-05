@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { HardHat } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
   Table,
@@ -44,11 +45,20 @@ export default async function EquipmentPage() {
             Physical units in the field, each with its own QR code.
           </p>
         </div>
-        <NewEquipmentDialog
-          equipmentTypes={equipmentTypes ?? []}
-          customers={customers ?? []}
-          batchQrEnabled={batchQrEnabled}
-        />
+        <div className="flex items-center gap-2">
+          <Button
+            render={<Link href="/dashboard/equipment/labels" />}
+            nativeButton={false}
+            variant="outline"
+          >
+            Label sheets
+          </Button>
+          <NewEquipmentDialog
+            equipmentTypes={equipmentTypes ?? []}
+            customers={customers ?? []}
+            batchQrEnabled={batchQrEnabled}
+          />
+        </div>
       </div>
 
       {!equipmentTypes || equipmentTypes.length === 0 ? (

@@ -6,6 +6,22 @@ The founder parked this feature for launch. It is not deleted — it's gated beh
 are required for the gated behavior below. Marketing copy was removed outright (see the bottom
 of this doc) and will need to be re-added by hand.
 
+**Update (QR hardening, Sept 2026).** The parked code still compiles and still works
+exactly as described below, but the ground under it has shifted twice, and neither change
+needs anything doing while the flag is off. First, migration 0013 gave every `qr_codes`
+row a `short_code` and a lifecycle (`active` / `retired` / `replaced`); batch codes were
+backfilled from their own `XXXX-XXXX` token, `generate_qr_code_batch()` now populates
+`short_code` alongside `token`, and `claim_qr_code()` only claims codes that are still
+`active`. Batch tokens keep resolving forever — see the "codes never break" section of
+`docs/QR-LABELS.md`. Second, self-serve printing got good: a company can now print a
+real sticker at true size from `/dashboard/equipment/[id]/label` and a full Avery sheet
+(5160 / 5163 / 22806) from `/dashboard/equipment/labels`, which covers most of what
+ordering a pre-printed batch was for and is the reason there's no urgency to unpark this.
+The one shared touchpoint is `PrintButton` (`equipment/[id]/label/print-button.tsx`),
+which the admin batch sheet reuses: its `codeId` / `equipmentId` props are optional
+precisely so that page — where the codes belong to no single unit — keeps working.
+Nothing in this doc's restore checklist changes.
+
 ## What the feature is
 
 Platform admins generate a pool of QR codes ("batches"), export them or print a physical sheet,
