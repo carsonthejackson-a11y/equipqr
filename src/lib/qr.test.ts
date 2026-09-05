@@ -85,3 +85,102 @@ describe("short codes", () => {
     expect(svg).toContain("<svg");
   });
 });
+
+describe("qrLookupCandidates", () => {
+  it("offers the short code first for a typed code", async () => {
+    const { qrLookupCandidates } = await import("./qr");
+    expect(qrLookupCandidates("abcd-2345")[0]).toBe("ABCD2345");
+    expect(qrLookupCandidates("abcd 2345")).toContain("ABCD2345");
+    expect(qrLookupCandidates("ABCD2345")).toContain("ABCD-2345");
+  });
+
+  it("pulls the code out of a pasted sticker URL", async () => {
+    const { qrLookupCandidates } = await import("./qr");
+    expect(qrLookupCandidates("https://equipqr.co/e/ABCD2345")).toContain("ABCD2345");
+    expect(qrLookupCandidates("https://equipqr.co/e/ABCD2345?utm=x")).toContain("ABCD2345");
+  });
+
+  it("keeps a legacy 24-hex token as a candidate", async () => {
+    const { qrLookupCandidates } = await import("./qr");
+    const legacy = "0123456789abcdef01234567";
+    expect(qrLookupCandidates(legacy)).toContain(legacy);
+  });
+
+  it("emits nothing that could break out of a PostgREST filter", async () => {
+    const { qrLookupCandidates } = await import("./qr");
+    for (const input of [
+      "AB,CD(status.eq.active)",
+      "abcd2345,token.eq.x",
+      "'; drop table qr_codes; --",
+      "a".repeat(200),
+    ]) {
+      for (const candidate of qrLookupCandidates(input)) {
+        expect(candidate).toMatch(/^[A-Za-z0-9-]{1,64}$/);
+      }
+    }
+  });
+
+  it("returns nothing for empty input", async () => {
+    const { qrLookupCandidates } = await import("./qr");
+    expect(qrLookupCandidates("")).toEqual([]);
+    expect(qrLookupCandidates("   ")).toEqual([]);
+  });
+});
+
+describe("qrFileSlug", () => {
+  it("slugifies the equipment name and appends the code", async () => {
+    const { qrFileSlug } = await import("./qr");
+    expect(qrFileSlug("Break room water heater", "ABCD2345")).toBe(
+      "break-room-water-heater-abcd2345"
+    );
+  });
+
+  it("accepts a formatted short code and strips the dash", async () => {
+    const { qrFileSlug } = await import("./qr");
+    expect(qrFileSlug("Roof unit A", "ABCD-2345")).toBe("roof-unit-a-abcd2345");
+  });
+
+  it("produces only characters safe in a Content-Disposition filename", async () => {
+    const { qrFileSlug } = await import("./qr");
+    const slug = qrFileSlug('Café "A" / B\\C; #2 — 100%', "ABCD2345");
+    expect(slug).toMatch(/^[a-z0-9-]+$/);
+  });
+
+  it("falls back to 'equipment' when the name has nothing usable", async () => {
+    const { qrFileSlug } = await import("./qr");
+    expect(qrFileSlug("日本語", "ABCD2345")).toBe("equipment-abcd2345");
+    expect(qrFileSlug("", "ABCD2345")).toBe("equipment-abcd2345");
+  });
+
+  it("never leaves a trailing dash after truncating a long name", async () => {
+    const { qrFileSlug } = await import("./qr");
+    const slug = qrFileSlug(`${"a".repeat(59)} tail`, "ABCD2345");
+    expect(slug).not.toContain("--");
+    expect(slug.endsWith("-abcd2345")).toBe(true);
+  });
+});
+
+describe("previousCodeState", () => {
+  const unitId = "11111111-1111-1111-1111-111111111111";
+  const otherUnitId = "22222222-2222-2222-2222-222222222222";
+
+  it("calls a replaced code that still points here 'replaced'", async () => {
+    const { previousCodeState } = await import("./qr");
+    expect(previousCodeState({ status: "replaced", equipment_id: unitId }, unitId)).toBe("replaced");
+  });
+
+  it("calls a retired code 'retired' even though retiring nulls equipment_id", async () => {
+    const { previousCodeState } = await import("./qr");
+    expect(previousCodeState({ status: "retired", equipment_id: null }, unitId)).toBe("retired");
+  });
+
+  it("calls a still-active code that now points elsewhere 'moved'", async () => {
+    const { previousCodeState } = await import("./qr");
+    expect(previousCodeState({ status: "active", equipment_id: otherUnitId }, unitId)).toBe("moved");
+  });
+
+  it("treats a replaced code whose unit link was cleared as replaced, not moved", async () => {
+    const { previousCodeState } = await import("./qr");
+    expect(previousCodeState({ status: "replaced", equipment_id: null }, unitId)).toBe("replaced");
+  });
+});
