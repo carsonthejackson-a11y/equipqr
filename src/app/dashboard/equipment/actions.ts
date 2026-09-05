@@ -61,10 +61,19 @@ export async function createEquipment(
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("company_id")
-    .single();
+    .eq("id", user.id)
+    .maybeSingle();
 
   if (!profile) {
     return { error: "No company found for this account" };

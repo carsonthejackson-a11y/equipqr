@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireOwner } from "@/lib/auth";
+import { getStripe, isStripeConfigured } from "@/lib/stripe";
 
 export async function updateFullName(formData: FormData) {
   const supabase = await createClient();
@@ -70,6 +71,16 @@ export async function deleteCompany(typedName: string) {
     storagePaths = (media ?? []).map((m) => m.storage_path as string);
   }
 
+  // Deleting the DB rows doesn't stop Stripe billing the customer, so cancel
+  // every live subscription FIRST and bail out if that fails — a company we
+  // can't stop charging must not be deleted.
+  if (ctx.company.stripe_customer_id && isStripeConfigured()) {
+    const cancelError = await cancelStripeSubscriptions(ctx.company.stripe_customer_id);
+    if (cancelError) {
+      return { error: cancelError };
+    }
+  }
+
   const { error } = await supabase.rpc("delete_company");
   if (error) {
     return { error: error.message };
@@ -93,4 +104,34 @@ export async function deleteCompany(typedName: string) {
   await supabase.auth.signOut();
 
   return { success: true };
+}
+
+/**
+ * Cancels every still-live subscription on a company's Stripe customer.
+ * Returns null on success, or a user-facing message when anything went wrong
+ * — the caller treats that as "don't delete the company", since a deleted
+ * company with a live subscription would keep being charged with nowhere in
+ * the app left to cancel from.
+ */
+async function cancelStripeSubscriptions(customerId: string): Promise<string | null> {
+  try {
+    const stripe = getStripe();
+    const { data: subscriptions } = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 100,
+    });
+
+    for (const subscription of subscriptions) {
+      if (subscription.status === "canceled" || subscription.status === "incomplete_expired") {
+        continue;
+      }
+      await stripe.subscriptions.cancel(subscription.id);
+    }
+
+    return null;
+  } catch (err) {
+    console.error(`delete_company: failed to cancel Stripe subscriptions for ${customerId}:`, err);
+    return "Could not cancel your Stripe subscription — please cancel it from Manage billing first";
+  }
 }

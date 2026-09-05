@@ -27,7 +27,7 @@ export function buildInviteEmail({
 
   const footerNote = [
     "This link expires in 7 days. If you weren't expecting this, you can safely ignore this email.",
-    `Or paste this link into your browser: <a href="${inviteUrl}" style="color:#64748b;">${inviteUrl}</a>`,
+    `Or paste this link into your browser: <a href="${escapeHtml(inviteUrl)}" style="color:#64748b;">${escapeHtml(inviteUrl)}</a>`,
   ].join("<br /><br />");
 
   const html = renderEmail({ heading: "You're invited", bodyHtml, cta, footerNote });

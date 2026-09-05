@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { getStripePriceId, isPlanId, type BillingInterval, type PlanId } from "@/lib/plans";
+import { isLiveSubscriptionStatus } from "@/lib/billing";
 
 type OwnerCompanyResult =
   | { ok: true; supabase: Awaited<ReturnType<typeof createClient>>; company: OwnerCompany }
@@ -74,6 +75,28 @@ export async function createCheckoutSession(planId: string, interval: string) {
   }
   const { supabase, company } = auth;
 
+  // A company that's already subscribed has to switch plans through the
+  // Customer Portal — a second Checkout would leave it paying for two
+  // subscriptions at once.
+  const { data: existingSubscription, error: subscriptionError } = await supabase
+    .from("subscriptions")
+    .select("status")
+    .eq("company_id", company.id)
+    .maybeSingle<{ status: string }>();
+
+  // Fail closed: charging twice is far worse than making someone retry.
+  if (subscriptionError) {
+    console.error(
+      `createCheckoutSession: could not read the subscription for company ${company.id}:`,
+      subscriptionError.message
+    );
+    return { error: "Could not check your current subscription — please try again." };
+  }
+
+  if (isLiveSubscriptionStatus(existingSubscription?.status)) {
+    return { error: "You already have an active subscription — use Manage billing to switch plans." };
+  }
+
   let priceId: string;
   let base: string;
   try {
@@ -87,11 +110,16 @@ export async function createCheckoutSession(planId: string, interval: string) {
   let customerId = company.stripe_customer_id;
 
   if (!customerId) {
-    const customer = await stripe.customers.create({
-      name: company.name,
-      email: company.notification_email,
-      metadata: { company_id: company.id },
-    });
+    let customer;
+    try {
+      customer = await stripe.customers.create({
+        name: company.name,
+        email: company.notification_email,
+        metadata: { company_id: company.id },
+      });
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : "Could not create Stripe customer" };
+    }
     customerId = customer.id;
 
     const { error: updateError } = await supabase

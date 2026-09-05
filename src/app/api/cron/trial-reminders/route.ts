@@ -81,18 +81,28 @@ export async function GET(request: Request) {
       billingUrl: `${appUrl}/dashboard/settings/billing`,
     });
 
+    let sentForCompany = false;
+
     for (const owner of owners ?? []) {
       const { data: userResult, error: userError } = await admin.auth.admin.getUserById(owner.id);
       const email = userResult?.user?.email;
       if (userError || !email) continue;
 
       const sent = await sendEmail({ to: email, subject, html, text });
-      if (sent) emailsSent++;
+      if (sent) {
+        emailsSent++;
+        sentForCompany = true;
+      }
     }
 
-    // Mark as reminded regardless of whether the email actually sent (e.g.
-    // Resend unconfigured) — this is a "did we attempt it" flag, not a
-    // delivery receipt, matching how *_email_sent_at is used elsewhere.
+    // Only flag a company once a reminder actually went out. Leaving the
+    // column null when nothing sent (Resend unconfigured, API error, no
+    // owner with an email) means tomorrow's run picks the company up again
+    // while it's still inside the reminder window.
+    if (!sentForCompany) {
+      continue;
+    }
+
     const { error: updateError } = await admin
       .from("companies")
       .update({ trial_reminder_sent_at: new Date().toISOString() })

@@ -30,7 +30,10 @@ export async function sendEmail({ to, subject, html, text, replyTo }: SendEmailP
 
   try {
     const resend = new Resend(apiKey);
-    await resend.emails.send({
+    // Resend's SDK resolves with an { data, error } tuple for API-level
+    // failures (bad domain, rate limit, invalid recipient) instead of
+    // throwing — only transport/unexpected errors reach the catch below.
+    const { error } = await resend.emails.send({
       from: fromEmail,
       to,
       subject,
@@ -38,6 +41,12 @@ export async function sendEmail({ to, subject, html, text, replyTo }: SendEmailP
       text,
       ...(replyTo ? { replyTo } : {}),
     });
+
+    if (error) {
+      console.error(`Failed to send email "${subject}" to ${to}:`, error);
+      return false;
+    }
+
     return true;
   } catch (err) {
     console.error(`Failed to send email "${subject}" to ${to}:`, err);

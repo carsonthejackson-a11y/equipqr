@@ -27,9 +27,10 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 // Only ever redirect to a same-origin path after login — never follow an
-// absolute/protocol-relative `next` value, which would be an open redirect.
+// absolute/protocol-relative/backslash-smuggling `next` value, which would be
+// an open redirect. Mirrors safeNext() in src/app/auth/confirm/route.ts.
 function safeNext(next: string | null): string {
-  if (next && next.startsWith("/") && !next.startsWith("//")) {
+  if (next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")) {
     return next;
   }
   return "/dashboard";

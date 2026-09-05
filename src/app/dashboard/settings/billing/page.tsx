@@ -4,7 +4,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { getEntitlements, planFor } from "@/lib/billing";
+import { getEntitlements, isLiveSubscriptionStatus, planFor } from "@/lib/billing";
 import { isStripeConfigured } from "@/lib/stripe";
 import type { Profile } from "@/lib/types";
 import { createCheckoutSession, createPortalSession } from "./actions";
@@ -81,6 +81,16 @@ export default async function BillingPage() {
     .eq("id", profile.company_id)
     .maybeSingle<{ stripe_customer_id: string | null }>();
 
+  // get_company_entitlements() reports neither cancel_at_period_end nor the
+  // raw Stripe status, so read both off the row (RLS: "Staff can view own
+  // company subscription"). The status is what decides Checkout vs Portal,
+  // and it has to be the same test createCheckoutSession() applies.
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("status, cancel_at_period_end")
+    .eq("company_id", profile.company_id)
+    .maybeSingle<{ status: string; cancel_at_period_end: boolean }>();
+
   const entitlements = await getEntitlements();
   const stripeConfigured = isStripeConfigured();
 
@@ -103,7 +113,8 @@ export default async function BillingPage() {
   }
 
   const plan = planFor(entitlements);
-  const hasActivePlan = entitlements.is_trialing || entitlements.status === "active";
+  const hasActiveSubscription = isLiveSubscriptionStatus(subscription?.status);
+  const cancelsAtPeriodEnd = !!subscription?.cancel_at_period_end;
 
   return (
     <div className="space-y-6">
@@ -150,7 +161,8 @@ export default async function BillingPage() {
           )}
           {entitlements.status === "active" && entitlements.current_period_end && (
             <p className="text-sm text-muted-foreground">
-              Renews {new Date(entitlements.current_period_end).toLocaleDateString()}.
+              {cancelsAtPeriodEnd ? "Cancels on" : "Renews"}{" "}
+              {new Date(entitlements.current_period_end).toLocaleDateString()}.
             </p>
           )}
 
@@ -199,9 +211,10 @@ export default async function BillingPage() {
 
       <PlanCards
         currentPlanId={entitlements.plan_id}
-        hasActivePlan={hasActivePlan}
+        hasActiveSubscription={hasActiveSubscription}
         stripeConfigured={stripeConfigured}
         onCheckout={createCheckoutSession}
+        onOpenPortal={createPortalSession}
       />
     </div>
   );

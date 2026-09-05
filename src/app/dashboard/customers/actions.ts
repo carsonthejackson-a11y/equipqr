@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireActiveSubscription } from "@/lib/billing";
 
 export async function createCustomer(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -14,11 +15,25 @@ export async function createCustomer(formData: FormData) {
     return { error: "Name is required" };
   }
 
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return { error: lockError.error };
+  }
+
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Not authenticated" };
+  }
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("company_id")
-    .single();
+    .eq("id", user.id)
+    .maybeSingle();
 
   if (!profile) {
     return { error: "No company found for this account" };
@@ -54,6 +69,11 @@ export async function updateCustomer(id: string, formData: FormData) {
 
   if (!name) {
     return { error: "Name is required" };
+  }
+
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return { error: lockError.error };
   }
 
   const supabase = await createClient();

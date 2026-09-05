@@ -44,6 +44,25 @@ export async function getEntitlements(): Promise<Entitlements | null> {
   };
 }
 
+/**
+ * Stripe subscription statuses that mean a company already has a subscription
+ * object behind it — one to manage in the Customer Portal, never one to run a
+ * second Checkout alongside. Everything outside this list ("canceled", or no
+ * `subscriptions` row at all) is safe to check out fresh.
+ */
+export const LIVE_SUBSCRIPTION_STATUSES = [
+  "active",
+  "trialing",
+  "past_due",
+  "unpaid",
+  "incomplete",
+  "paused",
+] as const;
+
+export function isLiveSubscriptionStatus(status: string | null | undefined): boolean {
+  return !!status && (LIVE_SUBSCRIPTION_STATUSES as readonly string[]).includes(status);
+}
+
 /** The full Plan record for the caller's current entitlements (trial companies resolve to TRIAL_PLAN). */
 export function planFor(entitlements: Entitlements): Plan {
   return getPlan(entitlements.plan_id);
@@ -119,7 +138,10 @@ export async function assertCanAddMember(): Promise<{ error: string } | null> {
   const { count } = await supabase
     .from("invitations")
     .select("id", { count: "exact", head: true })
-    .eq("status", "pending");
+    .eq("status", "pending")
+    // An invite past its expires_at can't be accepted any more, so it
+    // shouldn't keep consuming a seat until someone revokes it by hand.
+    .gt("expires_at", new Date().toISOString());
 
   const totalSeats = entitlements.member_count + (count ?? 0);
   if (!canAddMember(plan, totalSeats)) {

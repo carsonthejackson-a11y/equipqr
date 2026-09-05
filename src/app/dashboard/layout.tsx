@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { DashboardTopNav } from "@/components/dashboard-topnav";
@@ -96,9 +97,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   // Best-effort, idempotent welcome email — only ever sent once (guarded by
   // companies.welcome_email_sent_at) and only on the request that actually
-  // created the company, never on a routine dashboard load.
+  // created the company, never on a routine dashboard load. Deferred with
+  // after() so a slow Resend call never delays the first dashboard paint.
   if (justCreatedCompany && company && !company.welcome_email_sent_at) {
-    await sendWelcomeEmailOnce(supabase, company, profile.full_name);
+    const newCompany = company;
+    const recipientName = profile.full_name;
+    after(async () => {
+      await sendWelcomeEmailOnce(supabase, newCompany, recipientName);
+    });
   }
 
   const pathname = headerList.get("x-pathname") ?? "";
@@ -144,10 +150,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
 // Sends the welcome email and flips companies.welcome_email_sent_at in one
 // go. Swallows every error itself — a failure here must never break a
-// dashboard page load, and the flag is only set on a successful update, so a
-// DB hiccup just means the next `justCreatedCompany` request never happens
-// again (there won't be one) and this simply never retries, which is fine
-// for a nice-to-have welcome email.
+// dashboard page load. The flag is only stamped when the send actually
+// succeeded, so a Resend outage leaves it null rather than recording a
+// welcome email nobody received.
 async function sendWelcomeEmailOnce(
   supabase: Awaited<ReturnType<typeof createClient>>,
   company: Company,
@@ -161,7 +166,10 @@ async function sendWelcomeEmailOnce(
       dashboardUrl: `${appUrl}/dashboard`,
     });
 
-    await sendEmail({ to: company.notification_email, subject, html, text });
+    const sent = await sendEmail({ to: company.notification_email, subject, html, text });
+    if (!sent) {
+      return;
+    }
 
     await supabase
       .from("companies")

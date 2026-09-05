@@ -10,15 +10,23 @@ import { plans, type BillingInterval, type PlanId } from "@/lib/plans";
 
 export function PlanCards({
   currentPlanId,
-  hasActivePlan,
+  hasActiveSubscription,
   stripeConfigured,
   onCheckout,
+  onOpenPortal,
 }: {
   currentPlanId: PlanId;
-  /** Whether the company currently has a live (non-locked) subscription or trial — vs. never having chosen a plan / being locked out. */
-  hasActivePlan: boolean;
+  /**
+   * Whether a live Stripe subscription sits behind `currentPlanId`. Changing
+   * one is a Customer Portal job (a second Checkout would double-subscribe
+   * the customer), so these cards become read-only when it's true. An in-app
+   * trial is NOT a subscription: a trialing company can still buy any plan
+   * here, including the one its trial is modelled on.
+   */
+  hasActiveSubscription: boolean;
   stripeConfigured: boolean;
   onCheckout: (planId: PlanId, interval: BillingInterval) => Promise<{ error: string } | void>;
+  onOpenPortal: () => Promise<{ error: string } | void>;
 }) {
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [pendingPlanId, setPendingPlanId] = useState<PlanId | null>(null);
@@ -34,6 +42,16 @@ export function PlanCards({
         setError(result.error);
       }
       setPendingPlanId(null);
+    });
+  }
+
+  function handleManage() {
+    setError(null);
+    startTransition(async () => {
+      const result = await onOpenPortal();
+      if (result?.error) {
+        setError(result.error);
+      }
     });
   }
 
@@ -64,7 +82,7 @@ export function PlanCards({
 
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan) => {
-          const isCurrent = plan.id === currentPlanId && hasActivePlan;
+          const isCurrent = hasActiveSubscription && plan.id === currentPlanId;
           const price = interval === "month" ? plan.priceMonthly : plan.priceYearly;
           return (
             <Card key={plan.id} className={cn(isCurrent && "ring-2 ring-primary")}>
@@ -92,26 +110,32 @@ export function PlanCards({
                   ))}
                 </ul>
               </CardContent>
-              <CardFooter>
-                <Button
-                  className="w-full"
-                  variant={isCurrent ? "outline" : "default"}
-                  disabled={isCurrent || !stripeConfigured || (isPending && pendingPlanId === plan.id)}
-                  onClick={() => handleChoose(plan.id)}
-                >
-                  {isCurrent
-                    ? "Current plan"
-                    : isPending && pendingPlanId === plan.id
-                      ? "Redirecting…"
-                      : hasActivePlan
-                        ? "Switch plan"
-                        : "Choose plan"}
-                </Button>
-              </CardFooter>
+              {!hasActiveSubscription && (
+                <CardFooter>
+                  <Button
+                    className="w-full"
+                    disabled={!stripeConfigured || (isPending && pendingPlanId === plan.id)}
+                    onClick={() => handleChoose(plan.id)}
+                  >
+                    {isPending && pendingPlanId === plan.id ? "Redirecting…" : "Choose plan"}
+                  </Button>
+                </CardFooter>
+              )}
             </Card>
           );
         })}
       </div>
+
+      {hasActiveSubscription && (
+        <div className="space-y-1.5">
+          <Button variant="outline" disabled={!stripeConfigured || isPending} onClick={handleManage}>
+            {isPending ? "Opening…" : "Manage billing"}
+          </Button>
+          <p className="text-sm text-muted-foreground">
+            Switch plans, update payment method, or cancel in the Stripe billing portal.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

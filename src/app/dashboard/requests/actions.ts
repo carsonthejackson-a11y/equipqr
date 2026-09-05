@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { buildResolutionEmail } from "@/lib/email/resolution";
 import { sendEmail } from "@/lib/email/send";
+import { requireActiveSubscription } from "@/lib/billing";
 import type { RequestStatus, ServiceRequest } from "@/lib/types";
 
 export async function updateRequestStatus(id: string, status: RequestStatus) {
@@ -34,6 +35,11 @@ export async function closeServiceRequest(id: string, formData: FormData) {
 
   if (sendEmail && !emailTo) {
     return { error: "Enter an email address, or uncheck emailing the customer" };
+  }
+
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return { error: lockError.error };
   }
 
   const supabase = await createClient();

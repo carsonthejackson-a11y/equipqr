@@ -10,6 +10,20 @@ billing shape depends on it, but the pre-printed sticker batch feature it gates 
 launch behind `FEATURES.batchQr` (`src/lib/features.ts`) — see `docs/BATCH-QR.md`. No plan
 pricing or limits changed.
 
+## 0. Fastest path: run the setup script
+
+`scripts/stripe-setup.mjs` does sections 1, 3 and 4 below in one go and is safe to re-run:
+
+```
+STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs     # test mode
+STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs     # live mode, once test passes
+```
+
+It creates the products/prices (idempotent via `lookup_key`), the webhook endpoint at
+`$APP_URL/api/stripe/webhook` (default `https://equipqr.co`), configures the Customer Portal,
+and prints the eight `STRIPE_*` env vars. Stripe only reveals a webhook signing secret once, so
+if the endpoint already exists pass `--recreate-webhook` to get a fresh secret printed.
+
 ## 1. Create products & prices in the Stripe dashboard
 
 For each plan in `src/lib/plans.ts`, create one Product with two recurring Prices (monthly and

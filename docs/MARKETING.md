@@ -72,7 +72,7 @@ also shown alongside the form either way.
 
 - `NEXT_PUBLIC_APP_URL` — existing var, reused as the site's canonical URL (`SITE_URL` in
   `src/lib/site.ts`).
-- `NEXT_PUBLIC_SUPPORT_EMAIL` — new, optional. Defaults to `support@equipqr.app`.
+- `NEXT_PUBLIC_SUPPORT_EMAIL` — new, optional. Defaults to `support@equipqr.co`.
 - `RESEND_API_KEY` / `RESEND_FROM_EMAIL` — existing vars, reused by the contact form.
 
 ## Known gaps
