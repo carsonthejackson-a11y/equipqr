@@ -23,11 +23,14 @@ import {
 } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QrScanButton } from "@/components/qr-scan-button";
+import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { toast } from "sonner";
 import type { Customer, EquipmentType } from "@/lib/types";
 import { normalizeQrCode } from "@/lib/qr";
 import { FEATURES } from "@/lib/features";
 import { createEquipment } from "./actions";
+
+const statusItems = Object.fromEntries(Object.entries(EQUIPMENT_STATUS_LABELS));
 
 export function NewEquipmentDialog({
   equipmentTypes,
@@ -120,6 +123,31 @@ export function NewEquipmentDialog({
             </Select>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="status">Status</Label>
+            <Select name="status" items={statusItems} defaultValue="active" required>
+              <SelectTrigger id="status" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(EQUIPMENT_STATUS_LABELS).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="make">Make (optional)</Label>
+              <Input id="make" name="make" placeholder="e.g. Rheem" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="model">Model (optional)</Label>
+              <Input id="model" name="model" placeholder="e.g. XG40T06" />
+            </div>
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="customerId">Customer (optional)</Label>
             <Select
               name="customerId"
@@ -178,6 +206,25 @@ export function NewEquipmentDialog({
           <div className="space-y-2">
             <Label htmlFor="location">Location within site (optional)</Label>
             <Input id="location" name="location" placeholder="e.g. Building A, Floor 2" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="installDate">Install date (optional)</Label>
+              <Input id="installDate" name="installDate" type="date" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="warrantyEndsOn">Warranty ends (optional)</Label>
+              <Input id="warrantyEndsOn" name="warrantyEndsOn" type="date" />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes (optional)</Label>
+            <Textarea
+              id="notes"
+              name="notes"
+              rows={3}
+              placeholder="Anything a tech should know before they walk up to this unit."
+            />
           </div>
           {FEATURES.batchQr ? (
             <div className="space-y-3 rounded-lg border p-3">
