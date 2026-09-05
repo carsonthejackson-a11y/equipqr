@@ -5,7 +5,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getEntitlements, planFor, type Entitlements } from "@/lib/billing";
 import type { Plan } from "@/lib/plans";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
 import { formatRelativeTime } from "@/lib/format";
 import { GettingStartedChecklist, type ChecklistItem } from "./getting-started-checklist";
 import type { Equipment, ServiceRequest } from "@/lib/types";
@@ -56,6 +56,8 @@ export default async function DashboardOverviewPage() {
     { count: equipmentCount },
     { count: typeCount },
     { count: openRequestCount },
+    { count: unassignedOpenCount },
+    { count: urgentOpenCount },
     { count: customerCount },
     { count: scanCount },
     { count: guideStepCount },
@@ -69,7 +71,17 @@ export default async function DashboardOverviewPage() {
     supabase
       .from("service_requests")
       .select("*", { count: "exact", head: true })
-      .neq("status", "resolved"),
+      .in("status", OPEN_REQUEST_STATUSES),
+    supabase
+      .from("service_requests")
+      .select("*", { count: "exact", head: true })
+      .in("status", OPEN_REQUEST_STATUSES)
+      .is("assigned_to", null),
+    supabase
+      .from("service_requests")
+      .select("*", { count: "exact", head: true })
+      .in("status", OPEN_REQUEST_STATUSES)
+      .in("priority", ["high", "urgent"]),
     supabase.from("customers").select("*", { count: "exact", head: true }),
     supabase.from("scan_events").select("*", { count: "exact", head: true }).gte("scanned_at", thirtyDaysAgoIso),
     supabase.from("guide_steps").select("*", { count: "exact", head: true }),
@@ -231,7 +243,7 @@ export default async function DashboardOverviewPage() {
         <GettingStartedChecklist items={checklistItems} dismissible={profile.role === "owner"} />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>This month</CardTitle>
@@ -254,7 +266,29 @@ export default async function DashboardOverviewPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Link href="/dashboard/requests?assignee=unassigned">
+          <Card className="h-full transition-colors hover:bg-accent/50">
+            <CardHeader>
+              <CardTitle>Needs attention</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-2xl font-bold">{unassignedOpenCount ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">Unassigned</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{urgentOpenCount ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">Urgent / high priority</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Recent service requests</CardTitle>
           </CardHeader>

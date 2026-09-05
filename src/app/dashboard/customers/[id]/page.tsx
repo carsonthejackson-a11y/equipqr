@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { StatusBadge } from "@/components/status-badge";
+import { StatusBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
 import { BackLink } from "@/components/back-link";
 import type { Customer, Equipment, ServiceRequest } from "@/lib/types";
 import { EditCustomerForm } from "./edit-customer-form";
@@ -41,15 +41,25 @@ export default async function CustomerDetailPage({
     .returns<Equipment[]>();
 
   const equipmentIds = (equipment ?? []).map((e) => e.id);
-  const { data: requests } =
+  const [{ data: requests }, { data: openRequests }] = await Promise.all([
     equipmentIds.length > 0
-      ? await supabase
+      ? supabase
           .from("service_requests")
           .select("*")
           .in("equipment_id", equipmentIds)
           .order("created_at", { ascending: false })
           .returns<ServiceRequest[]>()
-      : { data: [] as ServiceRequest[] };
+      : Promise.resolve({ data: [] as ServiceRequest[] }),
+    // Requests carry customer_id directly (denormalised at submit time), so
+    // this still finds them even if the equipment has since moved customers.
+    supabase
+      .from("service_requests")
+      .select("*")
+      .eq("customer_id", id)
+      .in("status", OPEN_REQUEST_STATUSES)
+      .order("created_at", { ascending: false })
+      .returns<ServiceRequest[]>(),
+  ]);
 
   const equipmentById = new Map((equipment ?? []).map((e) => [e.id, e]));
 
@@ -81,6 +91,31 @@ export default async function CustomerDetailPage({
                     <p className="text-sm text-muted-foreground">
                       {item.location ?? "No location set"}
                     </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Open requests</h2>
+        {!openRequests || openRequests.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No open requests for this customer.</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {openRequests.map((req) => (
+              <Link key={req.id} href={`/dashboard/requests/${req.id}`}>
+                <Card className="transition-colors hover:bg-accent/50">
+                  <CardContent className="space-y-1 py-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium">
+                        {equipmentById.get(req.equipment_id)?.name ?? "Unknown equipment"}
+                      </p>
+                      <StatusBadge status={req.status} />
+                    </div>
+                    <p className="line-clamp-1 text-sm text-muted-foreground">{req.description}</p>
                   </CardContent>
                 </Card>
               </Link>
