@@ -31,11 +31,22 @@ export const RATE_LIMITS = {
   requestStatusPerIp: { limit: 120, windowSeconds: 10 * 60 } satisfies RateLimitRule,
 } as const;
 
+/** Anything with a header lookup: a `Headers`, or Next's ReadonlyHeaders from `headers()`. */
+type HeaderLookup = { get(name: string): string | null };
+
 /** Best-effort client IP from the proxies in front of the app. Vercel sets x-forwarded-for; falls back to "unknown". */
 export function getClientIp(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for");
+  return getClientIpFromHeaders(request.headers);
+}
+
+/**
+ * Same as {@link getClientIp} for callers that have headers but no Request —
+ * server components rate-limiting a page render read them from `headers()`.
+ */
+export function getClientIpFromHeaders(headers: HeaderLookup): string {
+  const forwarded = headers.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
-  return request.headers.get("x-real-ip") ?? "unknown";
+  return headers.get("x-real-ip") ?? "unknown";
 }
 
 /**

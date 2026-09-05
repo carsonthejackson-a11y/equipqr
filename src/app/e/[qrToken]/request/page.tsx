@@ -1,6 +1,12 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { ResolvedQrCode } from "@/lib/types";
+import { getCompanyPlanFlags } from "@/lib/billing";
+import { publicEnv } from "@/lib/env";
+import { resolveBranding } from "@/lib/branding";
+import { BrandHeader, BrandShell, PoweredBy } from "@/components/public/brand-shell";
 import { ServiceRequestForm } from "./service-request-form";
 
 export default async function ServiceRequestPage({
@@ -19,18 +25,34 @@ export default async function ServiceRequestPage({
   }
 
   const { guide } = resolved;
+  const planFlags = await getCompanyPlanFlags(guide.company.id);
+  const branding = resolveBranding({
+    company: guide.company,
+    planId: planFlags?.plan_id,
+    supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+  });
 
   return (
-    <div className="mx-auto flex min-h-svh max-w-lg flex-col px-4 py-8">
-      <div className="mb-6">
-        <p className="text-sm text-muted-foreground">{guide.company.name}</p>
-        <h1 className="text-xl font-semibold">Request service for {guide.equipment.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          Add a description and any photos or videos that show the problem.
-        </p>
-      </div>
+    <BrandShell branding={branding}>
+      <BrandHeader branding={branding} />
 
-      <ServiceRequestForm qrToken={qrToken} />
-    </div>
+      <main className="flex flex-1 flex-col gap-5 px-4 pt-4 pb-2">
+        <div>
+          <Link
+            href={`/e/${qrToken}`}
+            className="-ml-1 inline-flex min-h-[44px] items-center gap-1.5 px-1 text-sm font-medium text-muted-foreground"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Back
+          </Link>
+          <h1 className="text-2xl leading-tight font-semibold">Report a problem</h1>
+          <p className="text-muted-foreground">{guide.equipment.name}</p>
+        </div>
+
+        <ServiceRequestForm qrToken={qrToken} branding={branding} />
+      </main>
+
+      <PoweredBy />
+    </BrandShell>
   );
 }

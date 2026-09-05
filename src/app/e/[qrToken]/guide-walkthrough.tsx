@@ -24,7 +24,11 @@ function Bubble({ role, text }: ChatMessage) {
       <div
         className={cn(
           "max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm",
-          role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+          // --brand is set by <BrandShell/> on the scan page; the fallback
+          // keeps this readable anywhere it is mounted without one.
+          role === "user"
+            ? "bg-[var(--brand,var(--primary))] text-[var(--brand-on,var(--primary-foreground))]"
+            : "bg-muted text-foreground"
         )}
       >
         {text}
@@ -123,13 +127,9 @@ export function GuideWalkthrough({
   ]);
 
   return (
+    // The scan page above already names the company, the unit and its type —
+    // this component renders only the conversation itself.
     <div className="flex flex-1 flex-col gap-6">
-      <div>
-        <p className="text-sm text-muted-foreground">{guide.company.name}</p>
-        <h1 className="text-xl font-semibold">{guide.equipment.name}</h1>
-        <p className="text-sm text-muted-foreground">{guide.equipment_type.name}</p>
-      </div>
-
       {!step && !resolved ? (
         <Card className="flex-1">
           <CardHeader>
@@ -140,8 +140,12 @@ export function GuideWalkthrough({
               This company hasn&apos;t added a guide for this equipment yet. You can submit a
               service request directly.
             </p>
-            <Button render={<Link href={requestHref} />} nativeButton={false} className="w-full">
-              Submit a service request
+            <Button
+              render={<Link href={requestHref} />}
+              nativeButton={false}
+              className="h-12 w-full bg-[var(--brand,var(--primary))] text-base text-[var(--brand-on,var(--primary-foreground))] hover:opacity-90"
+            >
+              Report a problem
             </Button>
           </CardContent>
         </Card>
@@ -185,7 +189,7 @@ export function GuideWalkthrough({
                         key={option.id}
                         variant="outline"
                         size="sm"
-                        className="h-auto rounded-full py-1.5 whitespace-normal"
+                        className="h-auto min-h-[44px] rounded-full px-4 py-2 text-sm whitespace-normal"
                         onClick={() => advance(option, option.label)}
                       >
                         {option.label}

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { classifyGuideOption } from "@/lib/anthropic";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { getPlan } from "@/lib/plans";
+import { enforceRateLimits, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import type { ResolvedQrCode } from "@/lib/types";
 
 const MAX_MESSAGE_LENGTH = 400;
@@ -14,6 +15,13 @@ type RequestBody = {
 };
 
 export async function POST(request: Request) {
+  // Every call that gets past here costs an Anthropic request, so the limit
+  // is checked before anything is parsed or looked up.
+  const limited = await enforceRateLimits([
+    { key: `chat:ip:${getClientIp(request)}`, rule: RATE_LIMITS.guideChatPerIp },
+  ]);
+  if (limited) return limited;
+
   const body = (await request.json().catch(() => null)) as RequestBody | null;
 
   if (!body?.qrToken || !body.stepId || !body.message?.trim()) {

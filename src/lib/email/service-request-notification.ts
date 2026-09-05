@@ -13,6 +13,7 @@ export function buildServiceRequestNotificationEmail({
   aiSummary,
   troubleshootingPath,
   dashboardUrl,
+  priority,
 }: {
   equipmentName: string;
   contactName: string;
@@ -23,6 +24,8 @@ export function buildServiceRequestNotificationEmail({
   aiSummary: string | null;
   troubleshootingPath: PathEntry[];
   dashboardUrl: string;
+  /** Human label for the urgency the requester chose ("Not urgent" → "Low"). Omitted for callers that don't collect one. */
+  priority?: string | null;
 }): { subject: string; html: string; text: string } {
   const subject = `New service request: ${equipmentName}`;
   const cta: EmailCta = { label: "View in dashboard", url: dashboardUrl };
@@ -37,6 +40,10 @@ export function buildServiceRequestNotificationEmail({
     `<p style="margin:16px 0 4px;"><strong>Contact:</strong> ${contactLine}</p>`,
     `<p style="margin:16px 0 4px;"><strong>Description</strong></p><p style="margin:0;white-space:pre-wrap;">${escapeHtml(description)}</p>`,
   ];
+
+  if (priority) {
+    htmlParts.push(`<p style="margin:12px 0 0;"><strong>Urgency:</strong> ${escapeHtml(priority)}</p>`);
+  }
 
   if (mediaCount > 0) {
     htmlParts.push(
@@ -71,6 +78,7 @@ export function buildServiceRequestNotificationEmail({
       `Contact: ${contactName}`,
       contactEmail ? `Email: ${contactEmail}` : undefined,
       contactPhone ? `Phone: ${contactPhone}` : undefined,
+      priority ? `Urgency: ${priority}` : undefined,
       null,
       `Description: ${description}`,
       mediaCount > 0 ? `Attachments: ${mediaCount}` : undefined,

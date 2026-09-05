@@ -358,3 +358,13 @@ export type ResolvedQrCode =
   | { status: "unclaimed"; company_id: string }
   | { status: "retired"; company_id: string }
   | { status: "claimed"; guide: EquipmentGuide };
+
+/**
+ * What get_request_status() returns after migration 0015: the same payload
+ * plus the company id, which the public /r/<token> page needs to look up the
+ * plan and apply the branding entitlement gate. Appended rather than folded
+ * into PublicRequestStatus so existing callers keep compiling unchanged.
+ */
+export type PublicRequestStatusWithCompanyId = Omit<PublicRequestStatus, "company"> & {
+  company: CompanyPublicProfile & { id: string };
+};
