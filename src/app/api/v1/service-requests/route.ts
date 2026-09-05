@@ -4,7 +4,7 @@
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { byCreatedAt, cursorFilter, decodeCursor, paginateRows, parseLimit } from "@/lib/api-pagination";
 import type { ServiceRequest } from "@/lib/types";
-import { jsonData, jsonError, statusUrlFor } from "../shared";
+import { SERVICE_REQUEST_COLUMNS, jsonData, jsonError, statusUrlFor } from "../shared";
 
 export async function GET(request: Request) {
   const auth = await authenticateApiRequest(request, "read");
@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
   let query = auth.ctx.admin
     .from("service_requests")
-    .select("*")
+    .select(SERVICE_REQUEST_COLUMNS)
     .eq("company_id", auth.ctx.companyId)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false });

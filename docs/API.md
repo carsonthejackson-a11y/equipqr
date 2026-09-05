@@ -92,7 +92,8 @@ All responses (success and error) are sent with `Cache-Control: no-store`.
 `notification_email`, Stripe customer/subscription ids, `key_hash`, and internal profile
 emails never appear in any v1 API response — those stay dashboard-only. A service request's
 `public_token` *is* returned, but always as a ready-to-use link — `status_url` — rather than
-the bare token.
+the bare token. `priority_rank` is also withheld: it's a generated sort key, an internal
+implementation detail rather than part of this contract.
 
 ## Endpoints
 
@@ -194,6 +195,11 @@ shows up in the dashboard's activity feed exactly like a staff edit — status c
 customer-visible (they show on `/r/<token>`), priority/assignment changes are internal-only.
 Setting `status` to `"resolved"` also stamps `resolved_at` and the unit's `last_serviced_at`
 automatically (the same DB trigger the dashboard uses).
+
+A **status** change also emails the requester the same branded status-update email the
+dashboard sends, when the company has customer updates enabled and the requester left an
+email address. It's sent after the response is returned, so it never adds latency to your
+call, and a failed send is logged rather than surfaced as an error.
 
 Returns the updated request in the same shape as the `GET` endpoint (minus `activity`).
 

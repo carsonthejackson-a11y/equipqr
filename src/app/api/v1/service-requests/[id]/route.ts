@@ -1,11 +1,27 @@
 // Security model: service-role client (`auth.ctx.admin`) with NO RLS on
 // this request. Every query below is filtered by `auth.ctx.companyId` —
 // that filter is the entire tenant isolation for this endpoint.
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { emitRequestActivity } from "@/lib/events";
 import { authenticateApiRequest } from "@/lib/api-auth";
-import type { RequestActivity, RequestPriority, RequestStatus, ServiceRequest } from "@/lib/types";
-import { findCompanyProfile, jsonData, jsonError, statusUrlFor } from "../../shared";
+import { notifyRequesterOfStatus } from "@/lib/email/request-status";
+import { serverEnv } from "@/lib/env";
+import { isPlanId, type PlanId } from "@/lib/plans";
+import type {
+  Company,
+  RequestActivity,
+  RequestPriority,
+  RequestStatus,
+  ServiceRequest,
+} from "@/lib/types";
+import {
+  SERVICE_REQUEST_COLUMNS,
+  findCompanyProfile,
+  jsonData,
+  jsonError,
+  statusUrlFor,
+} from "../../shared";
 
 const VALID_STATUSES: RequestStatus[] = [
   "new",
@@ -17,10 +33,66 @@ const VALID_STATUSES: RequestStatus[] = [
 ];
 const VALID_PRIORITIES: RequestPriority[] = ["low", "normal", "high", "urgent"];
 
+/** Everything notifyRequesterOfStatus() needs that isn't already on the request row. */
+type NotifyCompany = Pick<
+  Company,
+  "id" | "name" | "phone" | "sms_number" | "website" | "logo_path" | "brand_color" | "customer_updates_enabled"
+>;
+
+/**
+ * Emails the requester that their request's status changed — the same
+ * courtesy the dashboard's updateRequestStatus() extends, which the API used
+ * to skip, leaving customers who submitted through a sticker in the dark
+ * whenever staff drove the workflow from an integration instead.
+ *
+ * Best-effort and never awaited by the handler (see the `after()` call site):
+ * a slow Resend call must not sit in front of the PATCH's response. The admin
+ * client is fine for the `email_sent` activity row notifyRequesterOfStatus()
+ * writes — emitRequestActivity() passes an explicit company_id.
+ */
+async function notifyRequesterFromApi(
+  admin: SupabaseClient,
+  companyId: string,
+  updated: ServiceRequest,
+  status: RequestStatus
+) {
+  const [{ data: company }, { data: equipment }, { data: flags }] = await Promise.all([
+    admin
+      .from("companies")
+      .select("id, name, phone, sms_number, website, logo_path, brand_color, customer_updates_enabled")
+      .eq("id", companyId)
+      .maybeSingle<NotifyCompany>(),
+    admin
+      .from("equipment")
+      .select("name")
+      .eq("id", updated.equipment_id)
+      .eq("company_id", companyId)
+      .maybeSingle<{ name: string }>(),
+    admin.rpc("get_company_plan_flags", { p_company_id: companyId }),
+  ]);
+
+  if (!company) return;
+
+  const rawPlanId = (flags as { plan_id?: string } | null)?.plan_id;
+  const planId: PlanId | null = isPlanId(rawPlanId) ? rawPlanId : null;
+
+  await notifyRequesterOfStatus(admin, {
+    request: updated,
+    status,
+    equipmentName: equipment?.name ?? "your equipment",
+    company,
+    planId,
+    supabaseUrl: serverEnv.NEXT_PUBLIC_SUPABASE_URL,
+    // An API key isn't a person — there's no staff profile to attribute the
+    // send to, and author_user_id is a profiles FK.
+    actorUserId: null,
+  });
+}
+
 async function loadRequest(admin: SupabaseClient, companyId: string, id: string) {
   const { data } = await admin
     .from("service_requests")
-    .select("*")
+    .select(SERVICE_REQUEST_COLUMNS)
     .eq("id", id)
     .eq("company_id", companyId)
     .maybeSingle<ServiceRequest>();
@@ -120,7 +192,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     .update(patch)
     .eq("id", id)
     .eq("company_id", auth.ctx.companyId)
-    .select("*")
+    .select(SERVICE_REQUEST_COLUMNS)
     .maybeSingle<ServiceRequest>();
 
   if (error) return jsonError(error.message, 500);
@@ -171,6 +243,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   await Promise.all(activityWrites);
+
+  if (hasStatus && existing.status !== updated.status) {
+    const status = updated.status;
+    after(async () => {
+      await notifyRequesterFromApi(auth.ctx.admin, auth.ctx.companyId, updated, status);
+    });
+  }
 
   const { public_token, ...rest } = updated;
   return jsonData({ ...rest, status_url: statusUrlFor(public_token) });

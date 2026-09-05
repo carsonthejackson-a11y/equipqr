@@ -97,6 +97,21 @@ describe("csvEscape / toCsv", () => {
     expect(csvEscape(42)).toBe("42");
   });
 
+  it("neutralises cells a spreadsheet would evaluate as a formula", () => {
+    expect(csvEscape("=1+1")).toBe(`"'=1+1"`);
+    expect(csvEscape("+1")).toBe(`"'+1"`);
+    expect(csvEscape("-1")).toBe(`"'-1"`);
+    expect(csvEscape("@SUM(1,1)")).toBe(`"'@SUM(1,1)"`);
+    expect(csvEscape("\t=1+1")).toBe(`"'\t=1+1"`);
+    expect(csvEscape("\r=1+1")).toBe(`"'\r=1+1"`);
+    // Only the FIRST character matters.
+    expect(csvEscape("Pump A - west")).toBe("Pump A - west");
+  });
+
+  it("leaves the parser alone — imported cells keep their exact text", () => {
+    expect(parseCsv("=1+1,ok\r\n")).toEqual([["=1+1", "ok"]]);
+  });
+
   it("round-trips through the parser", () => {
     const rows = [
       ["name", "notes"],

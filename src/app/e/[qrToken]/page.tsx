@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { MapPin, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import type { Equipment, ResolvedQrCode } from "@/lib/types";
@@ -39,19 +40,28 @@ export default async function EquipmentGuidePage({
   const { src } = await searchParams;
   const supabase = await createClient();
 
-  // Fire-and-forget scan tracking: never awaited, and the error path is
-  // swallowed so a slow/failed insert can never block or break this public
-  // page render. record_scan() itself resolves the company/equipment from
-  // the token server-side and silently no-ops on an unknown token.
-  headers()
-    .then((headerList) =>
-      supabase.rpc("record_scan", {
+  // Scan tracking runs AFTER the response is finished, so it never blocks or
+  // breaks this public page render — and, unlike a bare floating promise,
+  // it's guaranteed to actually run: on Vercel the serverless invocation is
+  // frozen the moment the response is sent, which silently dropped scans that
+  // hadn't landed yet. Errors are still swallowed. record_scan() resolves the
+  // company/equipment from the token server-side and no-ops on an unknown one.
+  //
+  // `headers()` is read here rather than inside the callback: a Server
+  // Component can't use request APIs inside after() (see the Next docs for
+  // `after`), so the value is captured first and passed in.
+  const userAgent = (await headers()).get("user-agent");
+  after(async () => {
+    try {
+      await supabase.rpc("record_scan", {
         p_qr_token: qrToken,
-        p_user_agent: headerList.get("user-agent"),
+        p_user_agent: userAgent,
         p_source: detectScanSource(qrToken, src),
-      })
-    )
-    .catch(() => {});
+      });
+    } catch {
+      // Analytics must never surface to a customer standing at a machine.
+    }
+  });
 
   const { data } = await supabase.rpc("resolve_qr_code", { p_token: qrToken });
   const resolved = data as ResolvedQrCode;

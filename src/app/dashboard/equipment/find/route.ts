@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { qrLookupCandidates } from "@/lib/qr";
+import { pickBestCode } from "@/lib/qr-codes";
 
 // Staff-side "type in a code" lookup:
 //   GET /dashboard/equipment/find?code=ABCD-2345
@@ -49,16 +50,17 @@ export async function GET(request: NextRequest) {
   // tenant simply doesn't come back. qrLookupCandidates() guarantees every
   // value is `[A-Za-z0-9-]`, which is what makes this .or() safe to build by
   // hand.
-  const { data: code } = await supabase
+  const { data: matches } = await supabase
     .from("qr_codes")
     .select("equipment_id, status")
     .or(candidates.map((value) => `token.eq.${value},short_code.eq.${value}`).join(","))
     .not("equipment_id", "is", null)
-    // 'active' sorts before 'replaced' before 'retired', so a live code always
-    // wins over an old one still pointing at the same unit.
-    .order("status", { ascending: true })
-    .limit(1)
-    .maybeSingle<{ equipment_id: string | null; status: string }>();
+    .returns<{ equipment_id: string | null; status: string }[]>();
+
+  // A replaced sticker keeps pointing at its unit, so a code can legitimately
+  // match more than one row. pickBestCode() states the preference (active >
+  // replaced > retired) instead of leaning on status names sorting that way.
+  const code = pickBestCode(matches ?? []);
 
   if (!code?.equipment_id) {
     return NextResponse.redirect(missUrl(origin, from));

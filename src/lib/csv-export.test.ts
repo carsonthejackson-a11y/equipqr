@@ -21,6 +21,34 @@ describe("quoteCsvField", () => {
     expect(quoteCsvField("line1\nline2")).toBe('"line1\nline2"');
     expect(quoteCsvField("line1\r\nline2")).toBe('"line1\r\nline2"');
   });
+
+  describe("formula injection", () => {
+    // Each of these, opened in Excel/Sheets, would otherwise be evaluated.
+    it.each([
+      ["=", "=1+1"],
+      ["+", "+1+1"],
+      ["-", "-2+3"],
+      ["@", "@SUM(1,1)"],
+      ["tab", "\t=1+1"],
+      ["carriage return", "\r=1+1"],
+    ])("neutralises a leading %s with a quote prefix and force-quotes", (_label, field) => {
+      expect(quoteCsvField(field)).toBe(`"'${field}"`);
+    });
+
+    it("doubles embedded quotes in a neutralised field", () => {
+      expect(quoteCsvField('=cmd|"/c calc"!A1')).toBe(`"'=cmd|""/c calc""!A1"`);
+    });
+
+    it("leaves a trigger character that isn't first alone", () => {
+      expect(quoteCsvField("Pump A - west wing")).toBe("Pump A - west wing");
+      expect(quoteCsvField("bob@x.test")).toBe("bob@x.test");
+    });
+
+    it("leaves values we generate ourselves alone", () => {
+      expect(quoteCsvField("2026-09-05T12:00:00.000Z")).toBe("2026-09-05T12:00:00.000Z");
+      expect(quoteCsvField("0")).toBe("0");
+    });
+  });
 });
 
 describe("toCsv", () => {
@@ -51,6 +79,12 @@ describe("toCsv", () => {
     const rows: Row[] = [{ name: "Acme, Inc.", qty: 1, note: 'has "quotes"', active: false }];
     const csv = toCsv(rows, columns);
     expect(csv).toBe('﻿Name,Qty,Note,Active\r\n"Acme, Inc.",1,"has ""quotes""",false\r\n');
+  });
+
+  it("neutralises a formula in a row value", () => {
+    const rows: Row[] = [{ name: "=1+1", qty: 1, note: null, active: false }];
+    const csv = toCsv(rows, columns);
+    expect(csv).toBe(`﻿Name,Qty,Note,Active\r\n"'=1+1",1,,false\r\n`);
   });
 
   it("renders null/undefined values as an empty cell", () => {

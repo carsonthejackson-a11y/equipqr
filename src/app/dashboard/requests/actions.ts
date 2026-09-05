@@ -9,7 +9,12 @@ import { notifyRequesterOfStatus } from "@/lib/email/request-status";
 import { buildResolutionEmail } from "@/lib/email/resolution";
 import { sendEmail } from "@/lib/email/send";
 import { publicEnv } from "@/lib/env";
-import { REQUEST_STATUS_LABELS, REQUEST_PRIORITY_LABELS } from "@/components/status-badge";
+import {
+  REQUEST_STATUS_LABELS,
+  REQUEST_PRIORITY_LABELS,
+  REQUEST_STATUS_ORDER,
+  REQUEST_PRIORITY_ORDER,
+} from "@/components/status-badge";
 import type { Company, Equipment, Profile, RequestPriority, RequestStatus, ServiceRequest } from "@/lib/types";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -74,6 +79,21 @@ async function notifyStatus(
   });
 }
 
+// A server action's arguments come off the wire, so the `RequestStatus` /
+// `RequestPriority` annotations below are a compile-time convention, not a
+// runtime guarantee. Without these checks an arbitrary string reaches the
+// enum column and the caller sees a raw Postgres error
+// ("invalid input value for enum request_status: ...") in a toast.
+// REQUEST_STATUS_ORDER / REQUEST_PRIORITY_ORDER are the canonical lists —
+// never re-declare them here.
+function isRequestStatus(value: unknown): value is RequestStatus {
+  return typeof value === "string" && (REQUEST_STATUS_ORDER as string[]).includes(value);
+}
+
+function isRequestPriority(value: unknown): value is RequestPriority {
+  return typeof value === "string" && (REQUEST_PRIORITY_ORDER as string[]).includes(value);
+}
+
 function revalidateRequest(id: string) {
   revalidatePath("/dashboard/requests");
   revalidatePath(`/dashboard/requests/${id}`);
@@ -81,6 +101,10 @@ function revalidateRequest(id: string) {
 }
 
 export async function updateRequestStatus(id: string, status: RequestStatus) {
+  if (!isRequestStatus(status)) {
+    return { error: "Invalid status" };
+  }
+
   const supabase = await createClient();
   const { profile } = await getCurrentProfile();
 
@@ -111,6 +135,10 @@ export async function updateRequestStatus(id: string, status: RequestStatus) {
 }
 
 export async function updateRequestPriority(id: string, priority: RequestPriority) {
+  if (!isRequestPriority(priority)) {
+    return { error: "Invalid priority" };
+  }
+
   const supabase = await createClient();
   const { profile } = await getCurrentProfile();
 

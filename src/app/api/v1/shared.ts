@@ -21,6 +21,41 @@ import { getEquipmentPublicUrl, getRequestStatusUrl } from "@/lib/qr";
 import { serverEnv } from "@/lib/env";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+/**
+ * Every column of `service_requests` that belongs in an API response, in
+ * `src/lib/types.ts` order. Spelled out rather than `select("*")` so a column
+ * added by a migration can never appear in the public API contract by
+ * accident — `priority_rank` (0017) is exactly that: a generated sort key
+ * that is an internal implementation detail, not something a client should
+ * see or start depending on.
+ */
+export const SERVICE_REQUEST_COLUMNS = [
+  "id",
+  "equipment_id",
+  "company_id",
+  "description",
+  "contact_name",
+  "contact_email",
+  "contact_phone",
+  "status",
+  "priority",
+  "assigned_to",
+  "assigned_at",
+  "customer_id",
+  "public_token",
+  "status_updated_at",
+  "scheduled_for",
+  "closed_by",
+  "resolution_summary",
+  "resolution_recommendations",
+  "resolved_at",
+  "resolution_email_sent_at",
+  "troubleshooting_path",
+  "ai_summary",
+  "updated_at",
+  "created_at",
+].join(", ");
+
 export function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status, headers: { "Cache-Control": "no-store" } });
 }

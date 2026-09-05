@@ -115,9 +115,24 @@ export function parseCsvTable(text: string): CsvTable {
   return { headers, rows };
 }
 
-/** Quotes a single cell if it contains a comma, quote or newline. */
+/**
+ * Leading characters that make a spreadsheet treat a cell as a formula. Same
+ * list (and same OWASP mitigation) as `quoteCsvField` in src/lib/csv-export.ts
+ * — this one guards the writer half of this file, which produces the
+ * downloadable import template. The PARSER above deliberately leaves cells
+ * exactly as written: it feeds validation and DB writes, not a spreadsheet.
+ */
+const FORMULA_TRIGGERS = ["=", "+", "-", "@", "\t", "\r"];
+
+/**
+ * Quotes a single cell if it contains a comma, quote or newline, and prefixes
+ * a `'` to any cell that would otherwise be read as a formula.
+ */
 export function csvEscape(value: string | number | null | undefined): string {
   const text = value === null || value === undefined ? "" : String(value);
+  if (FORMULA_TRIGGERS.includes(text.charAt(0))) {
+    return `"'${text.replace(/"/g, '""')}"`;
+  }
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 

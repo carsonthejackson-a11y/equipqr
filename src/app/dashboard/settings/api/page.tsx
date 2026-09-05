@@ -5,9 +5,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { OwnerOnlyCard } from "@/components/owner-only-card";
-import type { ApiKey } from "@/lib/types";
 import { SettingsSubnav } from "../settings-subnav";
-import { ApiKeysSection } from "./api-keys-section";
+import { ApiKeysSection, type PublicApiKey } from "./api-keys-section";
 import { MAX_ACTIVE_API_KEYS } from "@/lib/api-auth";
 import { EXPORT_ENTITIES } from "./export-entities";
 
@@ -17,15 +16,19 @@ export default async function ApiSettingsPage() {
   const entitlements = ctx ? await getEntitlements() : null;
   const entitled = hasFeature(entitlements, "exportApi");
 
-  let keys: ApiKey[] = [];
+  // Explicit column list, NOT `*`: `api_keys.key_hash` is the sha256 of the
+  // plaintext key and this row is serialised into a client component, so
+  // selecting it would ship every key's hash to the browser. Nothing in the
+  // UI needs it — the displayed identity is `key_prefix`.
+  let keys: PublicApiKey[] = [];
   if (ctx) {
     const supabase = await createClient();
     const { data } = await supabase
       .from("api_keys")
-      .select("*")
+      .select("id, company_id, name, key_prefix, scopes, created_by, last_used_at, revoked_at, created_at")
       .eq("company_id", ctx.company.id)
       .order("created_at", { ascending: false })
-      .returns<ApiKey[]>();
+      .returns<PublicApiKey[]>();
     keys = data ?? [];
   }
 

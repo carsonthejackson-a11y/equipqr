@@ -13,8 +13,33 @@ function needsQuoting(field: string): boolean {
   return field.includes(",") || field.includes('"') || field.includes("\n") || field.includes("\r");
 }
 
-/** Quotes a single CSV field per RFC 4180 (doubles embedded quotes) only when required. */
+/**
+ * Leading characters that make Excel / Sheets / LibreOffice treat a cell as a
+ * formula rather than text. A customer-supplied name or note beginning with
+ * one of these turns an exported CSV into code that runs on the staff
+ * machine that opens it (`=HYPERLINK(...)`, `=cmd|...`, DDE) — CSV injection.
+ * Tab and CR are here because a leading whitespace character is stripped by
+ * some spreadsheets, exposing the `=` behind it.
+ */
+const FORMULA_TRIGGERS = ["=", "+", "-", "@", "\t", "\r"];
+
+function isFormulaLike(field: string): boolean {
+  return FORMULA_TRIGGERS.includes(field.charAt(0));
+}
+
+/**
+ * Quotes a single CSV field per RFC 4180 (doubles embedded quotes) only when
+ * required, and defuses formula injection by prefixing a single quote — the
+ * OWASP mitigation, which spreadsheets read as "this cell is text". Values we
+ * generate ourselves (counts, ids, ISO dates) never start with a trigger
+ * character, so only untrusted text is ever altered.
+ */
 export function quoteCsvField(field: string): string {
+  if (isFormulaLike(field)) {
+    // Force-quoted as well: the leading `'` must survive re-import as part of
+    // the cell, and the field may also contain a comma or quote of its own.
+    return `"'${field.replace(/"/g, '""')}"`;
+  }
   if (!needsQuoting(field)) return field;
   return `"${field.replace(/"/g, '""')}"`;
 }

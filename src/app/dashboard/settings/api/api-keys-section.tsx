@@ -31,6 +31,13 @@ import {
 import type { ApiKey } from "@/lib/types";
 import { createApiKey, revokeApiKey } from "./actions";
 
+/**
+ * An API key row as it may cross into the browser. `key_hash` is deliberately
+ * absent — it never leaves the server (see the select in page.tsx). The UI
+ * identifies a key by `key_prefix`, which is the visible half by design.
+ */
+export type PublicApiKey = Omit<ApiKey, "key_hash">;
+
 function timeAgo(iso: string | null) {
   if (!iso) return "Never";
   return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
@@ -41,14 +48,14 @@ export function ApiKeysSection({
   entitled,
   maxKeys,
 }: {
-  keys: ApiKey[];
+  keys: PublicApiKey[];
   entitled: boolean;
   maxKeys: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [pendingId, setPendingId] = useState<string | null>(null);
-  const [revokeTarget, setRevokeTarget] = useState<ApiKey | null>(null);
+  const [revokeTarget, setRevokeTarget] = useState<PublicApiKey | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [name, setName] = useState("");
   const [writeScope, setWriteScope] = useState(false);
