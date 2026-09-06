@@ -320,7 +320,14 @@ export type PublicRequestStatus = {
   equipment: { name: string; location: string | null };
   company: CompanyPublicProfile;
   assigned_to_name: string | null;
-  activity: { kind: RequestActivityKind; body: string | null; author_kind: ActorKind; created_at: string }[];
+  activity: {
+    kind: RequestActivityKind;
+    body: string | null;
+    author_kind: ActorKind;
+    created_at: string;
+    /** Migration 0021: the name a customer typed into the message composer. Only set on customer `message` rows. */
+    author_name?: string | null;
+  }[];
 };
 
 export type ServiceRequestMedia = {

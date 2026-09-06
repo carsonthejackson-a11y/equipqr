@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { MessageSquare, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -38,6 +38,8 @@ export function RequestFilters({ members }: { members: CompanyMember[] }) {
   const status = searchParams.get("status") ?? "open";
   const priority = searchParams.get("priority") ?? ALL_PRIORITIES;
   const assignee = searchParams.get("assignee") ?? ALL_ASSIGNEES;
+  // Next roadmap (two-way messaging): requests a customer has added a note to.
+  const hasMessages = searchParams.get("messages") === "1";
 
   // The page below passes `key={params.q ?? ""}` so browser back/forward (or
   // anything else that changes the URL's q param) remounts this component —
@@ -145,6 +147,20 @@ export function RequestFilters({ members }: { members: CompanyMember[] }) {
             ))}
           </SelectContent>
         </Select>
+
+        <button
+          type="button"
+          onClick={() => setParams({ messages: hasMessages ? null : "1" })}
+          className={cn(
+            "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+            hasMessages
+              ? "border-primary bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-accent"
+          )}
+        >
+          <MessageSquare className="size-3.5" />
+          Has customer messages
+        </button>
       </div>
     </div>
   );

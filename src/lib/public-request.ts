@@ -159,3 +159,49 @@ export function isOwnedUploadPath(storagePath: string, qrToken: string): boolean
 export function firstIssueMessage(error: z.ZodError): string {
   return error.issues[0]?.message ?? "Invalid request";
 }
+
+// ----------------------------------------------------------------------------
+// Two-way messaging — POST /api/request-updates (Next roadmap, migration 0019)
+// ----------------------------------------------------------------------------
+
+/** Mirrors the 2–2000 char check inside add_customer_request_update() so a bad length fails fast, client- and server-side, before the DB round trip. */
+export const MIN_MESSAGE_LENGTH = 2;
+export const MAX_MESSAGE_LENGTH = 2000;
+
+/**
+ * localStorage key for the name a customer typed into the /r/<token> message
+ * composer, remembered across visits so they don't retype it every time they
+ * check on a request. Not scoped to one token — the same person plausibly
+ * manages several units for the same site. Best effort only, like
+ * {@link openRequestStorageKey} above: the composer works fine with it empty.
+ */
+export function requestUpdateAuthorStorageKey(): string {
+  return "equipqr-request-update-author";
+}
+
+/**
+ * Validates the body of `POST /api/request-updates`. `website` is a honeypot:
+ * a hidden field real customers never see or fill in, so the route can
+ * report success without touching the database when it's non-empty rather
+ * than tipping off a bot that it was caught.
+ */
+export const requestUpdateSchema = z.object({
+  token: z.string().min(1).max(200),
+  body: z
+    .string()
+    .trim()
+    .min(MIN_MESSAGE_LENGTH, "Please write a bit more")
+    .max(MAX_MESSAGE_LENGTH, "That's too long — please shorten it"),
+  authorName: z.string().trim().min(1, "Please enter your name").max(120),
+  contactPhone: z.string().trim().max(40).optional().default(""),
+  contactEmail: z
+    .string()
+    .trim()
+    .max(200)
+    .refine((v) => v === "" || z.string().email().safeParse(v).success, "Enter a valid email address")
+    .optional()
+    .default(""),
+  website: z.string().max(200).optional().default(""),
+});
+
+export type RequestUpdateInput = z.infer<typeof requestUpdateSchema>;

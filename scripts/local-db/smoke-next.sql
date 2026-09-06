@@ -248,4 +248,17 @@ end $$;
 reset request.jwt.claim.sub;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- migration 0021: get_request_status() surfaces the customer message author
+-- ---------------------------------------------------------------------------
+do $$
+declare v json; msg_row json;
+begin
+  v := get_request_status(current_setting('smoke.tok'));
+  msg_row := (v->'activity')->1; -- index 0 is the "request received" system row
+  if msg_row->>'author_name' <> 'Alice' then
+    raise exception 'expected author_name Alice, got %', msg_row->>'author_name';
+  end if;
+end $$;
+
 select 'smoke-next OK' as result;

@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ExternalLink, Mail, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { BackLink } from "@/components/back-link";
 import { phoneHref } from "@/lib/branding";
 import { getRequestStatusUrl } from "@/lib/qr";
@@ -21,8 +20,7 @@ import { PriorityControl } from "./priority-control";
 import { AssigneeControl } from "./assignee-control";
 import { CloseRequestDialog } from "./close-request-dialog";
 import { MediaGallery } from "./media-gallery";
-import { ActivityFeed } from "./activity-feed";
-import { AddNoteForm } from "./add-note-form";
+import { ActivityPanel } from "./activity-panel";
 
 export default async function ServiceRequestDetailPage({
   params,
@@ -40,6 +38,20 @@ export default async function ServiceRequestDetailPage({
 
   if (!serviceRequest) {
     notFound();
+  }
+
+  // Zero the unread customer-message counter as soon as staff open this
+  // request. Deliberately an inline write before render rather than a
+  // useEffect + server action round trip: this route already runs
+  // server-side for every visit, RLS scopes the update to the caller's own
+  // company, and a failed best-effort update just means the badge stays lit
+  // a bit longer — nothing about the page itself depends on it succeeding.
+  if (serviceRequest.unread_customer_messages > 0) {
+    await supabase
+      .from("service_requests")
+      .update({ unread_customer_messages: 0 })
+      .eq("id", serviceRequest.id);
+    serviceRequest.unread_customer_messages = 0;
   }
 
   const [{ data: equipment }, { data: media }, { data: membersData }, { data: activity }, { data: customer }] =
@@ -203,10 +215,12 @@ export default async function ServiceRequestDetailPage({
             <CardHeader>
               <CardTitle>Activity</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <ActivityFeed items={activity ?? []} staffNameById={staffNameById} />
-              <Separator />
-              <AddNoteForm requestId={serviceRequest.id} />
+            <CardContent>
+              <ActivityPanel
+                items={activity ?? []}
+                staffNameById={staffNameById}
+                requestId={serviceRequest.id}
+              />
             </CardContent>
           </Card>
         </div>

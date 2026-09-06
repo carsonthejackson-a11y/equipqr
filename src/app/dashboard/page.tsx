@@ -58,6 +58,7 @@ export default async function DashboardOverviewPage() {
     { count: openRequestCount },
     { count: unassignedOpenCount },
     { count: urgentOpenCount },
+    { count: unreadMessagesCount },
     { count: customerCount },
     { count: scanCount },
     { count: guideStepCount },
@@ -82,6 +83,11 @@ export default async function DashboardOverviewPage() {
       .select("*", { count: "exact", head: true })
       .in("status", OPEN_REQUEST_STATUSES)
       .in("priority", ["high", "urgent"]),
+    // Next roadmap: two-way messaging unread counter (migration 0019).
+    supabase
+      .from("service_requests")
+      .select("*", { count: "exact", head: true })
+      .gt("unread_customer_messages", 0),
     supabase.from("customers").select("*", { count: "exact", head: true }),
     supabase.from("scan_events").select("*", { count: "exact", head: true }).gte("scanned_at", thirtyDaysAgoIso),
     supabase.from("guide_steps").select("*", { count: "exact", head: true }),
@@ -272,7 +278,7 @@ export default async function DashboardOverviewPage() {
               <CardTitle>Needs attention</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-2xl font-bold">{unassignedOpenCount ?? 0}</p>
                   <p className="text-xs text-muted-foreground">Unassigned</p>
@@ -280,6 +286,11 @@ export default async function DashboardOverviewPage() {
                 <div>
                   <p className="text-2xl font-bold">{urgentOpenCount ?? 0}</p>
                   <p className="text-xs text-muted-foreground">Urgent / high priority</p>
+                </div>
+                {/* Next roadmap: two-way messaging unread counter (append-only addition). */}
+                <div>
+                  <p className="text-2xl font-bold">{unreadMessagesCount ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">Unread messages</p>
                 </div>
               </div>
             </CardContent>
