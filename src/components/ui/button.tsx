@@ -1,3 +1,4 @@
+import * as React from "react"
 import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -40,16 +41,41 @@ const buttonVariants = cva(
   }
 )
 
+/**
+ * Base UI's Button defaults `nativeButton` to `true` and logs a dev error when
+ * the element supplied through `render` is not a real `<button>` (and the
+ * mirror error when `nativeButton` is `false` but a `<button>` is rendered).
+ * Infer the right value for the cases we can identify from the element alone:
+ *
+ * - an intrinsic element (`<a>`, `<div>`, `<span>`, …) is native only if it is
+ *   literally `<button>`;
+ * - a component carrying an `href` (Next `<Link>`) renders an anchor.
+ *
+ * Any other component (e.g. a Base UI trigger that itself renders a `<button>`)
+ * keeps Base UI's default. An explicit `nativeButton` prop always wins.
+ */
+function inferNativeButton(render: ButtonPrimitive.Props["render"]): boolean | undefined {
+  if (!React.isValidElement(render)) return undefined
+  if (typeof render.type === "string") return render.type === "button"
+  const props = render.props as Record<string, unknown> | null
+  if (props && "href" in props) return false
+  return undefined
+}
+
 function Button({
   className,
   variant = "default",
   size = "default",
+  nativeButton,
+  render,
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
     <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
+      render={render}
+      nativeButton={nativeButton ?? inferNativeButton(render)}
       {...props}
     />
   )
