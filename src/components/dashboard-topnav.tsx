@@ -13,7 +13,7 @@ export function DashboardTopNav({ isAdmin = false, role }: { isAdmin?: boolean; 
   const links = isAdmin && FEATURES.batchQr ? [...visibleLinks, adminNavLink] : visibleLinks;
 
   return (
-    <nav className="flex gap-1.5 overflow-x-auto border-b bg-muted/20 px-4 py-2 print:hidden md:hidden">
+    <nav className="flex gap-1.5 overflow-x-auto border-b bg-muted/20 px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden print:hidden md:hidden">
       {links.map(({ href, label, icon: Icon }) => {
         const active = isNavLinkActive(pathname, href);
         return (

@@ -130,7 +130,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
         <SignOutButton />
       </aside>
-      <div className="flex-1">
+      <div className="min-w-0 flex-1">
         <header className="flex items-center justify-between border-b p-4 md:hidden print:hidden">
           <div className="flex items-center gap-2">
             <LogoMark className="size-7" />
