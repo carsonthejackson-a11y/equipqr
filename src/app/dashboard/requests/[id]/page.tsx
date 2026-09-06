@@ -1,12 +1,16 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ExternalLink, Mail, Phone } from "lucide-react";
+import { CalendarClock, ExternalLink, Mail, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { BackLink } from "@/components/back-link";
 import { phoneHref } from "@/lib/branding";
 import { getRequestStatusUrl } from "@/lib/qr";
+import { formatZonedDateTime, isPastVisit } from "@/lib/scheduling";
+import { formatRelativeTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type {
   CompanyMember,
   Customer,
@@ -23,6 +27,9 @@ import { CloseRequestDialog } from "./close-request-dialog";
 import { MediaGallery } from "./media-gallery";
 import { ActivityFeed } from "./activity-feed";
 import { AddNoteForm } from "./add-note-form";
+import { VisitControls } from "./visit-controls";
+import { MarkCustomerMessagesRead } from "./mark-read";
+import { hasUnreadCustomerMessage } from "../unread";
 
 export default async function ServiceRequestDetailPage({
   params,
@@ -31,6 +38,8 @@ export default async function ServiceRequestDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  // The company row carries the timezone every scheduled_for display needs.
+  const { company } = await getCurrentProfile();
 
   const { data: serviceRequest } = await supabase
     .from("service_requests")
@@ -76,8 +85,18 @@ export default async function ServiceRequestDetailPage({
     (members ?? []).map((m) => [m.id, m.full_name?.trim() || m.email] as const)
   );
 
+  const timezone = company.timezone;
+  const scheduledFor = serviceRequest.scheduled_for;
+  const visitIsPast = scheduledFor ? isPastVisit(scheduledFor) : false;
+
   return (
     <div className="space-y-6">
+      {/* Server components can't write during render; this client stub stamps
+          customer_messages_read_at from an effect while there's an unread reply. */}
+      {hasUnreadCustomerMessage(serviceRequest) && serviceRequest.last_customer_message_at && (
+        <MarkCustomerMessagesRead requestId={serviceRequest.id} seenAt={serviceRequest.last_customer_message_at} />
+      )}
+
       <BackLink href="/dashboard/requests" label="Back to requests" />
 
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -97,7 +116,12 @@ export default async function ServiceRequestDetailPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <PriorityControl requestId={serviceRequest.id} priority={serviceRequest.priority} />
-          <StatusControl requestId={serviceRequest.id} status={serviceRequest.status} />
+          <StatusControl
+            requestId={serviceRequest.id}
+            status={serviceRequest.status}
+            timezone={timezone}
+            scheduledFor={scheduledFor}
+          />
           <AssigneeControl
             requestId={serviceRequest.id}
             assignedTo={serviceRequest.assigned_to}
@@ -189,7 +213,11 @@ export default async function ServiceRequestDetailPage({
               <CardTitle>Activity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <ActivityFeed items={activity ?? []} staffNameById={staffNameById} />
+              <ActivityFeed
+                items={activity ?? []}
+                staffNameById={staffNameById}
+                customerName={serviceRequest.contact_name}
+              />
               <Separator />
               <AddNoteForm requestId={serviceRequest.id} />
             </CardContent>
@@ -197,6 +225,35 @@ export default async function ServiceRequestDetailPage({
         </div>
 
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-1.5">
+                <CalendarClock className="size-4 text-muted-foreground" />
+                Visit
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {scheduledFor ? (
+                <div>
+                  <p className={cn("font-medium", visitIsPast && "text-muted-foreground line-through decoration-muted-foreground/50")}>
+                    {formatZonedDateTime(scheduledFor, timezone, { withYear: true })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {visitIsPast ? `Past — was ${formatRelativeTime(scheduledFor)}` : formatRelativeTime(scheduledFor)}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-muted-foreground">No visit scheduled.</p>
+              )}
+              <VisitControls
+                requestId={serviceRequest.id}
+                timezone={timezone}
+                scheduledFor={scheduledFor}
+                status={serviceRequest.status}
+              />
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Equipment</CardTitle>

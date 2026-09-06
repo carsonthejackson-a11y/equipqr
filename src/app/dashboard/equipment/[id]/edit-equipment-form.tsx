@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarClock, ShieldCheck, Wrench } from "lucide-react";
+import { CalendarClock, CalendarRange, ShieldCheck, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,9 +18,17 @@ import {
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/format";
-import { formatWarranty, warrantyState } from "@/lib/equipment";
-import type { Customer, Equipment, EquipmentType } from "@/lib/types";
+import {
+  MAX_SERVICE_INTERVAL_DAYS,
+  MIN_SERVICE_INTERVAL_DAYS,
+  formatNextService,
+  formatWarranty,
+  pmState,
+  warrantyState,
+} from "@/lib/equipment";
+import type { Customer, Equipment, EquipmentCustomField, EquipmentType } from "@/lib/types";
 import { deleteEquipment, updateEquipment } from "../actions";
+import { CustomFieldsInputs } from "../custom-fields-inputs";
 
 const statusItems = Object.fromEntries(Object.entries(EQUIPMENT_STATUS_LABELS));
 
@@ -28,11 +36,14 @@ export function EditEquipmentForm({
   equipment,
   equipmentTypes,
   customers,
+  customFields,
   canDelete,
 }: {
   equipment: Equipment;
   equipmentTypes: EquipmentType[];
   customers: Customer[];
+  /** The company's field definitions (Settings → Custom fields), in display order. */
+  customFields: EquipmentCustomField[];
   /** Owners only — technicians can edit every field but not remove the unit. */
   canDelete: boolean;
 }) {
@@ -44,6 +55,9 @@ export function EditEquipmentForm({
   const [address, setAddress] = useState(equipment.address ?? "");
   const [contactName, setContactName] = useState(equipment.contact_name ?? "");
   const [contactPhone, setContactPhone] = useState(equipment.contact_phone ?? "");
+  const [intervalDays, setIntervalDays] = useState(
+    equipment.service_interval_days === null ? "" : String(equipment.service_interval_days)
+  );
 
   function handleCustomerChange(value: string | null) {
     setCustomerId(value ?? "");
@@ -82,6 +96,11 @@ export function EditEquipmentForm({
 
   const warranty = warrantyState(equipment.warranty_ends_on);
   const warrantyLabel = formatWarranty(equipment.warranty_ends_on);
+  const pm = pmState(equipment.next_service_due_on);
+  const nextServiceLabel = formatNextService(equipment.next_service_due_on);
+  // Typed into the box, not what's saved: the due-date input swaps to
+  // read-only the moment an interval is entered, before anyone hits Save.
+  const onInterval = intervalDays.trim() !== "";
 
   return (
     <form action={handleSave} className="max-w-xl space-y-4">
@@ -114,6 +133,24 @@ export function EditEquipmentForm({
             )}
           >
             {warrantyLabel ?? <span className="text-muted-foreground">Warranty: not set</span>}
+          </span>
+        </div>
+        <div className="flex items-start gap-2 text-sm sm:col-span-2">
+          <CalendarRange
+            className={cn(
+              "mt-0.5 size-4 shrink-0",
+              pm.state === "overdue" ? "text-destructive" : "text-muted-foreground"
+            )}
+          />
+          <span
+            className={cn(
+              pm.state === "none" && "text-muted-foreground",
+              pm.state === "overdue" && "text-destructive",
+              pm.state === "due_soon" && "text-amber-700 dark:text-amber-400"
+            )}
+            title={equipment.next_service_due_on ?? undefined}
+          >
+            {nextServiceLabel}
           </span>
         </div>
       </div>
@@ -204,6 +241,55 @@ export function EditEquipmentForm({
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="serviceIntervalDays">Service every N days</Label>
+          <Input
+            id="serviceIntervalDays"
+            name="serviceIntervalDays"
+            type="number"
+            inputMode="numeric"
+            min={MIN_SERVICE_INTERVAL_DAYS}
+            max={MAX_SERVICE_INTERVAL_DAYS}
+            step={1}
+            placeholder="e.g. 90"
+            value={intervalDays}
+            onChange={(e) => setIntervalDays(e.target.value)}
+          />
+          <p className="text-sm text-muted-foreground">
+            Leave blank if this unit isn&apos;t on a maintenance schedule.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="nextServiceDueOn">Next service due</Label>
+          {onInterval ? (
+            <>
+              {/* No `name`: on an interval the server never receives a due date —
+                  the DB trigger computes it from the last service date. */}
+              <Input
+                id="nextServiceDueOn"
+                type="date"
+                value={equipment.next_service_due_on ?? ""}
+                readOnly
+                aria-readonly
+                className="bg-muted/50"
+              />
+              <p className="text-sm text-muted-foreground">Computed from the last service date.</p>
+            </>
+          ) : (
+            <Input
+              id="nextServiceDueOn"
+              name="nextServiceDueOn"
+              type="date"
+              // Clearing the interval turns the computed date into a hand-set
+              // one, so it carries over instead of silently dropping the unit
+              // off every maintenance view.
+              defaultValue={equipment.next_service_due_on ?? ""}
+            />
+          )}
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="customerId">Customer</Label>
         <Select
@@ -260,6 +346,13 @@ export function EditEquipmentForm({
           />
         </div>
       </div>
+
+      {customFields.length > 0 && (
+        <fieldset className="space-y-4 rounded-lg border p-3">
+          <legend className="px-1 text-sm font-medium">Custom fields</legend>
+          <CustomFieldsInputs definitions={customFields} values={equipment.custom_fields} />
+        </fieldset>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>

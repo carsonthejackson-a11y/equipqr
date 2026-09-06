@@ -31,7 +31,7 @@ export function AddNoteForm({ requestId }: { requestId: string }) {
       return;
     }
 
-    toast.success(visibleToCustomer ? "Note added and emailed to the customer" : "Note added");
+    toast.success(visibleToCustomer ? "Reply sent to the customer" : "Note added");
     setBody("");
     setVisibleToCustomer(false);
     router.refresh();
@@ -44,7 +44,7 @@ export function AddNoteForm({ requestId }: { requestId: string }) {
         rows={3}
         value={body}
         onChange={(e) => setBody(e.target.value)}
-        placeholder="Add a note…"
+        placeholder={visibleToCustomer ? "Write a reply to the customer…" : "Add a note…"}
       />
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -58,7 +58,7 @@ export function AddNoteForm({ requestId }: { requestId: string }) {
           </Label>
         </div>
         <Button type="submit" size="sm" disabled={submitting || !body.trim()}>
-          {submitting ? "Saving…" : "Add note"}
+          {submitting ? (visibleToCustomer ? "Sending…" : "Saving…") : visibleToCustomer ? "Reply" : "Add note"}
         </Button>
       </div>
     </form>

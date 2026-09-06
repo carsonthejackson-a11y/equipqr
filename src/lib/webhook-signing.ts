@@ -122,14 +122,22 @@ export function webhookUrlError(raw: string): string | null {
   if (url.protocol !== "https:") return "Webhook URLs must use https://";
   if (url.username || url.password) return "Don't put credentials in the URL — use the signing secret instead";
   const host = url.hostname.toLowerCase();
+  // IPv6 literals of any kind: the mapped/ULA/link-local forms are all ways
+  // to spell an internal address, and no real webhook receiver is addressed
+  // by a raw v6 literal. Hostnames only — a literal v4 is checked below.
+  if (host.startsWith("[")) {
+    return "Use a hostname, not an IPv6 address";
+  }
   if (
     host === "localhost" ||
     host.endsWith(".localhost") ||
     host.endsWith(".local") ||
     host.endsWith(".internal") ||
+    // The URL parser normalises 0x7f000001 / 2130706433 / 127.1 to dotted
+    // quads, so matching the canonical spellings covers the exotic ones.
     /^(127\.|10\.|0\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host) ||
-    host === "[::1]" ||
-    host === "::1"
+    // Carrier-grade NAT range — private in every cloud that uses it.
+    /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host)
   ) {
     return "That host isn't reachable from EquipQR's servers";
   }

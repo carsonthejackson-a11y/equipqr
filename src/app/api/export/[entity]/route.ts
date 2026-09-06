@@ -3,11 +3,13 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getEntitlements, hasFeature } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { csvFilename, toCsv, type CsvColumn } from "@/lib/csv-export";
+import { formatCustomFieldValue } from "@/lib/custom-fields";
 import { formatShortCode } from "@/lib/qr";
 import { isExportEntity } from "@/app/dashboard/settings/api/export-entities";
 import type {
   Customer,
   Equipment,
+  EquipmentCustomField,
   EquipmentType,
   Profile,
   QrCode,
@@ -69,22 +71,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 async function exportEquipment(supabase: SupabaseServerClient, companyId: string): Promise<string> {
-  const [{ data: equipment }, { data: types }, { data: customers }, { data: codes }] = await Promise.all([
-    supabase
-      .from("equipment")
-      .select("*")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false })
-      .returns<Equipment[]>(),
-    supabase.from("equipment_types").select("*").eq("company_id", companyId).returns<EquipmentType[]>(),
-    supabase.from("customers").select("*").eq("company_id", companyId).returns<Customer[]>(),
-    supabase
-      .from("qr_codes")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("status", "active")
-      .returns<QrCode[]>(),
-  ]);
+  const [{ data: equipment }, { data: types }, { data: customers }, { data: codes }, { data: customFields }] =
+    await Promise.all([
+      supabase
+        .from("equipment")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .returns<Equipment[]>(),
+      supabase.from("equipment_types").select("*").eq("company_id", companyId).returns<EquipmentType[]>(),
+      supabase.from("customers").select("*").eq("company_id", companyId).returns<Customer[]>(),
+      supabase
+        .from("qr_codes")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("status", "active")
+        .returns<QrCode[]>(),
+      supabase
+        .from("equipment_custom_fields")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("sort_order")
+        .order("created_at")
+        .returns<EquipmentCustomField[]>(),
+    ]);
 
   const typeById = new Map((types ?? []).map((t) => [t.id, t]));
   const customerById = new Map((customers ?? []).map((c) => [c.id, c]));
@@ -111,8 +121,18 @@ async function exportEquipment(supabase: SupabaseServerClient, companyId: string
     { header: "install_date", value: (r) => r.install_date },
     { header: "warranty_ends_on", value: (r) => r.warranty_ends_on },
     { header: "last_serviced_at", value: (r) => r.last_serviced_at },
+    { header: "service_interval_days", value: (r) => r.service_interval_days },
     { header: "next_service_due_on", value: (r) => r.next_service_due_on },
     { header: "notes", value: (r) => r.notes },
+    // One column per custom field definition, headed by its label, in the
+    // owner's order. Values render the way the detail page shows them
+    // (booleans as Yes/No); a unit without a value gets an empty cell.
+    ...(customFields ?? []).map(
+      (def): CsvColumn<Row> => ({
+        header: def.label,
+        value: (r) => formatCustomFieldValue(def, r.custom_fields?.[def.key]),
+      })
+    ),
     { header: "created_at", value: (r) => r.created_at },
     { header: "updated_at", value: (r) => r.updated_at },
   ];

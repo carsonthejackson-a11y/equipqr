@@ -10,15 +10,20 @@ import { requireOwner } from "@/lib/auth";
 import {
   MAX_DOCUMENT_BYTES,
   MAX_NOTE_LENGTH,
+  MAX_SERVICE_INTERVAL_DAYS,
+  MIN_SERVICE_INTERVAL_DAYS,
   diffEquipment,
   equipmentUpdateSummary,
   isAllowedDocumentType,
   isEquipmentStatus,
+  parseDateOnly,
+  parseServiceInterval,
   statusChangeSummary,
   type EquipmentPatch,
 } from "@/lib/equipment";
+import { customFieldsDiff, parseCustomFieldValues } from "@/lib/custom-fields";
 import { formatBytes } from "@/lib/format";
-import type { Equipment, EquipmentDocument, EquipmentStatus } from "@/lib/types";
+import type { Equipment, EquipmentCustomField, EquipmentDocument, EquipmentStatus } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -59,9 +64,33 @@ function statusFrom(formData: FormData, fallback: EquipmentStatus = "active"): E
   return isEquipmentStatus(raw) ? raw : fallback;
 }
 
-/** Reads the whole writable slice of an equipment row out of a submitted form. */
-function patchFromForm(formData: FormData, fallbackStatus?: EquipmentStatus): EquipmentPatch {
-  return {
+/**
+ * Reads the whole writable slice of an equipment row out of a submitted form.
+ * Returns an `{ error }` for a value the DB would reject anyway, but with
+ * words a person can act on.
+ */
+function patchFromForm(
+  formData: FormData,
+  fallbackStatus?: EquipmentStatus
+): { ok: true; patch: EquipmentPatch } | { ok: false; error: string } {
+  const interval = parseServiceInterval(text(formData, "serviceIntervalDays"));
+  if (!interval.ok) {
+    return {
+      ok: false,
+      error: `Service interval must be a whole number of days between ${MIN_SERVICE_INTERVAL_DAYS} and ${MAX_SERVICE_INTERVAL_DAYS}.`,
+    };
+  }
+
+  // A hand-set due date only means something without an interval — with one,
+  // the DB trigger owns next_service_due_on and the form shows it read-only.
+  // The value is still carried on the patch so diffEquipment() can compare;
+  // dbWritable() strips it before the write.
+  const nextServiceDueOn = interval.value === null ? nullable(formData, "nextServiceDueOn") : null;
+  if (nextServiceDueOn && parseDateOnly(nextServiceDueOn) === null) {
+    return { ok: false, error: "Next service date must be a valid date." };
+  }
+
+  const patch: EquipmentPatch = {
     name: text(formData, "name"),
     equipment_type_id: text(formData, "equipmentTypeId"),
     customer_id: nullable(formData, "customerId"),
@@ -76,7 +105,33 @@ function patchFromForm(formData: FormData, fallbackStatus?: EquipmentStatus): Eq
     warranty_ends_on: nullable(formData, "warrantyEndsOn"),
     status: statusFrom(formData, fallbackStatus),
     notes: nullable(formData, "notes"),
+    service_interval_days: interval.value,
+    next_service_due_on: nextServiceDueOn,
   };
+  return { ok: true, patch };
+}
+
+/**
+ * The columns to actually send. When a unit is on an interval the trigger
+ * from 0019 computes next_service_due_on from the last service date, so
+ * sending our stale copy would only fight it.
+ */
+function dbWritable(patch: EquipmentPatch): Omit<EquipmentPatch, "next_service_due_on"> | EquipmentPatch {
+  if (patch.service_interval_days === null) return patch;
+  const { next_service_due_on: _ignored, ...rest } = patch;
+  void _ignored;
+  return rest;
+}
+
+/** The company's field definitions, in the order the form shows them. RLS scopes this to the caller. */
+async function loadCustomFieldDefinitions(supabase: Supabase): Promise<EquipmentCustomField[]> {
+  const { data } = await supabase
+    .from("equipment_custom_fields")
+    .select("*")
+    .order("sort_order")
+    .order("created_at")
+    .returns<EquipmentCustomField[]>();
+  return data ?? [];
 }
 
 async function assignCode(
@@ -112,7 +167,11 @@ export async function createEquipment(
   | { error: string; id?: undefined; codeError?: undefined }
   | { id: string; codeError: string | null; error?: undefined }
 > {
-  const patch = patchFromForm(formData);
+  const parsed = patchFromForm(formData);
+  if (!parsed.ok) {
+    return { error: parsed.error };
+  }
+  const { patch } = parsed;
 
   if (!patch.name || !patch.equipment_type_id) {
     return { error: "Name and equipment type are required" };
@@ -129,9 +188,15 @@ export async function createEquipment(
     return { error: "No company found for this account" };
   }
 
+  const definitions = await loadCustomFieldDefinitions(supabase);
+  const customFields = parseCustomFieldValues(definitions, formData);
+  if (customFields.errors.length > 0) {
+    return { error: customFields.errors[0] };
+  }
+
   const { data, error } = await supabase
     .from("equipment")
-    .insert({ company_id: staff.companyId, ...patch })
+    .insert({ company_id: staff.companyId, ...dbWritable(patch), custom_fields: customFields.values })
     .select("id")
     .single<{ id: string }>();
 
@@ -172,27 +237,51 @@ export async function updateEquipment(id: string, formData: FormData) {
     return { error: "Equipment not found" };
   }
 
-  const patch = patchFromForm(formData, existing.status);
+  const parsed = patchFromForm(formData, existing.status);
+  if (!parsed.ok) {
+    return { error: parsed.error };
+  }
+  const { patch } = parsed;
 
   if (!patch.name || !patch.equipment_type_id) {
     return { error: "Name and equipment type are required" };
   }
 
-  const { error } = await supabase.from("equipment").update(patch).eq("id", id);
+  const definitions = await loadCustomFieldDefinitions(supabase);
+  const customFields = parseCustomFieldValues(definitions, formData);
+  if (customFields.errors.length > 0) {
+    return { error: customFields.errors[0] };
+  }
+
+  // Replace, don't merge: every defined key was just parsed, and deleting a
+  // definition already stripped its key from every row — so a merge would
+  // only ever resurrect values nobody can see or edit any more.
+  const { error } = await supabase
+    .from("equipment")
+    .update({ ...dbWritable(patch), custom_fields: customFields.values })
+    .eq("id", id);
 
   if (error) {
     return { error: error.message };
   }
 
-  const changed = diffEquipment(existing, patch);
+  // On an interval the due date is the trigger's, not the form's — compare
+  // against what the row already had so the diff doesn't report a phantom
+  // change every save.
+  const changed = diffEquipment(existing, {
+    ...patch,
+    next_service_due_on:
+      patch.service_interval_days === null ? patch.next_service_due_on : existing.next_service_due_on,
+  });
+  const changedCustom = customFieldsDiff(definitions, existing.custom_fields, customFields.values);
 
-  if (changed.length > 0) {
+  if (changed.length > 0 || changedCustom.length > 0) {
     await emitEquipmentEvent(supabase, {
       companyId: existing.company_id,
       equipmentId: id,
       kind: "equipment_updated",
-      summary: equipmentUpdateSummary(changed),
-      details: { fields: changed },
+      summary: equipmentUpdateSummary(changed, changedCustom),
+      details: { fields: changed, custom_fields: changedCustom },
       actorUserId: staff.userId,
     });
 

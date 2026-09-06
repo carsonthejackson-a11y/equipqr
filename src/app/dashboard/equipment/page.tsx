@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, HardHat, Upload } from "lucide-react";
+import { AlertTriangle, CalendarRange, HardHat, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,11 +15,18 @@ import { EmptyState } from "@/components/empty-state";
 import { EquipmentStatusBadge } from "@/components/status-badge";
 import { NewEquipmentDialog } from "./new-equipment-dialog";
 import { EquipmentFilters } from "./equipment-filters";
-import type { Customer, Equipment, EquipmentType } from "@/lib/types";
+import type { Customer, Equipment, EquipmentCustomField, EquipmentType } from "@/lib/types";
 import { getEntitlements, hasFeature } from "@/lib/billing";
 import { FEATURES } from "@/lib/features";
 import { formatRelativeTime } from "@/lib/format";
-import { WARRANTY_SOON_DAYS, isEquipmentStatus, warrantyState } from "@/lib/equipment";
+import {
+  PM_DUE_SOON_DAYS,
+  WARRANTY_SOON_DAYS,
+  isEquipmentStatus,
+  pmState,
+  warrantyState,
+} from "@/lib/equipment";
+import { isPmFilter, pmFilterRange } from "@/lib/pm-reminders";
 import { getCurrentProfile } from "@/lib/auth";
 
 /** Rows per page. Big enough that most companies never paginate, small enough to stay fast. */
@@ -58,6 +65,7 @@ export default async function EquipmentPage({
     type?: string;
     customer?: string;
     status?: string;
+    pm?: string;
     page?: string;
   }>;
 }) {
@@ -66,6 +74,8 @@ export default async function EquipmentPage({
   const typeFilter = raw.type && raw.type !== "all" ? raw.type : "";
   const customerFilter = raw.customer && raw.customer !== "all" ? raw.customer : "";
   const statusFilter = raw.status && isEquipmentStatus(raw.status) ? raw.status : "";
+  const pmFilter = isPmFilter(raw.pm) && raw.pm !== "any" ? raw.pm : "";
+  const pmRange = pmFilterRange(pmFilter);
   const page = Math.max(1, Number.parseInt(raw.page ?? "1", 10) || 1);
 
   const supabase = await createClient();
@@ -81,17 +91,32 @@ export default async function EquipmentPage({
   if (typeFilter) query = query.eq("equipment_type_id", typeFilter);
   if (customerFilter) query = query.eq("customer_id", customerFilter);
   if (statusFilter) query = query.eq("status", statusFilter);
+  // The maintenance window is a date comparison in SQL (a lte/gte on the
+  // indexed column), never a scan of the page in TS — see pmFilterRange().
+  // The overview card excludes retired units from its counts; the list it
+  // links to has to agree, or "3 overdue" opens a page with four rows.
+  if (pmFilter && pmFilter !== "none" && !statusFilter) query = query.neq("status", "retired");
+  if (pmRange?.isNull) query = query.is("next_service_due_on", null);
+  if (pmRange?.lte) query = query.lte("next_service_due_on", pmRange.lte);
+  if (pmRange?.gte) query = query.gte("next_service_due_on", pmRange.gte);
 
   const [
     { data: equipment, count },
     { data: equipmentTypes },
     { data: customers },
+    { data: customFields },
     entitlements,
     { profile },
   ] = await Promise.all([
     query.returns<Equipment[]>(),
     supabase.from("equipment_types").select("*").order("name").returns<EquipmentType[]>(),
     supabase.from("customers").select("*").order("name").returns<Customer[]>(),
+    supabase
+      .from("equipment_custom_fields")
+      .select("*")
+      .order("sort_order")
+      .order("created_at")
+      .returns<EquipmentCustomField[]>(),
     getEntitlements(),
     getCurrentProfile(),
   ]);
@@ -102,7 +127,7 @@ export default async function EquipmentPage({
 
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const hasFilters = !!(q || typeFilter || customerFilter || statusFilter);
+  const hasFilters = !!(q || typeFilter || customerFilter || statusFilter || pmFilter);
   const noTypes = !equipmentTypes || equipmentTypes.length === 0;
 
   const currentParams = new URLSearchParams();
@@ -110,6 +135,7 @@ export default async function EquipmentPage({
   if (typeFilter) currentParams.set("type", typeFilter);
   if (customerFilter) currentParams.set("customer", customerFilter);
   if (statusFilter) currentParams.set("status", statusFilter);
+  if (pmFilter) currentParams.set("pm", pmFilter);
 
   return (
     <div className="space-y-6">
@@ -137,6 +163,7 @@ export default async function EquipmentPage({
           <NewEquipmentDialog
             equipmentTypes={equipmentTypes ?? []}
             customers={customers ?? []}
+            customFields={customFields ?? []}
             batchQrEnabled={batchQrEnabled}
           />
         </div>
@@ -147,7 +174,7 @@ export default async function EquipmentPage({
       ) : (
         <>
           <EquipmentFilters
-            values={{ q, type: typeFilter, customer: customerFilter, status: statusFilter }}
+            values={{ q, type: typeFilter, customer: customerFilter, status: statusFilter, pm: pmFilter }}
             equipmentTypes={equipmentTypes ?? []}
             customers={customers ?? []}
           />
@@ -178,6 +205,7 @@ export default async function EquipmentPage({
                   <TableBody>
                     {equipment.map((item) => {
                       const warranty = warrantyState(item.warranty_ends_on);
+                      const pm = pmState(item.next_service_due_on);
                       const makeModel = [item.make, item.model].filter(Boolean).join(" ");
 
                       return (
@@ -210,6 +238,23 @@ export default async function EquipmentPage({
                                   {warranty.state === "expired"
                                     ? "Warranty expired"
                                     : `Warranty ≤${WARRANTY_SOON_DAYS}d`}
+                                </span>
+                              )}
+                              {(pm.state === "overdue" || pm.state === "due_soon") && (
+                                <span
+                                  className={
+                                    pm.state === "overdue"
+                                      ? "inline-flex items-center gap-1 text-xs text-destructive"
+                                      : "inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400"
+                                  }
+                                  title={
+                                    pm.state === "overdue"
+                                      ? `Service overdue by ${pm.days} days (due ${item.next_service_due_on})`
+                                      : `Service due in ${pm.days} days (${item.next_service_due_on})`
+                                  }
+                                >
+                                  <CalendarRange className="size-3.5" />
+                                  {pm.state === "overdue" ? "Service overdue" : `Service ≤${PM_DUE_SOON_DAYS}d`}
                                 </span>
                               )}
                             </div>

@@ -182,9 +182,33 @@ an unknown `/e/[qrToken]`, and `/api/health`. It never creates data.
   corresponding Vercel environment variable and redeploy. Supabase anon-key rotation also
   invalidates existing sessions — expect users to be signed out.
 - **Incidents**: see `docs/RUNBOOK.md`.
+- **PM reminders**: set "Service every N days" on a unit and the DB keeps `next_service_due_on`
+  in step with its last service; the list's Maintenance filter (`?pm=overdue|due_soon|...`) and
+  the overview "Maintenance due" card surface what's coming up, and the daily
+  `GET /api/cron/pm-reminders` (Vercel Cron, `CRON_SECRET`) appends a `pm_due` timeline event and
+  emails one digest per company to its notification address — once per due date.
+- **Custom fields**: owners define up to 20 extra equipment fields (text / number / date /
+  dropdown / yes-no) under `/dashboard/settings/custom-fields`; they appear on the equipment form,
+  the detail header, the equipment CSV export/import (`cf:<key>` columns) and `custom_fields` in
+  the v1 API, and — when flagged — on the public scan page.
 - **Data export & API access** (Business plan): CSV export at `/api/export/[entity]`
   (session-authenticated, from `/dashboard/settings/api`) and a public v1 REST API at
   `/api/v1/*` authenticated with per-company API keys — see `docs/API.md`.
+- **Outbound webhooks** (Business plan): owners register https endpoints under
+  `/dashboard/settings/api`; equipment and request changes are queued in `webhook_deliveries`
+  and POSTed with an HMAC `X-EquipQR-Signature`, retried (1m/5m/30m/2h), and drained by
+  `/api/cron/webhooks` every 5 minutes (needs `CRON_SECRET` + `SUPABASE_SERVICE_ROLE_KEY`) —
+  event catalogue and verification snippet in `docs/API.md` "Webhooks".
+- **Scheduling-lite**: staff book, reschedule, or clear a visit on a request in the company's
+  timezone (`companies.timezone`, helpers in `src/lib/scheduling.ts`); the customer sees it on
+  `/r/<token>` and in the status email, the unit's timeline gets a `visit_scheduled` event, and
+  the overview lists upcoming visits.
+- **Customer replies**: the public status page `/r/<token>` has a reply box that posts to
+  `POST /api/request-messages` (RPC `add_request_customer_message`, rate-limited per IP and
+  per token); staff get a "Customer replied" email at the company's notification address and,
+  when the request is assigned, at the assignee's address. Replies land in the request's
+  activity feed with an unread indicator and a "Customer replied" filter in the inbox. Replies
+  close once a request has been canceled or resolved for more than 14 days.
 
 ## Contributing
 

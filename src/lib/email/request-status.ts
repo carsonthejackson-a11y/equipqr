@@ -4,6 +4,7 @@ import { renderEmail, renderEmailText, escapeHtml, type EmailBrand } from "./lay
 import { sendEmail } from "./send";
 import { resolveBranding } from "@/lib/branding";
 import { getRequestStatusUrl } from "@/lib/qr";
+import { formatZonedDateTime } from "@/lib/scheduling";
 import { emitRequestActivity } from "@/lib/events";
 import { REQUEST_STATUS_LABELS } from "@/components/status-badge";
 import type { CompanyPublicProfile, RequestStatus, ServiceRequest } from "@/lib/types";
@@ -80,6 +81,7 @@ export function buildRequestStatusUpdateEmail({
   statusUrl,
   note,
   scheduledFor,
+  timezone,
 }: {
   brand: RequestEmailBranding;
   equipmentName: string;
@@ -90,11 +92,17 @@ export function buildRequestStatusUpdateEmail({
   note?: string | null;
   /** ISO timestamp of a scheduled visit, if any. */
   scheduledFor?: string | null;
+  /**
+   * IANA zone the visit time is rendered in (companies.timezone). The app
+   * runs on UTC servers, so without this a 2:30 PM Chicago visit would read
+   * as 7:30 PM. Falls back to UTC when omitted so older callers keep working.
+   */
+  timezone?: string | null;
 }): { subject: string; html: string; text: string } {
   const label = REQUEST_STATUS_LABELS[status];
   const subject = `${equipmentName}: ${label.toLowerCase()}`;
   const greeting = contactName ? `Hi ${escapeHtml(contactName)},` : "Hi there,";
-  const when = scheduledFor ? new Date(scheduledFor).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" }) : null;
+  const when = scheduledFor ? formatZonedDateTime(scheduledFor, timezone || "UTC", { withYear: true }) || null : null;
 
   const statusLine: Record<RequestStatus, string> = {
     new: "Your request is in the queue.",
@@ -144,7 +152,7 @@ export async function notifyRequesterOfStatus(
     request: Pick<ServiceRequest, "id" | "company_id" | "contact_name" | "contact_email" | "public_token" | "scheduled_for">;
     status: RequestStatus;
     equipmentName: string;
-    company: CompanyPublicProfile & { customer_updates_enabled: boolean };
+    company: CompanyPublicProfile & { customer_updates_enabled: boolean; timezone?: string | null };
     planId: PlanId | null | undefined;
     supabaseUrl: string;
     note?: string | null;
@@ -164,6 +172,7 @@ export async function notifyRequesterOfStatus(
       statusUrl: getRequestStatusUrl(request.public_token),
       note: params.note,
       scheduledFor: request.scheduled_for,
+      timezone: company.timezone,
     });
 
     const sent = await sendEmail({ to: request.contact_email, subject, html, text });

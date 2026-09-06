@@ -5,11 +5,14 @@ import {
   daysUntilDate,
   diffEquipment,
   equipmentUpdateSummary,
+  formatNextService,
   formatWarranty,
   isAllowedDocumentType,
   normalizeDateInput,
   parseDateOnly,
   parseEquipmentStatus,
+  parseServiceInterval,
+  pmState,
   statusChangeSummary,
   warrantyState,
   type EquipmentPatch,
@@ -30,6 +33,8 @@ const base: EquipmentPatch = {
   warranty_ends_on: "2029-03-18",
   status: "active",
   notes: null,
+  service_interval_days: null,
+  next_service_due_on: null,
 };
 
 describe("diffEquipment", () => {
@@ -66,12 +71,68 @@ describe("equipmentUpdateSummary", () => {
 
   it("falls back when the diff is empty", () => {
     expect(equipmentUpdateSummary([])).toBe("Details updated");
+    expect(equipmentUpdateSummary([], [])).toBe("Details updated");
+  });
+
+  it("appends custom field labels after the column labels", () => {
+    expect(equipmentUpdateSummary(["make"], ["Filter size"])).toBe("Updated make and Filter size");
+    expect(equipmentUpdateSummary([], ["Filter size", "Asset tag"])).toBe("Updated Filter size and Asset tag");
   });
 
   it("uses human labels, not column names", () => {
     expect(equipmentUpdateSummary(["equipment_type_id", "warranty_ends_on"])).toBe(
       "Updated equipment type and warranty end date"
     );
+    expect(equipmentUpdateSummary(["service_interval_days"])).toBe("Updated service interval");
+    expect(equipmentUpdateSummary(["next_service_due_on"])).toBe("Updated next service date");
+  });
+
+  it("notices the PM fields changing", () => {
+    expect(diffEquipment(base, { ...base, service_interval_days: 90 })).toEqual(["service_interval_days"]);
+    expect(diffEquipment({ ...base, service_interval_days: 90 }, { ...base, service_interval_days: 90 })).toEqual([]);
+    expect(diffEquipment(base, { ...base, next_service_due_on: "2026-10-01" })).toEqual(["next_service_due_on"]);
+  });
+});
+
+describe("parseServiceInterval", () => {
+  it("treats blank as not on a schedule", () => {
+    expect(parseServiceInterval("")).toEqual({ ok: true, value: null });
+    expect(parseServiceInterval("   ")).toEqual({ ok: true, value: null });
+  });
+
+  it("accepts whole days inside the DB range", () => {
+    expect(parseServiceInterval("1")).toEqual({ ok: true, value: 1 });
+    expect(parseServiceInterval(" 90 ")).toEqual({ ok: true, value: 90 });
+    expect(parseServiceInterval("3650")).toEqual({ ok: true, value: 3650 });
+  });
+
+  it("rejects zero, negatives, fractions, and anything over ten years", () => {
+    expect(parseServiceInterval("0")).toEqual({ ok: false });
+    expect(parseServiceInterval("-5")).toEqual({ ok: false });
+    expect(parseServiceInterval("1.5")).toEqual({ ok: false });
+    expect(parseServiceInterval("3651")).toEqual({ ok: false });
+    expect(parseServiceInterval("ninety")).toEqual({ ok: false });
+  });
+});
+
+describe("PM helpers", () => {
+  const now = new Date("2026-09-05T12:00:00Z");
+
+  it("classifies none, overdue, due soon and scheduled", () => {
+    expect(pmState(null, now)).toEqual({ state: "none" });
+    expect(pmState("2026-09-02", now)).toEqual({ state: "overdue", days: 3 });
+    expect(pmState("2026-09-05", now)).toEqual({ state: "due_soon", days: 0 });
+    expect(pmState("2026-09-19", now)).toEqual({ state: "due_soon", days: 14 });
+    expect(pmState("2026-09-20", now)).toEqual({ state: "scheduled", days: 15 });
+  });
+
+  it("formats for the detail page summary strip", () => {
+    expect(formatNextService(null, now)).toBe("Next service: not scheduled");
+    expect(formatNextService("2026-09-05", now)).toBe("Next service: due today");
+    expect(formatNextService("2026-09-06", now)).toBe("Next service: due in 1 day");
+    expect(formatNextService("2026-09-17", now)).toBe("Next service: due in 12 days");
+    expect(formatNextService("2026-09-04", now)).toBe("Next service: overdue by 1 day");
+    expect(formatNextService("2026-09-02", now)).toBe("Next service: overdue by 3 days");
   });
 });
 

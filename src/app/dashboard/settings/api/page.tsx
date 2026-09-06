@@ -9,6 +9,17 @@ import { SettingsSubnav } from "../settings-subnav";
 import { ApiKeysSection, type PublicApiKey } from "./api-keys-section";
 import { MAX_ACTIVE_API_KEYS } from "@/lib/api-auth";
 import { EXPORT_ENTITIES } from "./export-entities";
+import { WebhooksSection, type WebhookEventOption } from "./webhooks-section";
+import { MAX_WEBHOOK_ENDPOINTS, SUBSCRIBABLE_WEBHOOK_EVENTS, WEBHOOK_EVENT_TYPES } from "@/lib/webhook-signing";
+import type { WebhookDeliverySummary, WebhookEndpointPublic } from "@/lib/types";
+
+/** How many recent webhook deliveries the page lists. Keeps the RSC payload small. */
+const RECENT_DELIVERIES = 20;
+
+const WEBHOOK_EVENT_OPTIONS: WebhookEventOption[] = SUBSCRIBABLE_WEBHOOK_EVENTS.map((type) => ({
+  type,
+  label: WEBHOOK_EVENT_TYPES[type],
+}));
 
 export default async function ApiSettingsPage() {
   const ctx = await requireOwner();
@@ -32,6 +43,36 @@ export default async function ApiSettingsPage() {
     keys = data ?? [];
   }
 
+  // Same rule for webhook endpoints: `secret` is the HMAC signing key and is
+  // shown exactly once (from the create / rotate actions). The list never
+  // selects it. Deliveries skip `payload` — the UI only needs the outcome.
+  let endpoints: WebhookEndpointPublic[] = [];
+  let deliveries: WebhookDeliverySummary[] = [];
+  if (ctx) {
+    const supabase = await createClient();
+    const [endpointResult, deliveryResult] = await Promise.all([
+      supabase
+        .from("webhook_endpoints")
+        .select(
+          "id, company_id, url, description, events, is_active, failure_count, disabled_at, last_delivery_at, last_delivery_status, created_by, created_at, updated_at"
+        )
+        .eq("company_id", ctx.company.id)
+        .order("created_at", { ascending: false })
+        .returns<WebhookEndpointPublic[]>(),
+      supabase
+        .from("webhook_deliveries")
+        .select(
+          "id, company_id, endpoint_id, event_type, status, attempts, next_attempt_at, last_attempt_at, response_status, last_error, delivered_at, created_at"
+        )
+        .eq("company_id", ctx.company.id)
+        .order("created_at", { ascending: false })
+        .limit(RECENT_DELIVERIES)
+        .returns<WebhookDeliverySummary[]>(),
+    ]);
+    endpoints = endpointResult.data ?? [];
+    deliveries = deliveryResult.data ?? [];
+  }
+
   return (
     <div className="space-y-6">
       <SettingsSubnav />
@@ -49,8 +90,8 @@ export default async function ApiSettingsPage() {
               <AlertTitle>API access is a Business feature</AlertTitle>
               <AlertDescription className="flex flex-col items-start gap-2">
                 <span>
-                  Upgrade to Business for CSV data export and the v1 API. The docs below show
-                  what&apos;s available once you do.
+                  Upgrade to Business for CSV data export, the v1 API, and outbound webhooks. The docs
+                  below show what&apos;s available once you do.
                 </span>
                 <Button size="sm" render={<a href="/dashboard/settings/billing">View plans</a>} />
               </AlertDescription>
@@ -79,10 +120,21 @@ export default async function ApiSettingsPage() {
 
           <ApiKeysSection keys={keys} entitled={entitled} maxKeys={MAX_ACTIVE_API_KEYS} />
 
+          <WebhooksSection
+            endpoints={endpoints}
+            deliveries={deliveries}
+            entitled={entitled}
+            maxEndpoints={MAX_WEBHOOK_ENDPOINTS}
+            eventOptions={WEBHOOK_EVENT_OPTIONS}
+          />
+
           <Card>
             <CardHeader>
               <CardTitle>API documentation</CardTitle>
-              <CardDescription>Every v1 endpoint, authentication, pagination, and rate limits.</CardDescription>
+              <CardDescription>
+                Every v1 endpoint, authentication, pagination, rate limits, and the webhook event catalogue
+                and signature scheme.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground">

@@ -13,10 +13,23 @@ import { REQUEST_STATUS_LABELS, REQUEST_STATUS_ORDER } from "@/components/status
 import type { RequestStatus } from "@/lib/types";
 import { updateRequestStatus } from "../actions";
 import { CancelRequestDialog } from "./cancel-request-dialog";
+import { ScheduleVisitDialog } from "./schedule-visit-dialog";
 
-export function StatusControl({ requestId, status }: { requestId: string; status: RequestStatus }) {
+export function StatusControl({
+  requestId,
+  status,
+  timezone,
+  scheduledFor,
+}: {
+  requestId: string;
+  status: RequestStatus;
+  /** companies.timezone, for the schedule dialog's date/time inputs. */
+  timezone: string;
+  scheduledFor: string | null;
+}) {
   const [isPending, startTransition] = useTransition();
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   function handleChange(value: RequestStatus | null) {
     if (!value || value === status) return;
@@ -27,6 +40,13 @@ export function StatusControl({ requestId, status }: { requestId: string; status
     // better path for leaving a summary.
     if (value === "canceled") {
       setCancelOpen(true);
+      return;
+    }
+
+    // "Scheduled" without a visit time is meaningless, so picking it opens
+    // the schedule dialog — the action sets the status once a time is booked.
+    if (value === "scheduled") {
+      setScheduleOpen(true);
       return;
     }
 
@@ -57,6 +77,13 @@ export function StatusControl({ requestId, status }: { requestId: string; status
         </SelectContent>
       </Select>
       <CancelRequestDialog requestId={requestId} open={cancelOpen} onOpenChange={setCancelOpen} />
+      <ScheduleVisitDialog
+        requestId={requestId}
+        timezone={timezone}
+        scheduledFor={scheduledFor}
+        open={scheduleOpen}
+        onOpenChange={setScheduleOpen}
+      />
     </>
   );
 }

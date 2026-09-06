@@ -29,6 +29,8 @@ export const EQUIPMENT_FIELD_LABELS = {
   warranty_ends_on: "warranty end date",
   status: "status",
   notes: "notes",
+  service_interval_days: "service interval",
+  next_service_due_on: "next service date",
 } as const;
 
 export type EquipmentField = keyof typeof EQUIPMENT_FIELD_LABELS;
@@ -58,10 +60,15 @@ function joinWords(words: string[]): string {
   return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }
 
-/** Summary for an `equipment_updated` event: "Updated make, model and status". */
-export function equipmentUpdateSummary(changed: EquipmentField[]): string {
-  if (changed.length === 0) return "Details updated";
-  return `Updated ${joinWords(changed.map((field) => EQUIPMENT_FIELD_LABELS[field]))}`;
+/**
+ * Summary for an `equipment_updated` event: "Updated make, model and status".
+ * `extraLabels` are already-human words appended after the column labels —
+ * the custom field labels from customFieldsDiff() in src/lib/custom-fields.ts.
+ */
+export function equipmentUpdateSummary(changed: EquipmentField[], extraLabels: string[] = []): string {
+  const words = [...changed.map((field) => EQUIPMENT_FIELD_LABELS[field]), ...extraLabels];
+  if (words.length === 0) return "Details updated";
+  return `Updated ${joinWords(words)}`;
 }
 
 /** Summary for a `status_changed` event: "Status: Active → Needs service". */
@@ -168,6 +175,70 @@ export function formatWarranty(
       return status.days === 0
         ? "Warranty: expires today"
         : `Warranty: expires in ${status.days} ${status.days === 1 ? "day" : "days"}`;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Preventive maintenance
+// ----------------------------------------------------------------------------
+
+/** Days inside which a unit counts as "due soon" on the list, detail page and overview card. */
+export const PM_DUE_SOON_DAYS = 14;
+
+/** Bounds of `equipment.service_interval_days` — mirrors the check constraint from 0019. */
+export const MIN_SERVICE_INTERVAL_DAYS = 1;
+export const MAX_SERVICE_INTERVAL_DAYS = 3650;
+
+/**
+ * "Service every N days" as typed into a form or a CSV cell. Blank means "not
+ * on a schedule" (null). Anything that isn't a whole number inside the DB's
+ * 1–3650 range is a validation error for the caller.
+ */
+export function parseServiceInterval(
+  value: string
+): { ok: true; value: number | null } | { ok: false } {
+  const trimmed = value.trim();
+  if (!trimmed) return { ok: true, value: null };
+  if (!/^\d+$/.test(trimmed)) return { ok: false };
+  const days = Number(trimmed);
+  if (days < MIN_SERVICE_INTERVAL_DAYS || days > MAX_SERVICE_INTERVAL_DAYS) return { ok: false };
+  return { ok: true, value: days };
+}
+
+export type PmState =
+  | { state: "none" }
+  | { state: "overdue"; days: number }
+  | { state: "due_soon"; days: number }
+  | { state: "scheduled"; days: number };
+
+/**
+ * Where a unit stands against its next service date. `days` is always
+ * non-negative: how far past due, or how far away. Today counts as due_soon.
+ */
+export function pmState(nextDueOn: string | null | undefined, now: Date = new Date()): PmState {
+  const days = daysUntilDate(nextDueOn, now);
+  if (days === null) return { state: "none" };
+  if (days < 0) return { state: "overdue", days: -days };
+  if (days <= PM_DUE_SOON_DAYS) return { state: "due_soon", days };
+  return { state: "scheduled", days };
+}
+
+function dayWord(days: number): string {
+  return days === 1 ? "day" : "days";
+}
+
+/** "Next service: due in 12 days" / "overdue by 3 days" / "due today" / "not scheduled". */
+export function formatNextService(nextDueOn: string | null | undefined, now: Date = new Date()): string {
+  const status = pmState(nextDueOn, now);
+  switch (status.state) {
+    case "none":
+      return "Next service: not scheduled";
+    case "overdue":
+      return `Next service: overdue by ${status.days} ${dayWord(status.days)}`;
+    default:
+      return status.days === 0
+        ? "Next service: due today"
+        : `Next service: due in ${status.days} ${dayWord(status.days)}`;
   }
 }
 

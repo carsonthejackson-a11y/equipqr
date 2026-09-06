@@ -8,6 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
 import { formatRelativeTime } from "@/lib/format";
 import { GettingStartedChecklist, type ChecklistItem } from "./getting-started-checklist";
+import { UpcomingVisitsCard } from "./upcoming-visits-card";
+import { MaintenanceDueCard } from "./maintenance-due-card";
 import type { Equipment, ServiceRequest } from "@/lib/types";
 
 type MonthlyRequestRow = { created_at: string; resolved_at: string | null };
@@ -288,6 +290,8 @@ export default async function DashboardOverviewPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <UpcomingVisitsCard />
+        <MaintenanceDueCard />
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Recent service requests</CardTitle>

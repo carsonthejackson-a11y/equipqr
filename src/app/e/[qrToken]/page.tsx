@@ -187,6 +187,18 @@ export default async function EquipmentGuidePage({
               {guide.equipment.location}
             </p>
           )}
+          {/* Owner-defined fields flagged "show on scan page" (0022); the RPC
+              already filtered to those with a value, in the owner's order. */}
+          {guide.equipment.custom_fields && guide.equipment.custom_fields.length > 0 && (
+            <dl className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+              {guide.equipment.custom_fields.map((field, index) => (
+                <div key={`${index}-${field.label}`} className="flex gap-1">
+                  <dt className="text-muted-foreground">{field.label}:</dt>
+                  <dd>{field.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
 
         {outOfService && (

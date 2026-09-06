@@ -25,20 +25,24 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QrScanButton } from "@/components/qr-scan-button";
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { toast } from "sonner";
-import type { Customer, EquipmentType } from "@/lib/types";
+import type { Customer, EquipmentCustomField, EquipmentType } from "@/lib/types";
 import { normalizeQrCode } from "@/lib/short-code";
 import { FEATURES } from "@/lib/features";
 import { createEquipment } from "./actions";
+import { CustomFieldsInputs } from "./custom-fields-inputs";
 
 const statusItems = Object.fromEntries(Object.entries(EQUIPMENT_STATUS_LABELS));
 
 export function NewEquipmentDialog({
   equipmentTypes,
   customers,
+  customFields = [],
   batchQrEnabled = true,
 }: {
   equipmentTypes: EquipmentType[];
   customers: Customer[];
+  /** The company's field definitions (Settings → Custom fields), in display order. */
+  customFields?: EquipmentCustomField[];
   /** Whether the company's plan includes pre-printed batch QR codes (src/lib/plans.ts `batchQr`). Informational only — claiming still works either way. */
   batchQrEnabled?: boolean;
 }) {
@@ -217,6 +221,12 @@ export function NewEquipmentDialog({
               <Input id="warrantyEndsOn" name="warrantyEndsOn" type="date" />
             </div>
           </div>
+          {customFields.length > 0 && (
+            <fieldset className="space-y-4 rounded-lg border p-3">
+              <legend className="px-1 text-sm font-medium">Custom fields</legend>
+              <CustomFieldsInputs definitions={customFields} />
+            </fieldset>
+          )}
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (optional)</Label>
             <Textarea

@@ -7,18 +7,27 @@ import { resolveBranding } from "@/lib/branding";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { checkRateLimit, getClientIpFromHeaders, RATE_LIMITS } from "@/lib/rate-limit";
 import { formatRelativeTime } from "@/lib/format";
+import { formatZonedDateTime } from "@/lib/scheduling";
+import { activityAuthorLabel, isCustomerMessage } from "@/lib/customer-message";
 import { REQUEST_STATUS_LABELS } from "@/components/status-badge";
 import { BrandHeader, BrandShell, ContactActions, PoweredBy } from "@/components/public/brand-shell";
+import { ReplyForm } from "./reply-form";
 import type { PublicRequestStatusWithCompanyId, RequestStatus } from "@/lib/types";
 
 // The customer's window into a request they submitted. Reached from the
-// confirmation screen and from every status email. No login, no JS — the
-// whole page renders server-side, so it works on a locked-down work phone
-// and in an email client's in-app browser.
+// confirmation screen and from every status email. No login; everything
+// renders server-side so it works on a locked-down work phone and in an
+// email client's in-app browser — the one exception is the reply box at the
+// bottom (reply-form.tsx), which needs a little JS to POST without leaving
+// the page. Without JS the page still reads fine, it just can't send.
 //
 // The token is unguessable and get_request_status() already trims the row
 // down to what the requester is entitled to see (no ids, no internal notes,
 // no other requests), so there is nothing to hide client-side.
+//
+// Every absolute timestamp is printed in the company's zone: the page
+// renders on a UTC server, and "Tue, Sep 8, 2:30 PM" only means something
+// to the customer if it's the same clock the technician is reading.
 
 export const dynamic = "force-dynamic";
 
@@ -40,10 +49,6 @@ const STATUS_BLURB: Record<RequestStatus, string> = {
   resolved: "This one's done.",
   canceled: "This request was canceled.",
 };
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
-}
 
 /** First name only — the customer needs to know who's coming, not the staff directory. */
 function firstName(fullName: string | null): string | null {
@@ -98,6 +103,7 @@ export default async function RequestStatusPage({
 
   const technician = firstName(status.assigned_to_name);
   const isResolved = status.status === "resolved";
+  const timeZone = status.company_timezone;
 
   return (
     <BrandShell branding={branding}>
@@ -128,7 +134,9 @@ export default async function RequestStatusPage({
             <CalendarClock className="mt-0.5 size-5 shrink-0 text-[var(--brand)]" aria-hidden />
             <div>
               <p className="font-medium">Visit scheduled</p>
-              <p className="text-sm text-muted-foreground">{formatDateTime(status.scheduled_for)}</p>
+              <p className="text-sm text-muted-foreground">
+                {formatZonedDateTime(status.scheduled_for, timeZone)}
+              </p>
             </div>
           </div>
         )}
@@ -168,22 +176,58 @@ export default async function RequestStatusPage({
         {status.activity.length > 0 && (
           <section className="space-y-3">
             <h2 className="font-semibold">Updates</h2>
-            <ol className="space-y-3 border-l pl-4">
-              {status.activity.map((entry, index) => (
-                <li key={`${entry.created_at}-${index}`} className="relative">
-                  <span
-                    aria-hidden
-                    className="absolute top-1.5 -left-[21px] size-2.5 rounded-full bg-[var(--brand)]"
-                  />
-                  {entry.body && <p className="text-sm whitespace-pre-wrap">{entry.body}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    {formatDateTime(entry.created_at)}
-                  </p>
-                </li>
-              ))}
+            <ol className="space-y-3">
+              {status.activity.map((entry, index) => {
+                const key = `${entry.created_at}-${index}`;
+                const when = formatZonedDateTime(entry.created_at, timeZone);
+                const author = activityAuthorLabel(entry, branding.companyName);
+
+                // The customer's own messages sit on the right in a tinted
+                // bubble, like any messaging app they already use; what the
+                // company wrote or did stays on the timeline rail.
+                if (isCustomerMessage(entry)) {
+                  return (
+                    <li key={key} className="flex flex-col items-end pl-8">
+                      <div className="max-w-full rounded-2xl rounded-tr-sm border border-[var(--brand)]/30 bg-[var(--brand)]/10 px-4 py-2.5">
+                        <p className="text-xs font-medium text-[var(--brand)]">{author}</p>
+                        {entry.body && <p className="text-sm whitespace-pre-wrap">{entry.body}</p>}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{when}</p>
+                    </li>
+                  );
+                }
+
+                return (
+                  <li key={key} className="relative border-l pl-4">
+                    <span
+                      aria-hidden
+                      className="absolute top-1.5 -left-[5px] size-2.5 rounded-full bg-[var(--brand)]"
+                    />
+                    {author && <p className="text-xs font-medium text-muted-foreground">{author}</p>}
+                    {entry.body && <p className="text-sm whitespace-pre-wrap">{entry.body}</p>}
+                    <p className="text-xs text-muted-foreground">{when}</p>
+                  </li>
+                );
+              })}
             </ol>
           </section>
         )}
+
+        <section className="space-y-2">
+          <h2 className="font-semibold">Reply to the team</h2>
+          {status.can_reply ? (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Your message goes straight to {branding.companyName} and shows up here.
+              </p>
+              <ReplyForm token={token} companyName={branding.companyName} />
+            </>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              This request is closed to replies. Call us if something changed.
+            </p>
+          )}
+        </section>
 
         {(branding.phone || branding.smsNumber) && (
           <section className="space-y-2">

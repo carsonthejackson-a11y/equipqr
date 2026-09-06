@@ -35,6 +35,10 @@ export const RATE_LIMITS = {
   apiKey: { limit: 600, windowSeconds: 60 } satisfies RateLimitRule,
   /** Public /r/<token> status page lookups — per client IP. */
   requestStatusPerIp: { limit: 120, windowSeconds: 10 * 60 } satisfies RateLimitRule,
+  /** POST /api/request-messages — per client IP. */
+  customerMessagePerIp: { limit: 20, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** POST /api/request-messages — per request token, guards one status link being spammed. */
+  customerMessagePerToken: { limit: 30, windowSeconds: 60 * 60 } satisfies RateLimitRule,
 } as const;
 
 /** Anything with a header lookup: a `Headers`, or Next's ReadonlyHeaders from `headers()`. */

@@ -37,6 +37,7 @@ export const EQUIPMENT_EVENT_KINDS = {
   inspection_completed: "Inspection completed",
   pm_due: "Maintenance due",
   imported: "Imported",
+  visit_canceled: "Visit canceled",
 } as const;
 
 export type EquipmentEventKind = keyof typeof EQUIPMENT_EVENT_KINDS;

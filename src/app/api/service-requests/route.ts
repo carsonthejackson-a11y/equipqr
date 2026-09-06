@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -117,8 +118,13 @@ export async function POST(request: Request) {
     }
   }
 
-  await sendStaffNotification(result, body, aiSummary);
-  await sendRequesterReceipt(result, body, statusUrl);
+  // Both emails are best-effort and neither changes the response, so they
+  // run after it is sent: the customer standing in front of a broken machine
+  // gets their confirmation screen without waiting on Resend twice.
+  after(async () => {
+    await sendStaffNotification(result, body, aiSummary);
+    await sendRequesterReceipt(result, body, statusUrl);
+  });
 
   return NextResponse.json({
     id: result.request_id,

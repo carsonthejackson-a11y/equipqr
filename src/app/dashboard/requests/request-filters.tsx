@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { MessageSquare, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -36,6 +36,7 @@ export function RequestFilters({ members }: { members: CompanyMember[] }) {
   const [, startTransition] = useTransition();
 
   const status = searchParams.get("status") ?? "open";
+  const replied = searchParams.get("replied") === "1";
   const priority = searchParams.get("priority") ?? ALL_PRIORITIES;
   const assignee = searchParams.get("assignee") ?? ALL_ASSIGNEES;
 
@@ -99,6 +100,22 @@ export function RequestFilters({ members }: { members: CompanyMember[] }) {
             {chip.label}
           </button>
         ))}
+        <span aria-hidden className="mx-1 hidden w-px self-stretch bg-border sm:block" />
+        {/* Independent of the status chips: "has a customer reply" narrows whichever status set is active. */}
+        <button
+          type="button"
+          onClick={() => setParams({ replied: replied ? null : "1" })}
+          aria-pressed={replied}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
+            replied
+              ? "border-primary bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-accent"
+          )}
+        >
+          <MessageSquare className="size-3.5" />
+          Customer replied
+        </button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

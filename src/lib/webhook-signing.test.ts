@@ -76,5 +76,10 @@ describe("webhookUrlError", () => {
     expect(webhookUrlError("https://192.168.1.1/hook")).toMatch(/reachable/);
     expect(webhookUrlError("https://172.20.0.1/hook")).toMatch(/reachable/);
     expect(webhookUrlError("https://svc.internal/hook")).toMatch(/reachable/);
+    expect(webhookUrlError("https://100.64.0.1/hook")).toMatch(/reachable/);
+    expect(webhookUrlError("https://0x7f000001/hook")).toMatch(/reachable/);
+    expect(webhookUrlError("https://[::1]/hook")).toMatch(/IPv6/);
+    expect(webhookUrlError("https://[::ffff:127.0.0.1]/hook")).toMatch(/IPv6/);
+    expect(webhookUrlError("https://[fd00::1]/hook")).toMatch(/IPv6/);
   });
 });

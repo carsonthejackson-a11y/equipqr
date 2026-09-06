@@ -145,7 +145,12 @@ export function toCsv(rows: (string | number | null | undefined)[][]): string {
 // Equipment import
 // ----------------------------------------------------------------------------
 
-/** Column order of the equipment import template. Also the accepted header set. */
+/**
+ * Column order of the equipment import template. Also the accepted header set.
+ * Two optional extras the importer understands but the template leaves out:
+ * `service_interval_days` (PM interval; blank = no schedule) and one
+ * `cf:<key>` column per custom field defined under Settings → Custom fields.
+ */
 export const EQUIPMENT_IMPORT_COLUMNS = [
   "name",
   "equipment_type",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Inbox } from "lucide-react";
+import { Inbox, MessageSquare } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
@@ -19,7 +19,10 @@ import {
 } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
 import { formatRelativeTime } from "@/lib/format";
+import { formatZonedDate, isPastVisit, isValidTimeZone } from "@/lib/scheduling";
+import { cn } from "@/lib/utils";
 import { RequestFilters } from "./request-filters";
+import { hasUnreadCustomerMessage } from "./unread";
 import type { CompanyMember, Customer, Equipment, RequestPriority, RequestStatus, ServiceRequest } from "@/lib/types";
 
 const PAGE_SIZE = 50;
@@ -31,7 +34,20 @@ type RequestsSearchParams = {
   assignee?: string;
   q?: string;
   page?: string;
+  /** "1" = only requests the customer has replied on (see hasUnreadCustomerMessage for the unread dot). */
+  replied?: string;
 };
+
+/** "2:30 PM" in the company zone — pairs with formatZonedDate() for the Visit column. */
+function formatZonedTimeShort(iso: string, timeZone: string): string {
+  const instant = new Date(iso);
+  if (Number.isNaN(instant.getTime())) return "";
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: isValidTimeZone(timeZone) ? timeZone : "UTC",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(instant);
+}
 
 // PostgREST's `.or()` filter string uses "," to separate clauses and "()" for
 // lists — wrapping a value in double quotes lets it contain either literally,
@@ -46,6 +62,7 @@ function buildPageHref(params: RequestsSearchParams, page: number): string {
   if (params.priority) usp.set("priority", params.priority);
   if (params.assignee) usp.set("assignee", params.assignee);
   if (params.q) usp.set("q", params.q);
+  if (params.replied === "1") usp.set("replied", "1");
   if (page > 1) usp.set("page", String(page));
   const qs = usp.toString();
   return `/dashboard/requests${qs ? `?${qs}` : ""}`;
@@ -58,7 +75,8 @@ export default async function RequestsPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const { profile } = await getCurrentProfile();
+  const { profile, company } = await getCurrentProfile();
+  const timezone = company.timezone;
 
   const statusParam = params.status ?? "open";
   const q = params.q?.trim() ?? "";
@@ -91,6 +109,13 @@ export default async function RequestsPage({
     query = query.eq("assigned_to", params.assignee);
   }
 
+  // PostgREST can't compare two columns of one row, so "has replied" is the
+  // server-side filter and "unread" (newer than customer_messages_read_at) is
+  // computed per row in TS for the indicator below.
+  if (params.replied === "1") {
+    query = query.not("last_customer_message_at", "is", null);
+  }
+
   if (q) {
     const { data: matchedEquipment } = await supabase.from("equipment").select("id").ilike("name", `%${q}%`);
     const equipmentIds = (matchedEquipment ?? []).map((e) => e.id);
@@ -110,11 +135,13 @@ export default async function RequestsPage({
   const from = (page - 1) * PAGE_SIZE;
   const to = from + PAGE_SIZE - 1;
 
-  const { data: requests, count } = await query
-    .order("priority_rank", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(from, to)
-    .returns<ServiceRequest[]>();
+  // The Scheduled view is a calendar, not a triage list: soonest visit first.
+  const ordered =
+    statusParam === "scheduled"
+      ? query.order("scheduled_for", { ascending: true, nullsFirst: false }).order("created_at", { ascending: false })
+      : query.order("priority_rank", { ascending: false }).order("created_at", { ascending: false });
+
+  const { data: requests, count } = await ordered.range(from, to).returns<ServiceRequest[]>();
 
   const equipmentIds = [...new Set((requests ?? []).map((r) => r.equipment_id))];
   const customerIds = [...new Set((requests ?? []).flatMap((r) => (r.customer_id ? [r.customer_id] : [])))];
@@ -157,6 +184,7 @@ export default async function RequestsPage({
                   <TableHead>Customer</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Assignee</TableHead>
+                  <TableHead>Visit</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
@@ -168,9 +196,21 @@ export default async function RequestsPage({
                       <PriorityBadge priority={req.priority} />
                     </TableCell>
                     <TableCell>
-                      <Link href={`/dashboard/requests/${req.id}`} className="font-medium hover:underline">
-                        {equipmentById.get(req.equipment_id)?.name ?? "Unknown equipment"}
-                      </Link>
+                      <div className="flex items-center gap-1.5">
+                        <Link href={`/dashboard/requests/${req.id}`} className="font-medium hover:underline">
+                          {equipmentById.get(req.equipment_id)?.name ?? "Unknown equipment"}
+                        </Link>
+                        {hasUnreadCustomerMessage(req) && (
+                          <span
+                            title="New customer reply"
+                            aria-label="New customer reply"
+                            className="relative inline-flex shrink-0 text-primary"
+                          >
+                            <MessageSquare className="size-3.5" />
+                            <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-primary" />
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {req.customer_id ? (
@@ -194,6 +234,21 @@ export default async function RequestsPage({
                         memberById.get(req.assigned_to)?.full_name ?? "—"
                       ) : (
                         <span className="text-muted-foreground">Unassigned</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {req.scheduled_for ? (
+                        <span
+                          className={cn(
+                            "text-sm whitespace-nowrap",
+                            isPastVisit(req.scheduled_for) && "text-muted-foreground line-through"
+                          )}
+                        >
+                          {formatZonedDate(req.scheduled_for, timezone)}{" "}
+                          <span className="text-muted-foreground">{formatZonedTimeShort(req.scheduled_for, timezone)}</span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">

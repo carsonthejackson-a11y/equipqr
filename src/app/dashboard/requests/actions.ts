@@ -4,16 +4,18 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { requireActiveSubscription, getEntitlements } from "@/lib/billing";
-import { emitRequestActivity } from "@/lib/events";
+import { emitEquipmentEvent, emitRequestActivity } from "@/lib/events";
 import { notifyRequesterOfStatus } from "@/lib/email/request-status";
 import { buildResolutionEmail } from "@/lib/email/resolution";
 import { sendEmail } from "@/lib/email/send";
 import { publicEnv } from "@/lib/env";
+import { formatZonedDateTime, zonedDateTimeToIso } from "@/lib/scheduling";
 import {
   REQUEST_STATUS_LABELS,
   REQUEST_PRIORITY_LABELS,
   REQUEST_STATUS_ORDER,
   REQUEST_PRIORITY_ORDER,
+  OPEN_REQUEST_STATUSES,
 } from "@/components/status-badge";
 import type { Company, Equipment, Profile, RequestPriority, RequestStatus, ServiceRequest } from "@/lib/types";
 
@@ -411,4 +413,218 @@ async function sendResolutionEmailTo(params: {
 }) {
   const { subject, html, text } = buildResolutionEmail(params);
   return sendEmail({ to: params.to, subject, html, text });
+}
+
+// ---------------------------------------------------------------------------
+// Scheduling-lite
+// ---------------------------------------------------------------------------
+
+const VISIT_NOTE_MAX_LENGTH = 500;
+const VISIT_MAX_YEARS_AHEAD = 2;
+const DATE_INPUT = /^\d{4}-\d{2}-\d{2}$/;
+// <input type="time"> submits HH:MM, or HH:MM:SS when a browser adds seconds.
+const TIME_INPUT = /^(\d{2}:\d{2})(?::\d{2})?$/;
+
+/**
+ * Books (or re-books) a visit. Wall-clock date/time come off the form in the
+ * company's zone and are stored as a UTC instant; every display goes back
+ * through formatZonedDateTime() with that zone. Open requests move to
+ * `scheduled`; closed ones are refused rather than silently reopened.
+ */
+export async function scheduleVisit(id: string, formData: FormData) {
+  const date = String(formData.get("date") ?? "").trim();
+  const rawTime = String(formData.get("time") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+  const notifyCustomer = formData.get("notifyCustomer") === "on";
+
+  const timeMatch = TIME_INPUT.exec(rawTime);
+  if (!DATE_INPUT.test(date) || !timeMatch) {
+    return { error: "Enter a valid date and time" };
+  }
+  const time = timeMatch[1];
+
+  if (note.length > VISIT_NOTE_MAX_LENGTH) {
+    return { error: `Note is too long (${VISIT_NOTE_MAX_LENGTH} characters max)` };
+  }
+
+  const supabase = await createClient();
+  const { profile } = await getCurrentProfile();
+
+  const ctx = await loadRequestContext(supabase, id);
+  if (!ctx) {
+    return { error: "Service request not found" };
+  }
+
+  if (!(OPEN_REQUEST_STATUSES as string[]).includes(ctx.request.status)) {
+    return { error: "Reopen the request before scheduling a visit" };
+  }
+
+  const timezone = ctx.company.timezone;
+  const iso = zonedDateTimeToIso(date, time, timezone);
+  if (!iso) {
+    return { error: "Enter a valid date and time" };
+  }
+
+  const limit = new Date();
+  limit.setFullYear(limit.getFullYear() + VISIT_MAX_YEARS_AHEAD);
+  if (new Date(iso).getTime() > limit.getTime()) {
+    return { error: `Visits can't be scheduled more than ${VISIT_MAX_YEARS_AHEAD} years out` };
+  }
+
+  const previousScheduledFor = ctx.request.scheduled_for;
+  const previousStatus = ctx.request.status;
+  const nextStatus: RequestStatus = "scheduled";
+
+  const { error } = await supabase
+    .from("service_requests")
+    .update({ scheduled_for: iso, status: nextStatus })
+    .eq("id", id);
+  if (error) {
+    return { error: error.message };
+  }
+
+  const when = formatZonedDateTime(iso, timezone);
+  const verb = previousScheduledFor ? "rescheduled" : "scheduled";
+  const summary = `Visit ${verb} for ${when}`;
+
+  await emitRequestActivity(supabase, {
+    companyId: ctx.request.company_id,
+    serviceRequestId: id,
+    kind: previousStatus === nextStatus ? "system" : "status_change",
+    visibility: "customer",
+    body: note ? `${summary} — ${note}` : summary,
+    metadata: { scheduled_for: iso, previous_scheduled_for: previousScheduledFor, note: note || null },
+    authorKind: "staff",
+    authorUserId: profile.id,
+  });
+
+  await emitEquipmentEvent(supabase, {
+    companyId: ctx.request.company_id,
+    equipmentId: ctx.request.equipment_id,
+    kind: "visit_scheduled",
+    summary,
+    details: { scheduled_for: iso, note: note || null, previous_scheduled_for: previousScheduledFor },
+    serviceRequestId: id,
+    actorUserId: profile.id,
+  });
+
+  if (notifyCustomer) {
+    await notifyStatus(
+      supabase,
+      { ...ctx, request: { ...ctx.request, scheduled_for: iso, status: nextStatus } },
+      nextStatus,
+      { actorUserId: profile.id, note: note || null }
+    );
+  }
+
+  revalidateRequest(id);
+  return { success: true, scheduledFor: iso };
+}
+
+/**
+ * Removes a booked visit. An open `scheduled` request drops back to
+ * `in_progress` and the customer hears about it; on a closed request the
+ * visit is just history, so it's cleared quietly.
+ */
+export async function clearScheduledVisit(id: string) {
+  const supabase = await createClient();
+  const { profile } = await getCurrentProfile();
+
+  const ctx = await loadRequestContext(supabase, id);
+  if (!ctx) {
+    return { error: "Service request not found" };
+  }
+
+  const previousScheduledFor = ctx.request.scheduled_for;
+  if (!previousScheduledFor) {
+    return { error: "No visit is scheduled" };
+  }
+
+  const previousStatus = ctx.request.status;
+  const isOpen = (OPEN_REQUEST_STATUSES as string[]).includes(previousStatus);
+  const nextStatus: RequestStatus = previousStatus === "scheduled" ? "in_progress" : previousStatus;
+
+  const { error } = await supabase
+    .from("service_requests")
+    .update({ scheduled_for: null, status: nextStatus })
+    .eq("id", id);
+  if (error) {
+    return { error: error.message };
+  }
+
+  const when = formatZonedDateTime(previousScheduledFor, ctx.company.timezone);
+  const customerBody = "Visit canceled — we'll be in touch to rebook";
+
+  await emitRequestActivity(supabase, {
+    companyId: ctx.request.company_id,
+    serviceRequestId: id,
+    kind: previousStatus === nextStatus ? "system" : "status_change",
+    visibility: isOpen ? "customer" : "internal",
+    body: isOpen ? customerBody : `Scheduled visit (${when}) cleared`,
+    metadata: { previous_scheduled_for: previousScheduledFor },
+    authorKind: "staff",
+    authorUserId: profile.id,
+  });
+
+  await emitEquipmentEvent(supabase, {
+    companyId: ctx.request.company_id,
+    equipmentId: ctx.request.equipment_id,
+    kind: "visit_canceled",
+    summary: `Visit for ${when} canceled`,
+    details: { previous_scheduled_for: previousScheduledFor },
+    serviceRequestId: id,
+    actorUserId: profile.id,
+  });
+
+  if (isOpen) {
+    await notifyStatus(
+      supabase,
+      { ...ctx, request: { ...ctx.request, scheduled_for: null, status: nextStatus } },
+      nextStatus,
+      { actorUserId: profile.id, note: customerBody }
+    );
+  }
+
+  revalidateRequest(id);
+  return { success: true };
+}
+
+// ---------------------------------------------------------------------------
+// Two-way messaging (inbox side)
+// ---------------------------------------------------------------------------
+
+/**
+ * Stamps customer_messages_read_at when staff open a request that has an
+ * unread customer reply. Called from a client effect on the detail page
+ * (server components must not write during render). Best-effort: it's a
+ * read marker, not a domain change, so it leaves no activity row.
+ */
+export async function markCustomerMessagesRead(id: string, seenAt: string) {
+  if (typeof id !== "string" || !id) {
+    return { error: "Invalid request" };
+  }
+  // The read marker is the timestamp of the latest reply the page actually
+  // rendered — never "now", or a reply landing between render and this call
+  // would be marked read unseen.
+  if (typeof seenAt !== "string" || Number.isNaN(new Date(seenAt).getTime())) {
+    return { error: "Invalid request" };
+  }
+
+  const supabase = await createClient();
+  await getCurrentProfile();
+
+  const { error } = await supabase
+    .from("service_requests")
+    .update({ customer_messages_read_at: new Date(seenAt).toISOString() })
+    .eq("id", id)
+    .not("last_customer_message_at", "is", null);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  // Drop the inbox's cached copy so its unread dot clears on the way back.
+  revalidatePath("/dashboard/requests");
+  revalidatePath("/dashboard");
+  return { success: true };
 }

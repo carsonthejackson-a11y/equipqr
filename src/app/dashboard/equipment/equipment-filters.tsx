@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
+import { PM_FILTER_LABELS } from "@/lib/pm-reminders";
 import type { Customer, EquipmentType } from "@/lib/types";
 
 export type EquipmentFilterValues = {
@@ -21,6 +22,8 @@ export type EquipmentFilterValues = {
   type: string;
   customer: string;
   status: string;
+  /** A PmFilter value (src/lib/pm-reminders.ts), or "" for any. */
+  pm: string;
 };
 
 const ALL = "all";
@@ -50,6 +53,7 @@ export function EquipmentFilters({
     if (merged.type && merged.type !== ALL) params.set("type", merged.type);
     if (merged.customer && merged.customer !== ALL) params.set("customer", merged.customer);
     if (merged.status && merged.status !== ALL) params.set("status", merged.status);
+    if (merged.pm && merged.pm !== ALL && merged.pm !== "any") params.set("pm", merged.pm);
     // Any filter change invalidates the current page number.
 
     const search = params.toString();
@@ -70,9 +74,18 @@ export function EquipmentFilters({
     ...Object.fromEntries(customers.map((customer) => [customer.id, customer.name])),
   };
   const statusItems = { [ALL]: "Any status", ...EQUIPMENT_STATUS_LABELS };
+  // PM_FILTER_LABELS has its own "any" key; the select uses ALL for that slot.
+  const pmItems = {
+    [ALL]: "Any",
+    ...Object.fromEntries(Object.entries(PM_FILTER_LABELS).filter(([value]) => value !== "any")),
+  };
 
   const hasFilters =
-    !!values.q || (!!values.type && values.type !== ALL) || (!!values.customer && values.customer !== ALL) || (!!values.status && values.status !== ALL);
+    !!values.q ||
+    (!!values.type && values.type !== ALL) ||
+    (!!values.customer && values.customer !== ALL) ||
+    (!!values.status && values.status !== ALL) ||
+    (!!values.pm && values.pm !== ALL);
 
   return (
     <form
@@ -152,6 +165,27 @@ export function EquipmentFilters({
           </SelectTrigger>
           <SelectContent>
             {Object.entries(statusItems).map(([value, label]) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="filter-pm">Maintenance</Label>
+        <Select
+          name="pm"
+          items={pmItems}
+          value={values.pm || ALL}
+          onValueChange={(value: string | null) => apply({ pm: value ?? ALL })}
+        >
+          <SelectTrigger id="filter-pm" className="w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(pmItems).map(([value, label]) => (
               <SelectItem key={value} value={value}>
                 {label}
               </SelectItem>

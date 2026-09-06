@@ -67,6 +67,6 @@ Docs: `docs/API.md`.
 - Assignment emails reuse the status-update template (subject reflects the unchanged status).
 - Label sheet `startOffset` (partially used sheets) is implemented but has no UI.
 - CSV import caps at 2000 rows per file.
-- Requester "received" email is awaited inline in `/api/service-requests`; move to `after()`.
+- ~~Requester "received" email is awaited inline in `/api/service-requests`; move to `after()`.~~ Done on the Next branch.
 - No `/r/<token>` e2e test (needs seeded data).
 - `resolveBranding` fails open to "entitled" when the plan can't be read (by design; note it).

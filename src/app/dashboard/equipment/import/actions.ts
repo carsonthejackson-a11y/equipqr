@@ -7,8 +7,14 @@ import { assertCanAddEquipment, getEntitlements, planFor } from "@/lib/billing";
 import { emitEquipmentEvent } from "@/lib/events";
 import { createInstantCode } from "@/lib/qr-codes";
 import { EQUIPMENT_IMPORT_COLUMNS, parseCsvTable } from "@/lib/csv";
-import { normalizeDateInput, parseEquipmentStatus, type EquipmentPatch } from "@/lib/equipment";
-import type { Customer, EquipmentType } from "@/lib/types";
+import { parseCustomFieldValues } from "@/lib/custom-fields";
+import {
+  normalizeDateInput,
+  parseEquipmentStatus,
+  parseServiceInterval,
+  type EquipmentPatch,
+} from "@/lib/equipment";
+import type { Customer, EquipmentCustomField, EquipmentType } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -52,21 +58,28 @@ export type ImportPreview = {
 type Lookups = {
   typesByName: Map<string, EquipmentType>;
   customersByName: Map<string, Customer>;
+  /** Custom field definitions, keyed by field key — the `cf:<key>` columns the file may carry. */
+  customFieldsByKey: Map<string, EquipmentCustomField>;
 };
+
+/** Header prefix for custom field columns: `cf:filter_size`. */
+const CUSTOM_FIELD_HEADER_PREFIX = "cf:";
 
 function key(value: string): string {
   return value.trim().toLowerCase();
 }
 
 async function loadLookups(supabase: Supabase): Promise<Lookups> {
-  const [{ data: types }, { data: customers }] = await Promise.all([
+  const [{ data: types }, { data: customers }, { data: customFields }] = await Promise.all([
     supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
     supabase.from("customers").select("*").returns<Customer[]>(),
+    supabase.from("equipment_custom_fields").select("*").returns<EquipmentCustomField[]>(),
   ]);
 
   return {
     typesByName: new Map((types ?? []).map((type) => [key(type.name), type])),
     customersByName: new Map((customers ?? []).map((customer) => [key(customer.name), customer])),
+    customFieldsByKey: new Map((customFields ?? []).map((def) => [def.key, def])),
   };
 }
 
@@ -74,6 +87,8 @@ type ParsedRow = {
   preview: ImportRowPreview;
   /** Everything but equipment_type_id / customer_id, which are resolved at insert time. */
   patch: Omit<EquipmentPatch, "equipment_type_id" | "customer_id">;
+  /** Parsed `cf:<key>` cells, ready for equipment.custom_fields. */
+  customFields: Record<string, unknown>;
   typeName: string;
   customerName: string;
 };
@@ -104,6 +119,25 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
       fatal: `The header row needs at least "name" and "equipment_type". Expected columns: ${EQUIPMENT_IMPORT_COLUMNS.join(", ")}.`,
     };
   }
+
+  // Optional `cf:<key>` columns must all name a defined custom field — a typo
+  // silently dropping a whole column of data is worse than a clear stop.
+  const customFieldHeaders = table.headers.filter((h) => h.startsWith(CUSTOM_FIELD_HEADER_PREFIX));
+  const unknownCustom = customFieldHeaders
+    .map((h) => h.slice(CUSTOM_FIELD_HEADER_PREFIX.length))
+    .filter((k) => !lookups.customFieldsByKey.has(k));
+  if (unknownCustom.length > 0) {
+    const known = [...lookups.customFieldsByKey.keys()].map((k) => `${CUSTOM_FIELD_HEADER_PREFIX}${k}`);
+    return {
+      rows: [],
+      fatal: `Unknown custom field column${unknownCustom.length === 1 ? "" : "s"}: ${unknownCustom
+        .map((k) => `"${CUSTOM_FIELD_HEADER_PREFIX}${k}"`)
+        .join(", ")}. ${known.length > 0 ? `Defined fields: ${known.join(", ")}.` : "No custom fields are defined yet."}`,
+    };
+  }
+  const customFieldDefs = customFieldHeaders.map(
+    (h) => lookups.customFieldsByKey.get(h.slice(CUSTOM_FIELD_HEADER_PREFIX.length)) as EquipmentCustomField
+  );
 
   // Names created earlier in the same file count as existing for later rows.
   const pendingTypes = new Set<string>();
@@ -159,6 +193,17 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
     const warranty = normalizeDateInput(record.warranty_ends_on ?? "");
     if (!warranty.ok) errors.push("Warranty end date must be YYYY-MM-DD");
 
+    // Optional: "service_interval_days" (blank = not on a schedule). The DB
+    // trigger computes next_service_due_on from install_date at insert.
+    const interval = parseServiceInterval(record.service_interval_days ?? "");
+    if (!interval.ok) errors.push("Service interval must be a whole number of days (1–3650)");
+
+    // The same parser the equipment form uses, fed by the row's `cf:` cells.
+    const customFields = parseCustomFieldValues(customFieldDefs, {
+      get: (name) => record[`${CUSTOM_FIELD_HEADER_PREFIX}${name.replace(/^cf_/, "")}`] ?? null,
+    });
+    errors.push(...customFields.errors);
+
     const trimmedOrNull = (value: string | undefined) => (value ?? "").trim() || null;
 
     return {
@@ -191,7 +236,10 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
         warranty_ends_on: warranty.ok ? warranty.value : null,
         status: status ?? "active",
         notes: trimmedOrNull(record.notes),
+        service_interval_days: interval.ok ? interval.value : null,
+        next_service_due_on: null,
       },
+      customFields: customFields.values,
       typeName,
       customerName,
     };
@@ -345,6 +393,7 @@ export async function runEquipmentImport(
         ? lookups.customersByName.get(key(row.customerName))?.id ?? null
         : null,
       ...row.patch,
+      custom_fields: row.customFields,
     }));
 
     // A type that still isn't resolvable here means the row shouldn't have

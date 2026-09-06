@@ -45,6 +45,7 @@ export const SERVICE_REQUEST_COLUMNS = [
   "public_token",
   "status_updated_at",
   "scheduled_for",
+  "last_customer_message_at",
   "closed_by",
   "resolution_summary",
   "resolution_recommendations",

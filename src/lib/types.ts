@@ -188,6 +188,8 @@ export type Equipment = {
   service_interval_days: number | null;
   /** The next_service_due_on the last PM reminder email covered (de-dupes the daily job). */
   pm_reminder_sent_for: string | null;
+  /** Generated (0024): next_service_due_on is set and differs from pm_reminder_sent_for. */
+  pm_reminder_pending: boolean;
   updated_at: string;
   created_at: string;
 };
@@ -359,6 +361,8 @@ export type EquipmentGuide = {
     status: EquipmentStatus;
     photo_path: string | null;
     last_serviced_at: string | null;
+    /** Custom fields flagged show_on_scan_page, with a value (0022). Absent before that migration. */
+    custom_fields?: { label: string; value: string }[];
   };
   company: { id: string } & CompanyPublicProfile;
   equipment_type: { id: string; name: string; description: string | null };
@@ -469,3 +473,6 @@ export type WebhookPayload = {
   company_id: string;
   data: Record<string, unknown>;
 };
+
+/** A delivery row as the settings page lists it: everything but the (potentially large) payload. */
+export type WebhookDeliverySummary = Omit<WebhookDelivery, "payload">;
