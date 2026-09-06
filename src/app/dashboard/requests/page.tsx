@@ -3,6 +3,7 @@ import { Inbox } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -31,6 +32,8 @@ type RequestsSearchParams = {
   assignee?: string;
   q?: string;
   page?: string;
+  /** "1" = only requests with at least one customer message (Next roadmap). */
+  messages?: string;
 };
 
 // PostgREST's `.or()` filter string uses "," to separate clauses and "()" for
@@ -46,6 +49,7 @@ function buildPageHref(params: RequestsSearchParams, page: number): string {
   if (params.priority) usp.set("priority", params.priority);
   if (params.assignee) usp.set("assignee", params.assignee);
   if (params.q) usp.set("q", params.q);
+  if (params.messages === "1") usp.set("messages", "1");
   if (page > 1) usp.set("page", String(page));
   const qs = usp.toString();
   return `/dashboard/requests${qs ? `?${qs}` : ""}`;
@@ -89,6 +93,10 @@ export default async function RequestsPage({
     query = query.is("assigned_to", null);
   } else if (params.assignee) {
     query = query.eq("assigned_to", params.assignee);
+  }
+
+  if (params.messages === "1") {
+    query = query.not("last_customer_message_at", "is", null);
   }
 
   if (q) {
@@ -168,8 +176,16 @@ export default async function RequestsPage({
                       <PriorityBadge priority={req.priority} />
                     </TableCell>
                     <TableCell>
-                      <Link href={`/dashboard/requests/${req.id}`} className="font-medium hover:underline">
+                      <Link
+                        href={`/dashboard/requests/${req.id}`}
+                        className="inline-flex items-center gap-2 font-medium hover:underline"
+                      >
                         {equipmentById.get(req.equipment_id)?.name ?? "Unknown equipment"}
+                        {req.unread_customer_messages > 0 && (
+                          <Badge className="h-5 shrink-0 rounded-full bg-sky-500/15 px-1.5 text-[10px] text-sky-700 dark:text-sky-400">
+                            {req.unread_customer_messages} new
+                          </Badge>
+                        )}
                       </Link>
                     </TableCell>
                     <TableCell>

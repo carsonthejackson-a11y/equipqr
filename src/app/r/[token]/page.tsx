@@ -9,6 +9,7 @@ import { checkRateLimit, getClientIpFromHeaders, RATE_LIMITS } from "@/lib/rate-
 import { formatRelativeTime } from "@/lib/format";
 import { REQUEST_STATUS_LABELS } from "@/components/status-badge";
 import { BrandHeader, BrandShell, ContactActions, PoweredBy } from "@/components/public/brand-shell";
+import { MessageComposer } from "./message-composer";
 import type { PublicRequestStatusWithCompanyId, RequestStatus } from "@/lib/types";
 
 // The customer's window into a request they submitted. Reached from the
@@ -98,6 +99,7 @@ export default async function RequestStatusPage({
 
   const technician = firstName(status.assigned_to_name);
   const isResolved = status.status === "resolved";
+  const isClosed = status.status === "resolved" || status.status === "canceled";
 
   return (
     <BrandShell branding={branding}>
@@ -169,20 +171,36 @@ export default async function RequestStatusPage({
           <section className="space-y-3">
             <h2 className="font-semibold">Updates</h2>
             <ol className="space-y-3 border-l pl-4">
-              {status.activity.map((entry, index) => (
-                <li key={`${entry.created_at}-${index}`} className="relative">
-                  <span
-                    aria-hidden
-                    className="absolute top-1.5 -left-[21px] size-2.5 rounded-full bg-[var(--brand)]"
-                  />
-                  {entry.body && <p className="text-sm whitespace-pre-wrap">{entry.body}</p>}
-                  <p className="text-xs text-muted-foreground">
-                    {formatDateTime(entry.created_at)}
-                  </p>
-                </li>
-              ))}
+              {status.activity.map((entry, index) => {
+                const isCustomerMessage = entry.kind === "message" && entry.author_kind === "customer";
+                return (
+                  <li key={`${entry.created_at}-${index}`} className="relative">
+                    <span
+                      aria-hidden
+                      className={`absolute top-1.5 -left-[21px] size-2.5 rounded-full ${
+                        isCustomerMessage ? "bg-muted-foreground/50" : "bg-[var(--brand)]"
+                      }`}
+                    />
+                    {isCustomerMessage && (
+                      <p className="text-sm font-semibold">{entry.author_name || "You"}</p>
+                    )}
+                    {entry.body && <p className="text-sm whitespace-pre-wrap">{entry.body}</p>}
+                    <p className="text-xs text-muted-foreground">
+                      {formatDateTime(entry.created_at)}
+                    </p>
+                  </li>
+                );
+              })}
             </ol>
           </section>
+        )}
+
+        {isClosed ? (
+          <div className="rounded-xl border bg-muted/40 px-4 py-3 text-center text-sm text-muted-foreground">
+            This request is closed — scan the sticker to report a new problem.
+          </div>
+        ) : (
+          <MessageComposer token={token} />
         )}
 
         {(branding.phone || branding.smsNumber) && (
