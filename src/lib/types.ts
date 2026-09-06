@@ -12,6 +12,7 @@ export type QrCodeStatus = "active" | "retired" | "replaced";
 export type ActorKind = "staff" | "customer" | "system";
 export type MediaKind = "image" | "video";
 export type QrCodeSource = "instant" | "batch";
+export type ServiceRequestSource = "scan" | "staff" | "pm" | "api";
 
 export type Company = {
   id: string;
@@ -262,6 +263,23 @@ export type ServiceRequest = {
   ai_summary: string | null;
   updated_at: string;
   created_at: string;
+  // ---- Next roadmap (migration 0019) ----
+  /** scan = customer via sticker; staff = dashboard / staff scan mode; pm = maintenance schedule; api = /api/v1. */
+  source: ServiceRequestSource;
+  maintenance_schedule_id: string | null;
+  inspection_id: string | null;
+  /** Scheduling-lite: length of the planned visit. */
+  scheduled_duration_minutes: number;
+  reminder_sent_at: string | null;
+  on_my_way_sent_at: string | null;
+  /** Two-way messaging: set by add_customer_request_update(). */
+  last_customer_message_at: string | null;
+  /** Zeroed by the dashboard when staff open the request. */
+  unread_customer_messages: number;
+  /** Close-out sign-off (staff scan mode). Object in the private service-request-media bucket. */
+  signature_path: string | null;
+  signed_by_name: string | null;
+  signed_at: string | null;
 };
 
 export type RequestActivityKind =
@@ -311,6 +329,12 @@ export type ServiceRequestMedia = {
   storage_path: string;
   media_type: MediaKind;
   created_at: string;
+  // ---- Next roadmap (migration 0019) ----
+  /** customer = uploaded with the request; staff = before/after photos added at close-out. */
+  origin: "customer" | "staff";
+  caption: string | null;
+  uploaded_by: string | null;
+  company_id: string | null;
 };
 
 export type EquipmentGuide = {
@@ -323,10 +347,18 @@ export type EquipmentGuide = {
     status: EquipmentStatus;
     photo_path: string | null;
     last_serviced_at: string | null;
+    /** Next roadmap: earliest active maintenance schedule (may be undefined on cached payloads). */
+    next_service_due_on?: string | null;
   };
   company: { id: string } & CompanyPublicProfile;
   equipment_type: { id: string; name: string; description: string | null };
   code: { short_code: string; status: QrCodeStatus };
+  /**
+   * Open (new / in_progress / scheduled / on_hold) requests on this unit,
+   * newest first, max 5 — migration 0019. Shown to ANYONE who scans so a
+   * second person at the site can check status instead of filing a duplicate.
+   */
+  open_requests: OpenRequestSummary[];
   root_step_id: string | null;
   steps: {
     id: string;
@@ -367,4 +399,144 @@ export type ResolvedQrCode =
  */
 export type PublicRequestStatusWithCompanyId = Omit<PublicRequestStatus, "company"> & {
   company: CompanyPublicProfile & { id: string };
+};
+
+// ============================================================================
+// Next roadmap (migration 0019) — see docs/NEXT-ROADMAP-BRIEF.md
+// ============================================================================
+
+/** One open request as returned inside resolve_qr_code().guide.open_requests. */
+export type OpenRequestSummary = {
+  id: string;
+  /** Lets the scanner open /r/<token> and add a note. */
+  public_token: string;
+  status: RequestStatus;
+  priority: RequestPriority;
+  /** First 280 chars. */
+  description: string;
+  contact_first_name: string;
+  created_at: string;
+  status_updated_at: string;
+  scheduled_for: string | null;
+  assigned_to_name: string | null;
+  /** Count of customer-visible activity rows. */
+  update_count: number;
+};
+
+/** What add_customer_request_update() returns. Email fields are service-role only. */
+export type CustomerRequestUpdateResult = {
+  request_id: string;
+  status: RequestStatus;
+  company_id: string;
+  company_name: string;
+  company_notification_email: string | null;
+  assigned_to: string | null;
+  assigned_to_email: string | null;
+  equipment_name: string;
+  contact_name: string;
+};
+
+export type ChecklistItemKind = "check" | "pass_fail" | "text" | "number" | "photo";
+
+/** One row of checklist_templates.items. */
+export type ChecklistItem = {
+  id: string;
+  label: string;
+  kind: ChecklistItemKind;
+  required: boolean;
+  help: string | null;
+};
+
+export type ChecklistTemplate = {
+  id: string;
+  company_id: string;
+  /** null = usable on any equipment type. */
+  equipment_type_id: string | null;
+  name: string;
+  description: string | null;
+  items: ChecklistItem[];
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type InspectionItemResponse = {
+  /** check → boolean; pass_fail → "pass" | "fail" | null; text → string; number → number; photo → null (see photo_paths). */
+  value: boolean | string | number | null;
+  passed: boolean | null;
+  note: string | null;
+  /** Objects in the private `equipment-files` bucket: <company_id>/inspections/<inspection_id>/<uuid>.jpg */
+  photo_paths: string[];
+};
+
+/** One row of inspections.items — a snapshot of the template item plus the response. */
+export type InspectionItem = ChecklistItem & { response: InspectionItemResponse };
+
+export type InspectionStatus = "in_progress" | "completed" | "abandoned";
+
+export type Inspection = {
+  id: string;
+  company_id: string;
+  equipment_id: string;
+  checklist_template_id: string | null;
+  service_request_id: string | null;
+  maintenance_schedule_id: string | null;
+  performed_by: string | null;
+  status: InspectionStatus;
+  template_name: string;
+  items: InspectionItem[];
+  summary: string | null;
+  failed_count: number;
+  /** Object in `equipment-files`: <company_id>/inspections/<id>/signature.png */
+  signature_path: string | null;
+  signed_by_name: string | null;
+  signed_at: string | null;
+  started_at: string;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MaintenanceSchedule = {
+  id: string;
+  company_id: string;
+  equipment_id: string;
+  name: string;
+  description: string | null;
+  interval_days: number;
+  /** Days before next_due_on that the PM request is created. */
+  lead_days: number;
+  next_due_on: string;
+  last_completed_on: string | null;
+  auto_create_request: boolean;
+  notify_customer: boolean;
+  checklist_template_id: string | null;
+  last_generated_for: string | null;
+  last_request_id: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** One row returned by generate_due_maintenance_requests() (cron, service role). */
+export type GeneratedMaintenanceRequest = {
+  request_id: string;
+  public_token: string;
+  company_id: string;
+  company_name: string;
+  company_notification_email: string;
+  company_phone: string | null;
+  company_logo_path: string | null;
+  company_brand_color: string | null;
+  customer_updates_enabled: boolean;
+  notify_customer: boolean;
+  equipment_id: string;
+  equipment_name: string;
+  schedule_id: string;
+  schedule_name: string;
+  due_on: string;
+  contact_name: string;
+  contact_email: string | null;
 };

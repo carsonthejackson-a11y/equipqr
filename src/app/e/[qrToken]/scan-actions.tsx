@@ -7,7 +7,7 @@ import { GuideWalkthrough } from "./guide-walkthrough";
 import { openRequestStorageKey } from "@/lib/public-request";
 import { phoneHref, type ResolvedBranding } from "@/lib/branding";
 import { cn } from "@/lib/utils";
-import type { EquipmentGuide } from "@/lib/types";
+import type { EquipmentGuide, OpenRequestSummary } from "@/lib/types";
 
 // The four things a customer standing in front of a broken machine might
 // want, in the order they'd want them: try to fix it, tell someone, call,
@@ -90,12 +90,18 @@ export function ScanActions({
   qrToken,
   branding,
   aiChatEnabled,
+  openRequests = [],
 }: {
   guide: EquipmentGuide;
   qrToken: string;
   branding: ResolvedBranding;
   aiChatEnabled: boolean;
+  /** Open requests on this unit from resolve_qr_code() — Next roadmap (workstream B renders these). */
+  openRequests?: OpenRequestSummary[];
 }) {
+  // TODO(workstream B): replace the sessionStorage chip below with a real
+  // "already reported" card built from `openRequests`.
+  void openRequests;
   const [mode, setMode] = useState<Mode>("menu");
   const hasGuide = guide.steps.length > 0;
 
