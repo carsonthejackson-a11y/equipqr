@@ -11,6 +11,7 @@ const items = [
   { href: "/dashboard/settings/account", label: "Account" },
   { href: "/dashboard/settings/branding", label: "Branding" },
   { href: "/dashboard/settings/api", label: "API" },
+  { href: "/dashboard/settings/qr-codes", label: "Blank codes" },
 ];
 
 // Unlike the main dashboard nav, "/dashboard/settings" (company settings) is
