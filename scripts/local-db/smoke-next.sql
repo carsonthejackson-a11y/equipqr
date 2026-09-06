@@ -262,7 +262,7 @@ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- workstream D (0023): staff-sourced service requests
+-- migration 0020: staff-sourced service requests
 -- (scan-to-inspect's "N items failed -> create a request")
 -- ---------------------------------------------------------------------------
 set role authenticated;
@@ -276,7 +276,7 @@ select set_config('smoke.staffreq', :'staffreq', false);
 
 do $$
 begin
-  -- staff cannot spoof a customer/pm/api-sourced request through the direct insert path
+  -- staff cannot spoof a customer/api-sourced request through the direct insert path
   begin
     insert into service_requests (equipment_id, company_id, description, contact_name, source)
     values ('dddddddd-dddd-dddd-dddd-dddddddddddd','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','x','x','scan');

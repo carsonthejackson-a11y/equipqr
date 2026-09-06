@@ -1,4 +1,4 @@
--- 0023_inspect_checklists.sql
+-- 0020_staff_request_insert.sql
 --
 -- Workstream D (scan-to-inspect checklists + inspections). The
 -- checklist_templates / inspections tables and their RLS already shipped in
@@ -13,16 +13,18 @@
 -- staff "log a visit" action) — this policy is scoped narrowly enough that
 -- it's safe for any workstream's staff-authenticated code to rely on.
 --
--- The policy only ever allows source = 'staff': a technician can create a
--- request attributed to themselves, but can never insert a row claiming to
--- be a customer scan, a PM schedule, or the public API — those still only
--- come from their own security-definer paths. Purely additive.
+-- The policy allows source = 'staff' (scan-to-inspect follow-ups, "log a
+-- visit" from staff scan mode) and source = 'pm' (the dashboard's "Mark
+-- maintenance done" creates-and-resolves a PM request so the 0019 trigger
+-- rolls the schedule forward). A technician can never insert a row claiming
+-- to be a customer scan or the public API — those still only come from
+-- their own security-definer paths. Purely additive.
 create policy "Staff insert own company staff-sourced requests" on service_requests
   for insert to authenticated
   with check (
     company_id = get_my_company_id()
-    and source = 'staff'
+    and source in ('staff', 'pm')
   );
 
 comment on policy "Staff insert own company staff-sourced requests" on service_requests is
-  'Lets staff create a source=staff request directly (scan-to-inspect follow-up requests, staff-logged visits). Anonymous/customer submissions still only go through submit_service_request().';
+  'Lets staff create a source=staff or source=pm request directly (scan-to-inspect follow-ups, staff-logged visits, mark-maintenance-done). Anonymous/customer submissions still only go through submit_service_request().';
