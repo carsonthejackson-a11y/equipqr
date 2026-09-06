@@ -12,12 +12,24 @@ import {
 } from "./templates";
 import { sanitizeLabelText } from "./text";
 
-/** One sticker's worth of content. `qrValue` is the code's URL token or short code — whatever the QR should encode. */
+/**
+ * One sticker's worth of content. `qrValue` is the code's URL token or short
+ * code — whatever the QR should encode.
+ *
+ * Omit `equipmentName` for a **blank** (unclaimed pre-printed) code — the
+ * scan-to-onboard pool at `/dashboard/settings/qr-codes` prints codes that
+ * aren't linked to any unit yet. The renderer swaps the unit-name line for
+ * the company name and the usual "Scan for help & service" prompt for
+ * "Scan to set up · equipqr.co" so the sticker reads correctly either way.
+ */
 export type LabelInput = {
   qrValue: string;
   shortCode: string;
-  equipmentName: string;
+  equipmentName?: string;
 };
+
+/** Shown on a blank (unclaimed) code's sticker in place of the "scan for help" prompt. */
+const BLANK_CODE_PROMPT = "Scan to set up · equipqr.co";
 
 export type RenderLabelSheetInput = {
   template: LabelTemplate;
@@ -110,7 +122,10 @@ function drawLabel(
   context: { companyName: string; companyPhone?: string | null; variant: LabelTemplate["variant"] }
 ) {
   const code = formatShortCode(label.shortCode);
-  const name = sanitizeLabelText(label.equipmentName, "Equipment");
+  const isBlank = !label.equipmentName;
+  const name = isBlank
+    ? sanitizeLabelText(context.companyName, "EquipQR")
+    : sanitizeLabelText(label.equipmentName!, "Equipment");
 
   if (context.variant === "square") {
     // 2" x 2": QR on top, text stacked and centred beneath it.
@@ -125,13 +140,19 @@ function drawLabel(
 
     drawStack(
       page,
-      [
-        { text: name, font: fonts.bold, size: 8 },
-        { text: code, font: fonts.mono, size: 10, gapBefore: 1 },
-        ...(context.companyPhone
-          ? [{ text: context.companyPhone, font: fonts.regular, size: 6, color: MUTED }]
-          : []),
-      ],
+      isBlank
+        ? [
+            { text: name, font: fonts.bold, size: 8 },
+            { text: code, font: fonts.mono, size: 10, gapBefore: 1 },
+            { text: BLANK_CODE_PROMPT, font: fonts.regular, size: 6, color: MUTED },
+          ]
+        : [
+            { text: name, font: fonts.bold, size: 8 },
+            { text: code, font: fonts.mono, size: 10, gapBefore: 1 },
+            ...(context.companyPhone
+              ? [{ text: context.companyPhone, font: fonts.regular, size: 6, color: MUTED }]
+              : []),
+          ],
       {
         x: rect.x + PADDING,
         width: rect.width - PADDING * 2,
@@ -150,8 +171,24 @@ function drawLabel(
   const width = rect.x + rect.width - PADDING - textX;
   const centerY = rect.y + rect.height / 2;
 
-  const lines: StackLine[] =
-    context.variant === "compact"
+  const lines: StackLine[] = isBlank
+    ? context.variant === "compact"
+      ? // 1" tall: company name, prompt, code.
+        [
+          { text: name, font: fonts.bold, size: 9 },
+          { text: BLANK_CODE_PROMPT, font: fonts.regular, size: 6, color: MUTED },
+          { text: code, font: fonts.mono, size: 11, gapBefore: 2 },
+        ]
+      : // 4" x 2": the full sticker, no unit to name yet.
+        [
+          { text: context.companyName, font: fonts.bold, size: 11 },
+          { text: BLANK_CODE_PROMPT, font: fonts.regular, size: 7, color: MUTED },
+          { text: code, font: fonts.mono, size: 14, gapBefore: 3 },
+          ...(context.companyPhone
+            ? [{ text: `Call ${context.companyPhone}`, font: fonts.regular, size: 7, color: MUTED }]
+            : []),
+        ]
+    : context.variant === "compact"
       ? // 1" tall: name, prompt, code. Anything more is unreadable at this size.
         [
           { text: name, font: fonts.bold, size: 9 },

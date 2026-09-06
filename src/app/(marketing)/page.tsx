@@ -14,6 +14,7 @@ import {
   Stethoscope,
   Dumbbell,
   AirVent,
+  Printer,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FaqList } from "./_components/faq-item";
@@ -59,6 +60,12 @@ const features = [
     title: "Team roles that make sense",
     description:
       "Owners run billing and settings; technicians work equipment and requests. Nobody sees another company's data — ever.",
+  },
+  {
+    icon: Printer,
+    title: "Pre-printed sticker batches",
+    description:
+      "Print a pool of QR codes ahead of a route and stick them on before you even know which unit is which — scan one on-site, photograph the nameplate, and it's tagged.",
   },
 ];
 

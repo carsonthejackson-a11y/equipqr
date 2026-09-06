@@ -19,14 +19,14 @@ export const productFaqs: FaqEntry[] = [
       "The customer submits a service request with photos or a short video straight from their phone. You get an email with an AI-written summary of what they already tried, so you can dispatch the right tech with the right parts on the first trip.",
   },
   {
-    question: "Can I print my own stickers?",
+    question: "Can I print my own stickers, or do you print them for me?",
     answer:
-      "Yes. Download a print-ready SVG or PNG for any QR code straight from the dashboard the moment you add a piece of equipment.",
+      "Both. Download a print-ready SVG or PNG for any QR code from the dashboard the moment you add a piece of equipment, or print a batch of blank codes on a standard label sheet ahead of a route — good for stocking a truck before you know which unit each sticker will land on.",
   },
   {
     question: "What does a customer see if a sticker hasn't been assigned to a unit yet?",
     answer:
-      "A plain 'this isn't set up yet, contact the service company' message — no dead links, no confusion.",
+      "A plain 'this isn't set up yet, contact the service company' message — no dead links, no confusion. If one of your technicians scans it while signed in, they can claim it to a piece of equipment — including photographing the nameplate to fill in the details automatically — on the spot.",
   },
   {
     question: "Can I control what my team can see and do?",
