@@ -261,4 +261,47 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- workstream D (0023): staff-sourced service requests
+-- (scan-to-inspect's "N items failed -> create a request")
+-- ---------------------------------------------------------------------------
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+
+insert into service_requests (equipment_id, company_id, description, contact_name, priority, source, inspection_id)
+values ('dddddddd-dddd-dddd-dddd-dddddddddddd','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  'Failed inspection items: Descale boiler','Cafe','high','staff', current_setting('smoke.insp')::uuid)
+returning id as staffreq \gset
+select set_config('smoke.staffreq', :'staffreq', false);
+
+do $$
+begin
+  -- staff cannot spoof a customer/pm/api-sourced request through the direct insert path
+  begin
+    insert into service_requests (equipment_id, company_id, description, contact_name, source)
+    values ('dddddddd-dddd-dddd-dddd-dddddddddddd','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','x','x','scan');
+    raise exception 'staff insert with source<>staff should have failed';
+  exception when insufficient_privilege or check_violation then null; end;
+end $$;
+
+reset request.jwt.claim.sub;
+reset role;
+
+-- other company's staff can neither see it nor insert against it
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+declare n int;
+begin
+  select count(*) into n from service_requests where id = current_setting('smoke.staffreq')::uuid;
+  if n <> 0 then raise exception 'leak: cross-tenant staff-sourced request visible'; end if;
+  begin
+    insert into service_requests (equipment_id, company_id, description, contact_name, source)
+    values ('dddddddd-dddd-dddd-dddd-dddddddddddd','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','x','x','staff');
+    raise exception 'cross-tenant staff insert should have failed';
+  exception when insufficient_privilege or check_violation then null; end;
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
 select 'smoke-next OK' as result;
