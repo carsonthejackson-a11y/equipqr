@@ -23,6 +23,7 @@ import { CloseRequestDialog } from "./close-request-dialog";
 import { MediaGallery } from "./media-gallery";
 import { ActivityFeed } from "./activity-feed";
 import { AddNoteForm } from "./add-note-form";
+import { ScheduleVisitCard } from "./schedule-visit-card";
 
 export default async function ServiceRequestDetailPage({
   params,
@@ -267,6 +268,8 @@ export default async function ServiceRequestDetailPage({
               )}
             </CardContent>
           </Card>
+
+          <ScheduleVisitCard request={serviceRequest} />
 
           <Card>
             <CardHeader>

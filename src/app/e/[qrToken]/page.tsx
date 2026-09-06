@@ -10,6 +10,7 @@ import { FEATURES } from "@/lib/features";
 import { publicEnv } from "@/lib/env";
 import { companyAssetUrl, resolveBranding } from "@/lib/branding";
 import { formatRelativeTime } from "@/lib/format";
+import { formatDateOnly } from "@/lib/schedule";
 import { detectScanSource } from "@/lib/public-request";
 import { BrandHeader, BrandShell, PoweredBy } from "@/components/public/brand-shell";
 import { ClaimCodeCard } from "./claim-code-card";
@@ -243,6 +244,12 @@ export default async function EquipmentGuidePage({
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <Wrench className="size-4 shrink-0" aria-hidden />
             Last serviced {formatRelativeTime(guide.equipment.last_serviced_at)}
+          </p>
+        )}
+        {guide.equipment.next_service_due_on && (
+          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Wrench className="size-4 shrink-0" aria-hidden />
+            Next service due {formatDateOnly(guide.equipment.next_service_due_on)}
           </p>
         )}
       </main>

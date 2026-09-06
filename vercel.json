@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/trial-reminders",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/visit-reminders",
+      "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/pm-due",
+      "schedule": "0 12 * * *"
     }
   ]
 }

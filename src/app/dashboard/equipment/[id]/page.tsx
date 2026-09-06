@@ -11,6 +11,7 @@ import { PhotoUploader } from "./photo-uploader";
 import { Documents } from "./documents";
 import { Timeline } from "./timeline";
 import { QrSection } from "./qr-section";
+import { MaintenanceCard } from "./maintenance-card";
 
 /** One "Make · Model" style line, skipping the bits that aren't filled in. */
 function joinMeta(parts: (string | null | undefined)[]): string | null {
@@ -128,6 +129,8 @@ export default async function EquipmentDetailPage({
 
         <QrSection equipment={equipment} />
       </div>
+
+      <MaintenanceCard equipment={equipment} />
     </div>
   );
 }
