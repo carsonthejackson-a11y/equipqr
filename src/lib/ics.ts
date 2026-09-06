@@ -17,13 +17,23 @@ export type IcsEventInput = {
   url?: string | null;
 };
 
-/** Escapes text per RFC 5545 §3.3.11 (backslash, semicolon, comma, newline). */
+/**
+ * Escapes text per RFC 5545 §3.3.11 (backslash, semicolon, comma, newline).
+ *
+ * Every line break form — CRLF, a bare LF, and a bare CR — collapses to the
+ * literal `\n` escape, and any other C0 control character is dropped. The
+ * values folded into these lines include customer- and technician-typed text
+ * (a request description, an equipment location), so a stray CR left in the
+ * output would end the property line for parsers that accept bare CR as a
+ * break and let that text inject its own iCalendar properties.
+ */
 function escapeIcsText(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
     .replace(/;/g, "\\;")
     .replace(/,/g, "\\,")
-    .replace(/\r?\n/g, "\\n");
+    .replace(/\r\n|\r|\n/g, "\\n")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
 }
 
 /** "YYYYMMDDTHHMMSSZ" from a UTC ISO instant. */

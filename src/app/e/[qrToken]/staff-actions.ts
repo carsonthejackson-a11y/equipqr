@@ -22,7 +22,13 @@ import { notifyRequesterOfStatus } from "@/lib/email/request-status";
 import { buildResolutionEmail } from "@/lib/email/resolution";
 import { sendEmail } from "@/lib/email/send";
 import { publicEnv } from "@/lib/env";
-import { clampEtaMinutes, formatOnMyWayNote, resolveVisitContact, validateCloseOut } from "@/lib/staff-scan";
+import {
+  clampEtaMinutes,
+  formatOnMyWayNote,
+  isOwnedStaffMediaPath,
+  resolveVisitContact,
+  validateCloseOut,
+} from "@/lib/staff-scan";
 import type { Customer, Equipment, ServiceRequest } from "@/lib/types";
 
 type ActionResult<T = unknown> = { error: string } | ({ success: true } & T);
@@ -173,6 +179,19 @@ export async function closeOutFromScan(
   const request = await loadOwnedRequest(supabase, requestId, profile.company_id);
   if (!request) {
     return { error: "Service request not found" };
+  }
+
+  // The uploads happened in the browser, so these paths are caller-supplied:
+  // pin them to this company's own staff prefix for this request before any
+  // of them becomes a media row (see isOwnedStaffMediaPath's note on the
+  // 0001 storage read policy). Migration 0019 enforces the same rule in RLS.
+  const badPath =
+    input.media.find((item) => !isOwnedStaffMediaPath(item.path, profile.company_id, requestId)) ??
+    (input.signaturePath && !isOwnedStaffMediaPath(input.signaturePath, profile.company_id, requestId)
+      ? { path: input.signaturePath }
+      : null);
+  if (badPath) {
+    return { error: "Those uploads couldn't be verified — please retry the close-out." };
   }
 
   if (input.media.length > 0) {

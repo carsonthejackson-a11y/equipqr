@@ -19,11 +19,25 @@
 -- rolls the schedule forward). A technician can never insert a row claiming
 -- to be a customer scan or the public API — those still only come from
 -- their own security-definer paths. Purely additive.
+--
+-- company_id + source is NOT sufficient on its own: equipment_id has no
+-- DB-level constraint tying it to the same company. A row claiming the
+-- caller's own company_id but naming ANOTHER tenant's equipment_id would
+-- (a) be listed by resolve_qr_code()'s `open_requests` on that tenant's
+-- public scan page — it filters on equipment_id alone, by design, since it
+-- is security definer — and (b) roll that tenant's equipment.last_serviced_at
+-- forward through the 0013 service_requests_on_resolved() trigger. So the
+-- unit has to be the caller's too, checked through RLS on `equipment`.
 create policy "Staff insert own company staff-sourced requests" on service_requests
   for insert to authenticated
   with check (
     company_id = get_my_company_id()
     and source in ('staff', 'pm')
+    and exists (
+      select 1 from equipment e
+      where e.id = service_requests.equipment_id
+        and e.company_id = get_my_company_id()
+    )
   );
 
 comment on policy "Staff insert own company staff-sourced requests" on service_requests is

@@ -86,6 +86,26 @@ describe("buildIcsEvent", () => {
     expect(summary).toBe("SUMMARY:Repair\\, urgent\\; check\\\\valve\\nline two");
   });
 
+  it("cannot be broken out of with a bare CR or a control character", () => {
+    const ics = buildIcsEvent({
+      uid: "u4b",
+      title: "Repair",
+      // A bare CR is a line break to lenient iCalendar parsers, so text that
+      // carries one must not be able to start a property of its own.
+      description: "before\rSUMMARY:injected\r\nX-EVIL:1\u0000\u007f",
+      startIso: "2026-01-01T00:00:00.000Z",
+      durationMinutes: 30,
+    });
+    expect(ics).not.toContain("\rSUMMARY:injected");
+    expect(ics).not.toContain("\r\nX-EVIL:1");
+    expect(ics).not.toContain("\u0000");
+    const lines = parseLines(ics);
+    expect(lines.find((l) => l.startsWith("DESCRIPTION:"))).toBe(
+      "DESCRIPTION:before\\nSUMMARY:injected\\nX-EVIL:1"
+    );
+    expect(lines.filter((l) => l.startsWith("SUMMARY:"))).toHaveLength(1);
+  });
+
   it("folds long lines and rejoins to the same logical content", () => {
     const longTitle = "A".repeat(200);
     const ics = buildIcsEvent({

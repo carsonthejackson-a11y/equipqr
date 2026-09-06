@@ -27,16 +27,18 @@ import { StaffSignInLink } from "./staff/staff-sign-in-link";
 async function getScanningStaff(
   supabase: Awaited<ReturnType<typeof createClient>>,
   companyId: string
-): Promise<{ userId: string; role: UserRole; fullName: string } | null> {
+): Promise<{ userId: string; role: UserRole; fullName: string | null } | null> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return null;
+  // `profiles.full_name` is nullable (0001) — an invited technician who never
+  // filled it in has none, so it stays nullable all the way through.
   const { data: profile } = await supabase
     .from("profiles")
     .select("company_id, role, full_name")
     .eq("id", user.id)
-    .maybeSingle<{ company_id: string; role: UserRole; full_name: string }>();
+    .maybeSingle<{ company_id: string; role: UserRole; full_name: string | null }>();
   if (!profile || profile.company_id !== companyId) return null;
   return { userId: user.id, role: profile.role, fullName: profile.full_name };
 }

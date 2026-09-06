@@ -24,6 +24,26 @@ export function buildStaffSignaturePath(companyId: string, requestId: string): s
   return `staff/${companyId}/${requestId}/signature.png`;
 }
 
+/**
+ * Is this object name one the close-out flow is allowed to record for this
+ * company + request?
+ *
+ * The uploads happen in the browser, so the paths that come back to
+ * `closeOutFromScan` are caller-controlled. Storage's 0001 read policy grants
+ * an authenticated staff member SELECT on any object named by a
+ * `service_request_media` row of their own company — so an unchecked
+ * `storage_path` would let a technician attach (and then read back through a
+ * signed URL) any object in the `service-request-media` bucket, including
+ * another company's customer uploads. Migration 0019's insert policy enforces
+ * the same prefix in the database; this is the matching app-side check, so a
+ * bad path fails with a readable message instead of an RLS error.
+ */
+export function isOwnedStaffMediaPath(path: string, companyId: string, requestId: string): boolean {
+  if (path.includes("..") || path.startsWith("/")) return false;
+  const prefix = `staff/${companyId}/${requestId}/`;
+  return path.startsWith(prefix) && path.length > prefix.length;
+}
+
 // ----------------------------------------------------------------------------
 // "On my way"
 // ----------------------------------------------------------------------------

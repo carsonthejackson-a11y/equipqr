@@ -304,4 +304,97 @@ end $$;
 reset request.jwt.claim.sub;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- 0019/0020 hardening: own company_id is not enough — the referenced row has
+-- to be ours too. Company B's technician here owns a company_id of its own,
+-- so every insert below passes the company_id check and must still fail on
+-- the equipment / storage-path check.
+-- ---------------------------------------------------------------------------
+insert into equipment_types (id,company_id,name) values
+  ('ffffffff-ffff-ffff-ffff-ffffffffffff','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Other type');
+insert into equipment (id,company_id,equipment_type_id,name) values
+  ('dddddddd-dddd-dddd-dddd-dddddddddd22','bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','ffffffff-ffff-ffff-ffff-ffffffffffff','Other unit');
+
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+begin
+  -- a PM schedule on someone else's unit would let the security-definer sync
+  -- trigger write THEIR equipment.next_service_due_on
+  begin
+    insert into maintenance_schedules (company_id, equipment_id, name, interval_days, next_due_on)
+    values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','dddddddd-dddd-dddd-dddd-dddddddddddd','x',30,current_date);
+    raise exception 'schedule on a foreign unit should have failed';
+  exception when insufficient_privilege or check_violation then null; end;
+
+  -- an inspection on someone else's unit
+  begin
+    insert into inspections (company_id, equipment_id, template_name)
+    values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','dddddddd-dddd-dddd-dddd-dddddddddddd','x');
+    raise exception 'inspection on a foreign unit should have failed';
+  exception when insufficient_privilege or check_violation then null; end;
+
+  -- a staff-sourced request on someone else's unit would show up in
+  -- resolve_qr_code()'s open_requests on THEIR public scan page
+  begin
+    insert into service_requests (company_id, equipment_id, description, contact_name, source)
+    values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','dddddddd-dddd-dddd-dddd-dddddddddddd','x','x','staff');
+    raise exception 'staff request on a foreign unit should have failed';
+  exception when insufficient_privilege or check_violation then null; end;
+
+  -- the same three against their own unit still work
+  insert into maintenance_schedules (company_id, equipment_id, name, interval_days, next_due_on)
+  values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','dddddddd-dddd-dddd-dddd-dddddddddd22','ok',30,current_date);
+  insert into inspections (company_id, equipment_id, template_name)
+  values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','dddddddd-dddd-dddd-dddd-dddddddddd22','ok');
+  insert into service_requests (company_id, equipment_id, description, contact_name, source)
+  values ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','dddddddd-dddd-dddd-dddd-dddddddddd22','ok','ok','staff');
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
+-- staff media rows may only name an object under staff/<own company>/<request>/
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$
+declare v_req uuid;
+begin
+  select id into v_req from service_requests where public_token = current_setting('smoke.tok');
+
+  -- another company's customer upload: allowed through, the 0001 storage read
+  -- policy would then hand it back as a signed URL
+  begin
+    insert into service_request_media (service_request_id, company_id, storage_path, media_type, origin, uploaded_by)
+    values (v_req, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'someone-elses-token/secret.jpg', 'image', 'staff',
+            '22222222-2222-2222-2222-222222222222');
+    raise exception 'staff media row with a foreign storage_path should have failed';
+  exception when insufficient_privilege or check_violation then null; end;
+
+  -- right prefix, wrong company segment
+  begin
+    insert into service_request_media (service_request_id, company_id, storage_path, media_type, origin, uploaded_by)
+    values (v_req, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'staff/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/'||v_req||'/x.jpg', 'image', 'staff',
+            '22222222-2222-2222-2222-222222222222');
+    raise exception 'staff media row under another company prefix should have failed';
+  exception when insufficient_privilege or check_violation then null; end;
+
+  -- right prefix, another request of the same company
+  begin
+    insert into service_request_media (service_request_id, company_id, storage_path, media_type, origin, uploaded_by)
+    values (v_req, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            'staff/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/'||gen_random_uuid()||'/x.jpg', 'image', 'staff',
+            '22222222-2222-2222-2222-222222222222');
+    raise exception 'staff media row for another request should have failed';
+  exception when insufficient_privilege or check_violation then null; end;
+
+  -- the shape src/lib/staff-scan.ts actually writes still works
+  insert into service_request_media (service_request_id, company_id, storage_path, media_type, origin, uploaded_by)
+  values (v_req, 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+          'staff/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/'||v_req||'/signature.png', 'image', 'staff',
+          '22222222-2222-2222-2222-222222222222');
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
 select 'smoke-next OK' as result;

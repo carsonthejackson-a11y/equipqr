@@ -79,6 +79,35 @@ function patchFromForm(formData: FormData, fallbackStatus?: EquipmentStatus): Eq
   };
 }
 
+/**
+ * The equipment_type_id / customer_id FKs are not tenant-constrained at the
+ * DB level, and resolve_qr_code() (security definer) publishes the type's
+ * whole guide graph to anyone scanning the unit. Only accept ids that come
+ * back through the RLS-scoped client, i.e. belong to the caller's company.
+ */
+async function assertOwnedReferences(
+  supabase: Supabase,
+  patch: Pick<EquipmentPatch, "equipment_type_id" | "customer_id">
+): Promise<{ error: string } | null> {
+  if (patch.equipment_type_id) {
+    const { data } = await supabase
+      .from("equipment_types")
+      .select("id")
+      .eq("id", patch.equipment_type_id)
+      .maybeSingle<{ id: string }>();
+    if (!data) return { error: "Equipment type not found" };
+  }
+  if (patch.customer_id) {
+    const { data } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("id", patch.customer_id)
+      .maybeSingle<{ id: string }>();
+    if (!data) return { error: "Customer not found" };
+  }
+  return null;
+}
+
 async function assignCode(
   supabase: Supabase,
   equipmentId: string,
@@ -129,6 +158,11 @@ export async function createEquipment(
     return { error: "No company found for this account" };
   }
 
+  const refError = await assertOwnedReferences(supabase, patch);
+  if (refError) {
+    return refError;
+  }
+
   const { data, error } = await supabase
     .from("equipment")
     .insert({ company_id: staff.companyId, ...patch })
@@ -176,6 +210,11 @@ export async function updateEquipment(id: string, formData: FormData) {
 
   if (!patch.name || !patch.equipment_type_id) {
     return { error: "Name and equipment type are required" };
+  }
+
+  const refError = await assertOwnedReferences(supabase, patch);
+  if (refError) {
+    return refError;
   }
 
   const { error } = await supabase.from("equipment").update(patch).eq("id", id);

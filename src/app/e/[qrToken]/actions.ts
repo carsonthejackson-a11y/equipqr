@@ -73,6 +73,33 @@ export async function onboardEquipment(
     return limitError;
   }
 
+  // `equipment` RLS only checks company_id, and neither foreign key is
+  // constrained to the same tenant — so these ids off the wire have to be
+  // proven to be ours. A foreign equipment_type_id would be the worst of the
+  // two: resolve_qr_code() is security definer and returns the type's name,
+  // description and its whole guide graph to anyone scanning this sticker.
+  // These lookups run under RLS, so another company's id simply doesn't come back.
+  const { data: ownType } = await supabase
+    .from("equipment_types")
+    .select("id")
+    .eq("id", equipmentTypeId)
+    .maybeSingle<{ id: string }>();
+  if (!ownType) {
+    return { error: "Pick an equipment type from the list" };
+  }
+
+  const customerId = nullable(formData, "customerId");
+  if (customerId) {
+    const { data: ownCustomer } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("id", customerId)
+      .maybeSingle<{ id: string }>();
+    if (!ownCustomer) {
+      return { error: "Pick a customer from the list" };
+    }
+  }
+
   const nameplateFields: NameplateFields = {
     make: nullable(formData, "make"),
     model: nullable(formData, "model"),
@@ -89,7 +116,7 @@ export async function onboardEquipment(
     .insert({
       company_id: profile.company_id,
       equipment_type_id: equipmentTypeId,
-      customer_id: nullable(formData, "customerId"),
+      customer_id: customerId,
       name,
       make: nullable(formData, "make"),
       model: nullable(formData, "model"),

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildIcsEvent } from "@/lib/ics";
 import { getRequestStatusUrl } from "@/lib/qr";
-import type { Company, Equipment, ServiceRequest } from "@/lib/types";
+import type { Customer, Equipment, ServiceRequest } from "@/lib/types";
 
 /**
  * `.ics` download for a scheduled visit — staff-only, RLS-scoped (the
@@ -32,9 +32,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "No scheduled visit for this request" }, { status: 404 });
   }
 
-  const [{ data: equipment }, { data: company }] = await Promise.all([
+  const [{ data: equipment }, { data: customer }] = await Promise.all([
     supabase.from("equipment").select("*").eq("id", request.equipment_id).maybeSingle<Equipment>(),
-    supabase.from("companies").select("*").eq("id", request.company_id).maybeSingle<Company>(),
+    // The *customer* is the site being visited. `companies` is the service
+    // company the technician works for — naming that on their own calendar
+    // entry told them nothing (and labelled it "Customer:", which was wrong).
+    request.customer_id
+      ? supabase.from("customers").select("name").eq("id", request.customer_id).maybeSingle<Pick<Customer, "name">>()
+      : Promise.resolve({ data: null as Pick<Customer, "name"> | null }),
   ]);
 
   const equipmentName = equipment?.name ?? "Equipment";
@@ -45,7 +50,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     title: `Visit: ${equipmentName}`,
     description: [
       request.description,
-      company?.name ? `Customer: ${company.name}` : null,
+      customer?.name ? `Customer: ${customer.name}` : null,
       `Contact: ${request.contact_name}${request.contact_phone ? ` · ${request.contact_phone}` : ""}`,
       getRequestStatusUrl(request.public_token),
     ]

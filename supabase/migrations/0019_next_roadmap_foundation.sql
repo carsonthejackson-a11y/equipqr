@@ -108,6 +108,14 @@ create policy "Staff insert own company request media" on service_request_media
   with check (
     origin = 'staff'
     and company_id = get_my_company_id()
+    -- The object name must sit under THIS company's staff prefix for THIS
+    -- request. Without it a staff row could name any object in the bucket
+    -- (another company's customer uploads included) and the 0001 read policy
+    -- — which grants select on every object named by a media row of your own
+    -- company — would hand it straight back as a signed URL. The app builds
+    -- exactly this shape (src/lib/staff-scan.ts buildStaffPhotoPath).
+    and storage_path like
+      'staff/' || get_my_company_id()::text || '/' || service_request_media.service_request_id::text || '/%'
     and exists (
       select 1 from service_requests sr
       where sr.id = service_request_media.service_request_id
@@ -175,6 +183,13 @@ begin
   end if;
   if v_req.status in ('resolved', 'canceled') then
     raise exception 'This request is closed' using errcode = 'P0001';
+  end if;
+
+  -- The API route rate-limits by IP and token, but this RPC is anon-callable
+  -- with the browser key, so enforce a per-request ceiling here too (runs as
+  -- the function owner; check_rate_limit itself stays service-role only).
+  if not check_rate_limit('cu:rpc:' || v_req.id::text, 60, 3600) then
+    raise exception 'Too many updates on this request — try again later' using errcode = '54000';
   end if;
 
   insert into request_activity (company_id, service_request_id, kind, visibility, body, metadata, author_kind)
@@ -422,10 +437,29 @@ alter table inspections enable row level security;
 
 create policy "Staff view own inspections" on inspections
   for select using (company_id = get_my_company_id());
+-- company_id alone isn't enough: equipment_id has no DB-level constraint
+-- tying it to the same company, so a row claiming your own company_id could
+-- still point at another tenant's unit (any technician can POST straight to
+-- PostgREST with the anon key). Everything downstream — the timeline events,
+-- the follow-up request — would then be attached to a unit its owner can't
+-- see. Check the unit through RLS on `equipment` instead.
 create policy "Staff insert own inspections" on inspections
-  for insert with check (company_id = get_my_company_id());
+  for insert with check (
+    company_id = get_my_company_id()
+    and exists (
+      select 1 from equipment e
+      where e.id = inspections.equipment_id and e.company_id = get_my_company_id()
+    )
+  );
 create policy "Staff update own inspections" on inspections
-  for update using (company_id = get_my_company_id()) with check (company_id = get_my_company_id());
+  for update using (company_id = get_my_company_id())
+  with check (
+    company_id = get_my_company_id()
+    and exists (
+      select 1 from equipment e
+      where e.id = inspections.equipment_id and e.company_id = get_my_company_id()
+    )
+  );
 create policy "Owners delete own inspections" on inspections
   for delete using (company_id = get_my_company_id() and is_company_owner());
 
@@ -472,10 +506,28 @@ alter table maintenance_schedules enable row level security;
 
 create policy "Staff view own maintenance schedules" on maintenance_schedules
   for select using (company_id = get_my_company_id());
+-- Same equipment-ownership rule as `inspections` above, and here it matters
+-- more: maintenance_schedules_sync_equipment() below is SECURITY DEFINER and
+-- writes equipment.next_service_due_on for whatever equipment_id lands in the
+-- row, and generate_due_maintenance_requests() would return that unit's name
+-- and its customer's email to THIS company's notification inbox.
 create policy "Staff insert own maintenance schedules" on maintenance_schedules
-  for insert with check (company_id = get_my_company_id());
+  for insert with check (
+    company_id = get_my_company_id()
+    and exists (
+      select 1 from equipment e
+      where e.id = maintenance_schedules.equipment_id and e.company_id = get_my_company_id()
+    )
+  );
 create policy "Staff update own maintenance schedules" on maintenance_schedules
-  for update using (company_id = get_my_company_id()) with check (company_id = get_my_company_id());
+  for update using (company_id = get_my_company_id())
+  with check (
+    company_id = get_my_company_id()
+    and exists (
+      select 1 from equipment e
+      where e.id = maintenance_schedules.equipment_id and e.company_id = get_my_company_id()
+    )
+  );
 create policy "Staff delete own maintenance schedules" on maintenance_schedules
   for delete using (company_id = get_my_company_id());
 

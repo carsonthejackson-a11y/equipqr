@@ -13,7 +13,8 @@ import { LogVisitCard } from "./log-visit-card";
 // close out a request without going near the dashboard. Mobile-first, one
 // action per screen, camera-first uploads — see NEXT-ROADMAP-BRIEF.md.
 
-export type ScanningStaff = { userId: string; role: UserRole; fullName: string };
+/** `fullName` mirrors the nullable `profiles.full_name` column — an invited technician may have none. */
+export type ScanningStaff = { userId: string; role: UserRole; fullName: string | null };
 
 const RECENT_HISTORY_LIMIT = 3;
 
@@ -55,7 +56,7 @@ export async function StaffScanView({
   const members = (membersData as CompanyMember[] | null) ?? [];
   const nameById = new Map(members.map((m) => [m.id, m.full_name?.trim() || m.email] as const));
 
-  const staffFirstName = staff.fullName.trim().split(/\s+/)[0] || "there";
+  const staffFirstName = (staff.fullName ?? "").trim().split(/\s+/)[0] || "there";
   const makeModel = [guide.equipment.make, guide.equipment.model].filter(Boolean).join(" ");
   const nextServiceDue = formatDate(guide.equipment.next_service_due_on);
   const lastServiced = formatDate(guide.equipment.last_serviced_at);

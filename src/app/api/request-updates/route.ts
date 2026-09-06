@@ -45,6 +45,8 @@ function statusForPgErrorCode(code: string | undefined): number {
       return 404;
     case "22023": // body outside 2–2000 chars
       return 400;
+    case "54000": // per-request ceiling inside the RPC (defence in depth)
+      return 429;
     default:
       return 400;
   }

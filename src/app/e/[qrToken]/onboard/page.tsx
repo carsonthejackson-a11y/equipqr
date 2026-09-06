@@ -40,7 +40,7 @@ export default async function OnboardPage({
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect(`/login?next=/e/${qrToken}/onboard`);
+    redirect(`/login?next=${encodeURIComponent(`/e/${qrToken}/onboard`)}`);
   }
 
   const { data: profile } = await supabase

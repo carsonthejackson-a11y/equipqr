@@ -4,6 +4,7 @@ import {
   buildStaffSignaturePath,
   clampEtaMinutes,
   formatOnMyWayNote,
+  isOwnedStaffMediaPath,
   resolveVisitContact,
   validateCloseOut,
 } from "@/lib/staff-scan";
@@ -20,6 +21,27 @@ describe("buildStaffPhotoPath / buildStaffSignaturePath", () => {
 
   it("always names the signature the same thing, so re-signing overwrites", () => {
     expect(buildStaffSignaturePath("c", "r")).toBe(buildStaffSignaturePath("c", "r"));
+  });
+});
+
+describe("isOwnedStaffMediaPath", () => {
+  it("accepts what the close-out uploader actually writes", () => {
+    expect(isOwnedStaffMediaPath(buildStaffPhotoPath("c1", "r1", "p1"), "c1", "r1")).toBe(true);
+    expect(isOwnedStaffMediaPath(buildStaffSignaturePath("c1", "r1"), "c1", "r1")).toBe(true);
+  });
+
+  it("rejects another company's or another request's objects", () => {
+    expect(isOwnedStaffMediaPath("staff/c2/r1/p1.jpg", "c1", "r1")).toBe(false);
+    expect(isOwnedStaffMediaPath("staff/c1/r2/p1.jpg", "c1", "r1")).toBe(false);
+    // A customer upload from any scan of any sticker lives at "<qrToken>/…".
+    expect(isOwnedStaffMediaPath("0123456789abcdef01234567/a.jpg", "c1", "r1")).toBe(false);
+  });
+
+  it("rejects traversal, absolute paths and the bare prefix", () => {
+    expect(isOwnedStaffMediaPath("staff/c1/r1/../../c2/r9/p.jpg", "c1", "r1")).toBe(false);
+    expect(isOwnedStaffMediaPath("/staff/c1/r1/p.jpg", "c1", "r1")).toBe(false);
+    expect(isOwnedStaffMediaPath("staff/c1/r1/", "c1", "r1")).toBe(false);
+    expect(isOwnedStaffMediaPath("", "c1", "r1")).toBe(false);
   });
 });
 
