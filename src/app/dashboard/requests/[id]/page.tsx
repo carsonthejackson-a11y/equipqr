@@ -68,9 +68,24 @@ export default async function ServiceRequestDetailPage({
       const { data: signed } = await supabase.storage
         .from("service-request-media")
         .createSignedUrl(item.storage_path, 3600);
-      return { url: signed?.signedUrl ?? "", media_type: item.media_type };
+      return { url: signed?.signedUrl ?? "", media_type: item.media_type, origin: item.origin, caption: item.caption };
     })
   );
+
+  // ---- Next roadmap (migration 0019 / workstream A) ----
+  // Signature captured at phone close-out, signed the same way the media
+  // above is.
+  const signatureUrl = serviceRequest.signature_path
+    ? (
+        await supabase.storage.from("service-request-media").createSignedUrl(serviceRequest.signature_path, 3600)
+      ).data?.signedUrl
+    : null;
+  const signature = signatureUrl
+    ? { url: signatureUrl, signedByName: serviceRequest.signed_by_name, signedAt: serviceRequest.signed_at }
+    : null;
+  const staffPhotoUrls = mediaWithUrls
+    .filter((m) => m.url && m.origin === "staff")
+    .map((m) => ({ url: m.url, caption: m.caption }));
 
   const staffNameById = new Map(
     (members ?? []).map((m) => [m.id, m.full_name?.trim() || m.email] as const)
@@ -103,7 +118,7 @@ export default async function ServiceRequestDetailPage({
             assignedTo={serviceRequest.assigned_to}
             members={members ?? []}
           />
-          <CloseRequestDialog request={serviceRequest} />
+          <CloseRequestDialog request={serviceRequest} existingMedia={{ staffPhotos: staffPhotoUrls, signature }} />
         </div>
       </div>
 
@@ -180,7 +195,7 @@ export default async function ServiceRequestDetailPage({
               <CardTitle>Photos &amp; videos</CardTitle>
             </CardHeader>
             <CardContent>
-              <MediaGallery items={mediaWithUrls.filter((m) => m.url)} />
+              <MediaGallery items={mediaWithUrls.filter((m) => m.url)} signature={signature} />
             </CardContent>
           </Card>
 
