@@ -176,12 +176,40 @@ export type Equipment = {
   notes: string | null;
   photo_path: string | null;
   last_serviced_at: string | null;
-  /** Next: PM reminders write this. Unused by the UI until then. */
+  /**
+   * Preventive maintenance: when `service_interval_days` is set, the DB trigger
+   * (0019) keeps this at last_serviced_at (or install_date) + interval. Without
+   * an interval it's a hand-set date or null.
+   */
   next_service_due_on: string | null;
-  /** Next: custom fields. Keyed by company-defined field id. */
+  /** Values for the company's `equipment_custom_fields`, keyed by field `key`. */
   custom_fields: Record<string, unknown>;
+  /** PM interval in days (1–3650), or null when the unit isn't on a schedule. */
+  service_interval_days: number | null;
+  /** The next_service_due_on the last PM reminder email covered (de-dupes the daily job). */
+  pm_reminder_sent_for: string | null;
   updated_at: string;
   created_at: string;
+};
+
+export type CustomFieldType = "text" | "number" | "date" | "select" | "boolean";
+
+/** A company-defined equipment field (Settings → Custom fields). Values live in `Equipment.custom_fields[key]`. */
+export type EquipmentCustomField = {
+  id: string;
+  company_id: string;
+  /** Stable slug used as the jsonb key, e.g. "filter_size". Never changes after creation. */
+  key: string;
+  label: string;
+  field_type: CustomFieldType;
+  /** For `select` fields: the allowed option strings. */
+  options: string[];
+  help_text: string | null;
+  show_on_scan_page: boolean;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type EquipmentDocument = {
@@ -251,8 +279,12 @@ export type ServiceRequest = {
   /** Token for the customer's public /r/<token> status page. */
   public_token: string;
   status_updated_at: string;
-  /** Next: scheduling-lite. */
+  /** Scheduling-lite: the visit date/time (UTC instant; display in the company's timezone). */
   scheduled_for: string | null;
+  /** Two-way messaging: when the customer last replied on /r/<token>. */
+  last_customer_message_at: string | null;
+  /** When staff last opened the detail page; unread = last_customer_message_at > this. */
+  customer_messages_read_at: string | null;
   closed_by: string | null;
   resolution_summary: string | null;
   resolution_recommendations: string | null;
@@ -301,6 +333,10 @@ export type PublicRequestStatus = {
   description: string;
   equipment: { name: string; location: string | null };
   company: CompanyPublicProfile;
+  /** IANA zone (0019) — format `scheduled_for` in this, never in the server's zone. */
+  company_timezone: string;
+  /** Whether the reply box should show (false once the request is canceled). */
+  can_reply: boolean;
   assigned_to_name: string | null;
   activity: { kind: RequestActivityKind; body: string | null; author_kind: ActorKind; created_at: string }[];
 };
@@ -367,4 +403,69 @@ export type ResolvedQrCode =
  */
 export type PublicRequestStatusWithCompanyId = Omit<PublicRequestStatus, "company"> & {
   company: CompanyPublicProfile & { id: string };
+};
+
+/** Shape returned by add_request_customer_message() (anon-callable, 0019). */
+export type CustomerMessageResult = {
+  activity_id: string;
+  request_id: string;
+  company_id: string;
+  company_name: string;
+  /** Service-role callers only — null on an anon call. */
+  company_notification_email: string | null;
+  assigned_to: string | null;
+  equipment_name: string;
+  contact_name: string;
+  status: RequestStatus;
+};
+
+/** An outbound webhook endpoint (Settings → API → Webhooks; Business plan). */
+export type WebhookEndpoint = {
+  id: string;
+  company_id: string;
+  url: string;
+  description: string | null;
+  /** HMAC secret. Never select this into a client component — see WebhookEndpointPublic. */
+  secret: string;
+  /** Event types subscribed to; empty means every event. Catalogue in src/lib/webhooks.ts. */
+  events: string[];
+  is_active: boolean;
+  failure_count: number;
+  disabled_at: string | null;
+  last_delivery_at: string | null;
+  last_delivery_status: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** The endpoint row as it may cross into the browser: everything but the secret. */
+export type WebhookEndpointPublic = Omit<WebhookEndpoint, "secret">;
+
+export type WebhookDeliveryStatus = "pending" | "delivered" | "failed";
+
+/** One attempt-tracked delivery of one event to one endpoint (the outbox). */
+export type WebhookDelivery = {
+  id: string;
+  company_id: string;
+  endpoint_id: string;
+  event_type: string;
+  payload: WebhookPayload;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  next_attempt_at: string;
+  last_attempt_at: string | null;
+  response_status: number | null;
+  last_error: string | null;
+  delivered_at: string | null;
+  created_at: string;
+};
+
+/** The JSON body an endpoint receives. `data` shape depends on `type` — see docs/API.md "Webhooks". */
+export type WebhookPayload = {
+  id: string;
+  type: string;
+  created_at: string;
+  company_id: string;
+  data: Record<string, unknown>;
 };
