@@ -85,6 +85,48 @@ sticker" → photograph the nameplate → Claude vision fills make/model/serial 
 claim in one step; "Scan nameplate" button on the dashboard new-equipment dialog too.
 Marketing copy for pre-printed stickers restored; `docs/BATCH-QR.md` rewritten.
 
+## Ported additions (2026-09-07): custom fields + outbound webhooks
+
+Two Next-lane features built on a parallel branch (`claude/feature-roadmap-next-push-bpik4m`,
+tag `next-alt-impl`) were ported onto this branch as one additive migration,
+`0022_webhooks_and_custom_fields.sql`, plus app code. The parallel branch's own scheduling,
+messaging and PM-interval work was dropped in favour of what is already here.
+
+- **Custom fields** — owner-managed definitions under `/dashboard/settings/custom-fields`
+  (label, immutable slug key, text / number / date / dropdown / yes-no, options, help text,
+  show-on-scan-page, reorder, max 20); inputs on the new-equipment dialog and edit form;
+  values in `equipment.custom_fields`; detail header shows filled values; timeline summary
+  names changed fields; equipment CSV export (one column per field) and import (`cf:<key>`
+  headers); v1 API returns `custom_fields` as stored; `resolve_qr_code()` gains
+  `equipment.custom_fields` for flagged fields, rendered on the scan page.
+- **Outbound webhooks** (Business) — Settings → API → Webhooks: endpoints (https only,
+  event subscriptions or all, one-time secret reveal, rotate, enable/disable, delete, send
+  test with a synchronous result), recent-deliveries log with Retry; triggers on
+  `equipment_events` / `request_activity` fill a `webhook_deliveries` outbox; the deliverer
+  (`src/lib/webhooks.ts`) runs from `after()` in the event emitters and from
+  `/api/cron/webhooks` every 5 minutes; `X-EquipQR-Signature: t=…,v1=hmac-sha256("<t>.<body>")`,
+  10 s timeout, retries 1m/5m/30m/2h × 5, auto-disable after 20 consecutive failures,
+  per-endpoint claim cap, time-budgeted parallel drain with hand-back. Reference in
+  `docs/API.md` "Webhooks".
+- **Hardening carried over from that branch's security review** — the 0013 insert policies
+  on `equipment_events` / `request_activity` now verify the referenced unit / request belongs
+  to the caller's company (previously only `company_id` was checked, which the new
+  security-definer fan-out triggers would have turned into a cross-tenant read); the
+  triggers add the company predicate as well; the endpoint cap is DB-enforced;
+  `webhook_endpoints.secret` is not selectable by staff (column grants); webhook URLs reject
+  private v4 ranges, CGNAT, IPv6 literals and local names.
+
+Verified here: `npm run lint`, `npx tsc --noEmit`, `npm test` (28 files / 382 tests),
+`npm run build`, `npm run test:e2e`; migrations 0001–0022 on a fresh local Postgres with
+`smoke.sql` + `scripts/local-db/smoke-port.sql` (custom fields, scan-page exposure, outbox
+fan-out and visibility, leasing / retry / disable bookkeeping, the tightened insert policies,
+tenant isolation) and, on a separate reset, this branch's own `smoke-next.sql`.
+
+Not yet verified: 0022 against the production project (0019–0021 are already applied there;
+0022 is additive and next in sequence). Set `SUPABASE_SERVICE_ROLE_KEY` + `CRON_SECRET` for
+the webhook cron; Vercel Hobby only allows daily crons, so the 5-minute drain needs Pro
+(deliveries still go out via `after()` right after each event on any plan).
+
 ## Known gaps / follow-ups
 
 - Invoices at close-out were explicitly skipped this pass.

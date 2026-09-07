@@ -18,7 +18,8 @@ import {
   type EquipmentPatch,
 } from "@/lib/equipment";
 import { formatBytes } from "@/lib/format";
-import type { Equipment, EquipmentDocument, EquipmentStatus } from "@/lib/types";
+import { customFieldsDiff, parseCustomFieldValues } from "@/lib/custom-fields";
+import type { Equipment, EquipmentCustomField, EquipmentDocument, EquipmentStatus } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -77,6 +78,17 @@ function patchFromForm(formData: FormData, fallbackStatus?: EquipmentStatus): Eq
     status: statusFrom(formData, fallbackStatus),
     notes: nullable(formData, "notes"),
   };
+}
+
+/** The company's field definitions, in the order the form shows them. RLS scopes this to the caller. */
+async function loadCustomFieldDefinitions(supabase: Supabase): Promise<EquipmentCustomField[]> {
+  const { data } = await supabase
+    .from("equipment_custom_fields")
+    .select("*")
+    .order("sort_order")
+    .order("created_at")
+    .returns<EquipmentCustomField[]>();
+  return data ?? [];
 }
 
 /**
@@ -163,9 +175,15 @@ export async function createEquipment(
     return refError;
   }
 
+  const definitions = await loadCustomFieldDefinitions(supabase);
+  const customFields = parseCustomFieldValues(definitions, formData);
+  if (customFields.errors.length > 0) {
+    return { error: customFields.errors[0] };
+  }
+
   const { data, error } = await supabase
     .from("equipment")
-    .insert({ company_id: staff.companyId, ...patch })
+    .insert({ company_id: staff.companyId, ...patch, custom_fields: customFields.values })
     .select("id")
     .single<{ id: string }>();
 
@@ -187,7 +205,10 @@ export async function createEquipment(
   return { id: data.id, codeError };
 }
 
-export async function updateEquipment(id: string, formData: FormData) {
+export async function updateEquipment(
+  id: string,
+  formData: FormData
+): Promise<{ error: string; success?: undefined } | { success: true; error?: undefined }> {
   const supabase = await createClient();
   const staff = await currentStaff(supabase);
   if (!staff) {
@@ -217,21 +238,34 @@ export async function updateEquipment(id: string, formData: FormData) {
     return refError;
   }
 
-  const { error } = await supabase.from("equipment").update(patch).eq("id", id);
+  // Custom field values are replaced wholesale (not merged): the form posts
+  // every defined field, and a key whose definition was deleted must not be
+  // resurrected from the old row.
+  const definitions = await loadCustomFieldDefinitions(supabase);
+  const customFields = parseCustomFieldValues(definitions, formData);
+  if (customFields.errors.length > 0) {
+    return { error: customFields.errors[0] };
+  }
+
+  const { error } = await supabase
+    .from("equipment")
+    .update({ ...patch, custom_fields: customFields.values })
+    .eq("id", id);
 
   if (error) {
     return { error: error.message };
   }
 
   const changed = diffEquipment(existing, patch);
+  const changedCustom = customFieldsDiff(definitions, existing.custom_fields, customFields.values);
 
-  if (changed.length > 0) {
+  if (changed.length > 0 || changedCustom.length > 0) {
     await emitEquipmentEvent(supabase, {
       companyId: existing.company_id,
       equipmentId: id,
       kind: "equipment_updated",
-      summary: equipmentUpdateSummary(changed),
-      details: { fields: changed },
+      summary: equipmentUpdateSummary(changed, changedCustom),
+      details: { fields: changed, custom_fields: changedCustom },
       actorUserId: staff.userId,
     });
 

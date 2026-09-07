@@ -3,11 +3,18 @@
 //
 // The DB columns are free text on purpose so a new feature can add a kind
 // without a migration — but everything the app writes or renders goes
-// through this file, and this is also the single hook where outbound
-// webhooks / Zapier (Next) will attach: `emitEquipmentEvent()` is the one
-// place a "something happened" fact enters the system from app code.
+// through this file.
+//
+// Outbound webhooks hang off these tables at the database level: triggers
+// from migration 0022 copy each qualifying row into the `webhook_deliveries`
+// outbox for every subscribed endpoint, so nothing here has to know which
+// events a company listens to. The one app-side hook is the
+// flushWebhooksSoon() call after each successful insert, which asks the
+// deliverer (src/lib/webhooks.ts) to drain that company's outbox once the
+// response is sent — the 5-minute cron picks up whatever that misses.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { flushWebhooksSoon } from "@/lib/webhooks";
 import type { ActorKind, EquipmentEvent, RequestActivity, RequestActivityKind } from "@/lib/types";
 
 export const EQUIPMENT_EVENT_KINDS = {
@@ -80,6 +87,7 @@ export async function emitEquipmentEvent(
     console.error("emitEquipmentEvent failed:", error.message);
     return null;
   }
+  flushWebhooksSoon(input.companyId);
   return data;
 }
 
@@ -119,5 +127,6 @@ export async function emitRequestActivity(
     console.error("emitRequestActivity failed:", error.message);
     return null;
   }
+  flushWebhooksSoon(input.companyId);
   return data;
 }

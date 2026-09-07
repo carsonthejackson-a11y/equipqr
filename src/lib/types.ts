@@ -179,10 +179,30 @@ export type Equipment = {
   last_serviced_at: string | null;
   /** Next: PM reminders write this. Unused by the UI until then. */
   next_service_due_on: string | null;
-  /** Next: custom fields. Keyed by company-defined field id. */
+  /** Values for the company's `equipment_custom_fields`, keyed by field `key`. */
   custom_fields: Record<string, unknown>;
   updated_at: string;
   created_at: string;
+};
+
+export type CustomFieldType = "text" | "number" | "date" | "select" | "boolean";
+
+/** A company-defined equipment field (Settings → Custom fields). Values live in `Equipment.custom_fields[key]`. */
+export type EquipmentCustomField = {
+  id: string;
+  company_id: string;
+  /** Stable slug used as the jsonb key, e.g. "filter_size". Never changes after creation. */
+  key: string;
+  label: string;
+  field_type: CustomFieldType;
+  /** For `select` fields: the allowed option strings. */
+  options: string[];
+  help_text: string | null;
+  show_on_scan_page: boolean;
+  sort_order: number;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type EquipmentDocument = {
@@ -356,6 +376,8 @@ export type EquipmentGuide = {
     last_serviced_at: string | null;
     /** Next roadmap: earliest active maintenance schedule (may be undefined on cached payloads). */
     next_service_due_on?: string | null;
+    /** Custom fields flagged show_on_scan_page, with a value (0022). Absent before that migration. */
+    custom_fields?: { label: string; value: string }[];
   };
   company: { id: string } & CompanyPublicProfile;
   equipment_type: { id: string; name: string; description: string | null };
@@ -547,3 +569,57 @@ export type GeneratedMaintenanceRequest = {
   contact_name: string;
   contact_email: string | null;
 };
+
+/** An outbound webhook endpoint (Settings → API → Webhooks; Business plan). */
+export type WebhookEndpoint = {
+  id: string;
+  company_id: string;
+  url: string;
+  description: string | null;
+  /** HMAC secret. Never select this into a client component — see WebhookEndpointPublic. */
+  secret: string;
+  /** Event types subscribed to; empty means every event. Catalogue in src/lib/webhook-signing.ts. */
+  events: string[];
+  is_active: boolean;
+  failure_count: number;
+  disabled_at: string | null;
+  last_delivery_at: string | null;
+  last_delivery_status: number | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** The endpoint row as it may cross into the browser: everything but the secret. */
+export type WebhookEndpointPublic = Omit<WebhookEndpoint, "secret">;
+
+export type WebhookDeliveryStatus = "pending" | "delivered" | "failed";
+
+/** One attempt-tracked delivery of one event to one endpoint (the outbox). */
+export type WebhookDelivery = {
+  id: string;
+  company_id: string;
+  endpoint_id: string;
+  event_type: string;
+  payload: WebhookPayload;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  next_attempt_at: string;
+  last_attempt_at: string | null;
+  response_status: number | null;
+  last_error: string | null;
+  delivered_at: string | null;
+  created_at: string;
+};
+
+/** The JSON body an endpoint receives. `data` shape depends on `type` — see docs/API.md "Webhooks". */
+export type WebhookPayload = {
+  id: string;
+  type: string;
+  created_at: string;
+  company_id: string;
+  data: Record<string, unknown>;
+};
+
+/** A delivery row as the settings page lists it: everything but the payload. */
+export type WebhookDeliverySummary = Omit<WebhookDelivery, "payload">;

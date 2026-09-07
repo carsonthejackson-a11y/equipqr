@@ -185,6 +185,15 @@ an unknown `/e/[qrToken]`, and `/api/health`. It never creates data.
 - **Data export & API access** (Business plan): CSV export at `/api/export/[entity]`
   (session-authenticated, from `/dashboard/settings/api`) and a public v1 REST API at
   `/api/v1/*` authenticated with per-company API keys — see `docs/API.md`.
+- **Outbound webhooks** (Business plan): owners register https endpoints under
+  `/dashboard/settings/api`; equipment and request changes are queued in `webhook_deliveries`
+  and POSTed with an HMAC `X-EquipQR-Signature`, retried (1m/5m/30m/2h), and drained by
+  `/api/cron/webhooks` every 5 minutes (needs `CRON_SECRET` + `SUPABASE_SERVICE_ROLE_KEY`) —
+  event catalogue and verification snippet in `docs/API.md` "Webhooks".
+- **Custom fields**: owners define up to 20 extra equipment fields (text / number / date /
+  dropdown / yes-no) under `/dashboard/settings/custom-fields`; they appear on the equipment form,
+  the detail header, the equipment CSV export/import (`cf:<key>` columns) and `custom_fields` in
+  the v1 API, and — when flagged — on the public scan page.
 
 ## Contributing
 

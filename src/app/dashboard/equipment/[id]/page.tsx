@@ -5,7 +5,8 @@ import { BackLink } from "@/components/back-link";
 import { EquipmentStatusBadge } from "@/components/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentProfile } from "@/lib/auth";
-import type { Customer, Equipment, EquipmentType } from "@/lib/types";
+import { formatCustomFieldValue } from "@/lib/custom-fields";
+import type { Customer, Equipment, EquipmentCustomField, EquipmentType } from "@/lib/types";
 import { EditEquipmentForm } from "./edit-equipment-form";
 import { PhotoUploader } from "./photo-uploader";
 import { Documents } from "./documents";
@@ -37,11 +38,22 @@ export default async function EquipmentDetailPage({
     notFound();
   }
 
-  const [{ data: equipmentTypes }, { data: customers }, { profile }] = await Promise.all([
-    supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
-    supabase.from("customers").select("*").order("name").returns<Customer[]>(),
-    getCurrentProfile(),
-  ]);
+  const [{ data: equipmentTypes }, { data: customers }, { data: customFields }, { profile }] =
+    await Promise.all([
+      supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
+      supabase.from("customers").select("*").order("name").returns<Customer[]>(),
+      supabase
+        .from("equipment_custom_fields")
+        .select("*")
+        .order("sort_order")
+        .order("created_at")
+        .returns<EquipmentCustomField[]>(),
+      getCurrentProfile(),
+    ]);
+  // Only fields with a value: an empty "Details" block is noise on every unit.
+  const customDetails = (customFields ?? [])
+    .map((def) => ({ def, value: formatCustomFieldValue(def, equipment.custom_fields?.[def.key]) }))
+    .filter((entry) => entry.value !== "");
 
   const isOwner = profile.role === "owner";
   const equipmentType = (equipmentTypes ?? []).find((t) => t.id === equipment.equipment_type_id);
@@ -84,6 +96,16 @@ export default async function EquipmentDetailPage({
             </>
           )}
         </div>
+        {customDetails.length > 0 && (
+          <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {customDetails.map(({ def, value }) => (
+              <div key={def.id} className="flex gap-1">
+                <dt className="text-muted-foreground">{def.label}:</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
@@ -100,6 +122,7 @@ export default async function EquipmentDetailPage({
               equipment={equipment}
               equipmentTypes={equipmentTypes ?? []}
               customers={customers ?? []}
+              customFields={customFields ?? []}
               canDelete={isOwner}
             />
           </TabsContent>

@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/pm-due",
       "schedule": "0 12 * * *"
+    },
+    {
+      "path": "/api/cron/webhooks",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

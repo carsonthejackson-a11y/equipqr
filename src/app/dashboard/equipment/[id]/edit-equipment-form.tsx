@@ -19,8 +19,9 @@ import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/format";
 import { formatWarranty, warrantyState } from "@/lib/equipment";
-import type { Customer, Equipment, EquipmentType } from "@/lib/types";
+import type { Customer, Equipment, EquipmentCustomField, EquipmentType } from "@/lib/types";
 import { deleteEquipment, updateEquipment } from "../actions";
+import { CustomFieldsInputs } from "../custom-fields-inputs";
 
 const statusItems = Object.fromEntries(Object.entries(EQUIPMENT_STATUS_LABELS));
 
@@ -28,11 +29,14 @@ export function EditEquipmentForm({
   equipment,
   equipmentTypes,
   customers,
+  customFields,
   canDelete,
 }: {
   equipment: Equipment;
   equipmentTypes: EquipmentType[];
   customers: Customer[];
+  /** The company's field definitions (Settings → Custom fields), in display order. */
+  customFields: EquipmentCustomField[];
   /** Owners only — technicians can edit every field but not remove the unit. */
   canDelete: boolean;
 }) {
@@ -274,6 +278,13 @@ export function EditEquipmentForm({
           Internal only — customers never see this on the scan page.
         </p>
       </div>
+
+      {customFields.length > 0 && (
+        <fieldset className="space-y-4 rounded-lg border p-3">
+          <legend className="px-1 text-sm font-medium">Custom fields</legend>
+          <CustomFieldsInputs definitions={customFields} values={equipment.custom_fields} />
+        </fieldset>
+      )}
 
       <div className="flex gap-2">
         <Button type="submit" disabled={saving}>
