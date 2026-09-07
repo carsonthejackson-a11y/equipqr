@@ -24,9 +24,10 @@ function isPlanId(value: unknown): value is PlanId {
  * a scheduled visit. Scoped to `status='scheduled'` visits in the next
  * {@link REMINDER_WINDOW_HOURS} hours that haven't been reminded yet
  * (`reminder_sent_at is null` — cleared automatically if the visit time
- * changes, see schedule-actions.ts) and have an email on file. Stamps
- * `reminder_sent_at` only on a successful send, mirroring trial-reminders'
- * "leave it null so tomorrow's run retries" behaviour.
+ * changes, see schedule-actions.ts) and have an email on file. Each row is
+ * claimed by stamping `reminder_sent_at` atomically before the send and
+ * released (stamp cleared) if nothing went out, so overlapping runs can't
+ * double-email and tomorrow's run still retries a declined send.
  */
 export async function GET(request: Request) {
   const expected = serverEnv.CRON_SECRET;
@@ -79,30 +80,50 @@ export async function GET(request: Request) {
     const flags = planFlags as { plan_id?: string } | null;
     const planId = isPlanId(flags?.plan_id) ? flags?.plan_id : null;
 
-    try {
-      // Claim the row BEFORE sending: two overlapping runs (a manual trigger
-      // alongside the schedule, a retried invocation) would otherwise both
-      // pass the `reminder_sent_at is null` query above and both email. The
-      // conditional update is atomic — only one caller gets the row back.
-      const { data: claimed, error: claimError } = await admin
+    // Claim the row BEFORE sending: two overlapping runs (a manual trigger
+    // alongside the schedule, a retried invocation) would otherwise both pass
+    // the `reminder_sent_at is null` query above and both email. The
+    // conditional update is atomic — only one caller gets the row back — and
+    // it re-checks what the query saw, so a request that was rescheduled,
+    // unscheduled or closed in the meantime is skipped rather than emailed
+    // with a stale time. The stamp value is unique to this attempt so the
+    // release below can never clear a claim made by someone else.
+    const claimStamp = new Date().toISOString();
+    const { data: claimed, error: claimError } = await admin
+      .from("service_requests")
+      .update({ reminder_sent_at: claimStamp })
+      .eq("id", req.id)
+      .eq("status", "scheduled")
+      .eq("scheduled_for", req.scheduled_for)
+      .is("reminder_sent_at", null)
+      .select("id")
+      .maybeSingle<{ id: string }>();
+
+    if (claimError) {
+      console.error(`visit-reminders cron: failed to claim request ${req.id}:`, claimError.message);
+      skipped++;
+      continue;
+    }
+    if (!claimed) {
+      // Another run got there first, or the request changed under us.
+      skipped++;
+      continue;
+    }
+
+    // Undo OUR claim only (matched on the stamp we wrote), so the next run
+    // tries again. Nothing went out, so the stamp must not stick.
+    const releaseClaim = async () => {
+      const { error: releaseError } = await admin
         .from("service_requests")
-        .update({ reminder_sent_at: new Date().toISOString() })
+        .update({ reminder_sent_at: null })
         .eq("id", req.id)
-        .is("reminder_sent_at", null)
-        .select("id")
-        .maybeSingle<{ id: string }>();
-
-      if (claimError) {
-        console.error(`visit-reminders cron: failed to claim request ${req.id}:`, claimError.message);
-        skipped++;
-        continue;
+        .eq("reminder_sent_at", claimStamp);
+      if (releaseError) {
+        console.error(`visit-reminders cron: failed to release request ${req.id}:`, releaseError.message);
       }
-      if (!claimed) {
-        // Another run got there first.
-        skipped++;
-        continue;
-      }
+    };
 
+    try {
       const brand = brandingForEmail({
         company,
         planId,
@@ -119,19 +140,25 @@ export async function GET(request: Request) {
 
       const sent = await sendEmail({ to: req.contact_email, subject, html, text });
       if (!sent) {
-        // Release the claim so the next run tries again (email not configured,
-        // provider error); nothing went out, so the stamp must not stick.
-        const { error: releaseError } = await admin
-          .from("service_requests")
-          .update({ reminder_sent_at: null })
-          .eq("id", req.id);
-        if (releaseError) {
-          console.error(`visit-reminders cron: failed to release request ${req.id}:`, releaseError.message);
-        }
+        // Email not configured or the provider declined.
+        await releaseClaim();
         skipped++;
         continue;
       }
 
+      emailsSent++;
+    } catch (err) {
+      // Building or sending threw: nothing reached the customer, so hand the
+      // row back exactly as in the declined case.
+      console.error(`visit-reminders cron: failed for request ${req.id}:`, err);
+      await releaseClaim();
+      skipped++;
+      continue;
+    }
+
+    // Bookkeeping after the email is out. A failure here must not release
+    // the claim (the customer already has the reminder), just be logged.
+    try {
       await emitRequestActivity(admin, {
         companyId: req.company_id,
         serviceRequestId: req.id,
@@ -141,11 +168,8 @@ export async function GET(request: Request) {
         metadata: { to: req.contact_email, scheduled_for: req.scheduled_for },
         authorKind: "system",
       });
-
-      emailsSent++;
     } catch (err) {
-      console.error(`visit-reminders cron: failed for request ${req.id}:`, err);
-      skipped++;
+      console.error(`visit-reminders cron: sent but failed to record activity for ${req.id}:`, err);
     }
   }
 
