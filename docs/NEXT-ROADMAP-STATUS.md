@@ -190,8 +190,10 @@ The export's per-company custom-field columns are by design and documented in `d
 
 Still not verified here: real Resend / Anthropic calls, the live `storage.objects`
 policies on the production Storage service (only the SQL policies were exercised), and
-Vercel cron scheduling itself. **0023 must be applied to the production project before
-this branch is deployed** (additive: two `create or replace function`s, grants unchanged).
+Vercel cron scheduling itself. **0023 is applied to the production project** (2026-09-07,
+recorded as version `20260907204645`; both functions carry `company.timezone`, grants
+unchanged, security advisor shows only the pre-existing notices), so 0019–0023 are all
+frozen from here.
 
 ## Known gaps / follow-ups
 
