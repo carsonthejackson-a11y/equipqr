@@ -123,7 +123,7 @@ export function ScanActions({
 
   return (
     <div className="flex flex-col gap-3">
-      <OpenRequestsCard requests={openRequests} />
+      <OpenRequestsCard requests={openRequests} timeZone={guide.company.timezone} />
 
       {hasGuide && (
         <ActionRow

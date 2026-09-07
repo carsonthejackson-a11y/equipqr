@@ -13,18 +13,17 @@ export const metadata = {
 export default async function CustomFieldsSettingsPage() {
   const ctx = await requireOwner();
 
-  let fields: EquipmentCustomField[] = [];
-  if (ctx) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("equipment_custom_fields")
-      .select("*")
-      .eq("company_id", ctx.company.id)
-      .order("sort_order")
-      .order("created_at")
-      .returns<EquipmentCustomField[]>();
-    fields = data ?? [];
-  }
+  // RLS scopes this to the caller's company for owners and technicians
+  // alike; technicians get the list read-only, since it shapes the
+  // equipment form they fill in.
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("equipment_custom_fields")
+    .select("*")
+    .order("sort_order")
+    .order("created_at")
+    .returns<EquipmentCustomField[]>();
+  const fields: EquipmentCustomField[] = data ?? [];
 
   return (
     <div className="space-y-6">
@@ -37,11 +36,10 @@ export default async function CustomFieldsSettingsPage() {
         </p>
       </div>
 
-      {ctx ? (
-        <CustomFieldsTable fields={fields} maxFields={MAX_CUSTOM_FIELDS} />
-      ) : (
+      {!ctx && (
         <OwnerOnlyCard message="Only company owners can define custom fields. You can still fill them in on each unit." />
       )}
+      <CustomFieldsTable fields={fields} maxFields={MAX_CUSTOM_FIELDS} readOnly={!ctx} />
     </div>
   );
 }

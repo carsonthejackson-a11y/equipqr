@@ -133,6 +133,59 @@ Still needed per environment: `SUPABASE_SERVICE_ROLE_KEY` + `CRON_SECRET` for th
 Vercel Hobby only allows daily crons, so the 5-minute drain needs Pro (deliveries still go out
 via `after()` right after each event on any plan).
 
+## Browser click-through (2026-09-07)
+
+Every flow in the PR #2 checklist was driven in headless Chromium against the production
+build (`next start`) on a local Supabase-compatible stack: the repo's Postgres harness with
+migrations 0001–0023, a real PostgREST for `/rest/v1` (so RLS, grants and RPCs are the
+real ones), and a small gateway emulating the Auth and Storage endpoints the app uses
+(`storage.objects` rows still go through PostgREST as the caller, so the storage policies
+were exercised too). Emails were logged as skipped (no Resend key); nameplate OCR and AI
+checklist drafting returned their configured "not configured" responses (no Anthropic key).
+
+Passed as-is: owner signup → dashboard bootstrap; custom field definitions (order, key
+derivation, scan-page flag) and values on the new-unit dialog, edit form, detail header,
+timeline summary, CSV export and `resolve_qr_code`; blank-code pool + "Add new equipment
+from this sticker"; technician invite → signup → staff scan view (status, assign, note,
+"On my way", close-out with signature, resolution email attempt); customer scan → request
+with photo → "Request sent" → `/r/<token>` message → dashboard feed with "1 new" badge and
+attachment; "Already reported" card on rescan; checklist template → inspection run with
+photo + failed item → follow-up request → inspection read view; schedule a visit (`.ics`,
+`/dashboard/schedule`); maintenance schedule → `pm-due` cron creates the PM request →
+"Mark done" rolls forward 90 days → "Next service due" on the scan page; `visit-reminders`
+and `webhooks` crons; webhook endpoint create / send test / rotate / disable / delete, 16 of
+16 deliveries with valid `X-EquipQR-Signature`, a 500 receiver recorded as pending retry.
+
+Fixed from what it found (all in this branch):
+
+- **Close-out photos silently dropped** whenever the summary was typed before choosing
+  them: `addPhoto` read the live `FileList` inside the state updater, after the input had
+  been cleared. Snapshot first (`close-out-dialog.tsx`).
+- **"Log a visit" dialog vanished**: creating the visit request revalidates the scan page,
+  and the refresh swapped the "no open requests" card for the new request's card,
+  unmounting the close-out dialog it had just opened. `LogVisitCard` is now always mounted
+  and hides only its button while requests are open, so the dialog survives the refresh.
+- **Customer-facing visit times in UTC**: `/r/<token>` and the scan page's "Already
+  reported" card formatted `scheduled_for` with the server clock. Migration
+  `0023_public_company_timezone.sql` adds `company.timezone` to `get_request_status()` and
+  `resolve_qr_code()` (bodies otherwise identical to 0021 / 0022) and both pages format in
+  that zone.
+- **Hydration errors** (`React #418`) from `formatRelativeTime()` in client components —
+  "1 second ago" on the server vs "2 seconds ago" on the client regenerated the tree and
+  could drop text typed straight after load. New `<RelativeTime>` component
+  (`src/components/relative-time.tsx`) used by the four client call sites.
+- **Equipment CSV export was not re-importable**: the export heads the type column
+  `type` and custom fields by label, the import wanted `equipment_type` and `cf:<key>`.
+  The import now accepts both spellings and ignores the export's read-only columns.
+- Inspection read view said "No response" under a photo item that had a photo, and
+  "Unknown" for an unnamed sign-off; technicians saw no field definitions on Settings →
+  Custom fields (now a read-only table, as the checklist expected).
+
+Still not verified here: real Resend / Anthropic calls, the live `storage.objects`
+policies on the production Storage service (only the SQL policies were exercised), and
+Vercel cron scheduling itself. **0023 must be applied to the production project before
+this branch is deployed** (additive: two `create or replace function`s, grants unchanged).
+
 ## Known gaps / follow-ups
 
 - Invoices at close-out were explicitly skipped this pass.

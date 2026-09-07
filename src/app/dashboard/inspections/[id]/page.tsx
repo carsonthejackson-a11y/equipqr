@@ -17,7 +17,10 @@ function ItemStatusIcon({ passed }: { passed: boolean | null }) {
   return <Circle className="size-5 shrink-0 text-muted-foreground" aria-hidden />;
 }
 
-function formatValue(value: boolean | string | number | null, kind: string): string {
+function formatValue(value: boolean | string | number | null, kind: string, photoCount = 0): string {
+  if (kind === "photo") {
+    return photoCount > 0 ? `${photoCount} photo${photoCount === 1 ? "" : "s"}` : "No photo";
+  }
   if (value === null) return "No response";
   if (kind === "check") return value ? "Checked" : "Not checked";
   if (kind === "pass_fail") return value === "pass" ? "Pass" : value === "fail" ? "Fail" : "No response";
@@ -142,7 +145,9 @@ export default async function InspectionDetailPage({
                     </span>
                   </div>
                   {item.help && <p className="text-sm text-muted-foreground">{item.help}</p>}
-                  <p className="mt-1 text-sm">{formatValue(item.response.value, item.kind)}</p>
+                  <p className="mt-1 text-sm">
+                    {formatValue(item.response.value, item.kind, item.response.photo_paths.length)}
+                  </p>
                   {item.response.note && (
                     <p className="mt-1 text-sm text-muted-foreground italic">&ldquo;{item.response.note}&rdquo;</p>
                   )}
@@ -182,7 +187,7 @@ export default async function InspectionDetailPage({
               />
             )}
             <p className="text-sm text-muted-foreground">
-              {inspection.signed_by_name ?? "Unknown"}
+              {inspection.signed_by_name ?? "Signed on the technician's device"}
               {inspection.signed_at && ` · ${new Date(inspection.signed_at).toLocaleString()}`}
             </p>
           </CardContent>

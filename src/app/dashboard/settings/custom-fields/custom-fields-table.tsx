@@ -32,9 +32,12 @@ import { CustomFieldDialog } from "./custom-field-dialog";
 export function CustomFieldsTable({
   fields,
   maxFields,
+  readOnly = false,
 }: {
   fields: EquipmentCustomField[];
   maxFields: number;
+  /** Technicians can see what is defined (it shapes every equipment form) but not change it. */
+  readOnly?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -84,29 +87,35 @@ export function CustomFieldsTable({
             {fields.length} / {maxFields} defined. Shown on the equipment form in this order.
           </CardDescription>
         </div>
-        <Button size="sm" disabled={atLimit} onClick={() => setCreateOpen(true)}>
-          <Plus />
-          Add field
-        </Button>
+        {!readOnly && (
+          <Button size="sm" disabled={atLimit} onClick={() => setCreateOpen(true)}>
+            <Plus />
+            Add field
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         {fields.length === 0 ? (
           <EmptyState
             icon={ListChecks}
-            message="No custom fields yet. Add one and it appears on every unit's Details tab."
+            message={
+              readOnly
+                ? "No custom fields defined yet."
+                : "No custom fields yet. Add one and it appears on every unit's Details tab."
+            }
           />
         ) : (
           <div className="overflow-x-auto rounded-lg border">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-20">Order</TableHead>
+                  {!readOnly && <TableHead className="w-20">Order</TableHead>}
                   <TableHead>Label</TableHead>
                   <TableHead>Key</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Options</TableHead>
                   <TableHead>Scan page</TableHead>
-                  <TableHead className="w-24" />
+                  {!readOnly && <TableHead className="w-24" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -114,8 +123,9 @@ export function CustomFieldsTable({
                   const rowBusy = isPending && pendingId === field.id;
                   return (
                     <TableRow key={field.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-0.5">
+                      {!readOnly && (
+                        <TableCell>
+                          <div className="flex items-center gap-0.5">
                           <Button
                             type="button"
                             variant="ghost"
@@ -138,8 +148,9 @@ export function CustomFieldsTable({
                             <ArrowDown />
                             <span className="sr-only">Move {field.label} down</span>
                           </Button>
-                        </div>
-                      </TableCell>
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">
                         {field.label}
                         {field.help_text && (
@@ -165,8 +176,9 @@ export function CustomFieldsTable({
                           <span className="text-xs text-muted-foreground">Hidden</span>
                         )}
                       </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-0.5">
+                      {!readOnly && (
+                        <TableCell>
+                          <div className="flex justify-end gap-0.5">
                           <Button
                             type="button"
                             variant="ghost"
@@ -189,8 +201,9 @@ export function CustomFieldsTable({
                             <Trash2 className="text-destructive" />
                             <span className="sr-only">Delete {field.label}</span>
                           </Button>
-                        </div>
-                      </TableCell>
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   );
                 })}

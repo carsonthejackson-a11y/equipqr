@@ -15,7 +15,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { formatRelativeTime } from "@/lib/format";
+import { RelativeTime } from "@/components/relative-time";
 import { phoneHref } from "@/lib/branding";
 import type { RequestStatus, ServiceRequest } from "@/lib/types";
 import { CloseOutDialog } from "./close-out-dialog";
@@ -109,7 +109,7 @@ export function StaffRequestCard({
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge status={request.status} />
         <PriorityBadge priority={request.priority} />
-        <span className="text-xs text-muted-foreground">{formatRelativeTime(request.created_at)}</span>
+        <RelativeTime iso={request.created_at} className="text-xs text-muted-foreground" />
       </div>
 
       <p className="line-clamp-3 text-sm">{request.description}</p>
@@ -137,7 +137,7 @@ export function StaffRequestCard({
       {request.on_my_way_sent_at && (
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <MapPin className="size-3.5" aria-hidden />
-          On-my-way sent {formatRelativeTime(request.on_my_way_sent_at)}
+          On-my-way sent <RelativeTime iso={request.on_my_way_sent_at} />
         </p>
       )}
 

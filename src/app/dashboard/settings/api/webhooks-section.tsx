@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatRelativeTime } from "@/lib/format";
+import { RelativeTime } from "@/components/relative-time";
 import type { WebhookDeliverySummary, WebhookEndpointPublic } from "@/lib/types";
 import {
   createWebhookEndpoint,
@@ -321,7 +321,7 @@ export function WebhooksSection({
                         <TableCell className="text-muted-foreground">
                           {endpoint.last_delivery_at ? (
                             <span title={formatDateTime(endpoint.last_delivery_at)}>
-                              {formatRelativeTime(endpoint.last_delivery_at)}
+                              <RelativeTime iso={endpoint.last_delivery_at} />
                               {endpoint.last_delivery_status !== null && (
                                 <span className="ml-1 font-mono text-xs">· HTTP {endpoint.last_delivery_status}</span>
                               )}
@@ -439,7 +439,7 @@ export function WebhooksSection({
                           </TableCell>
                           <TableCell className="text-muted-foreground">
                             <span title={formatDateTime(delivery.delivered_at ?? delivery.created_at)}>
-                              {formatRelativeTime(delivery.delivered_at ?? delivery.created_at)}
+                              <RelativeTime iso={delivery.delivered_at ?? delivery.created_at} />
                             </span>
                           </TableCell>
                           <TableCell>

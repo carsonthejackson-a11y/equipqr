@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
-import { formatRelativeTime } from "@/lib/format";
+import { RelativeTime } from "@/components/relative-time";
 import { formatWarranty, warrantyState } from "@/lib/equipment";
 import type { Customer, Equipment, EquipmentCustomField, EquipmentType } from "@/lib/types";
 import { deleteEquipment, updateEquipment } from "../actions";
@@ -98,7 +98,7 @@ export function EditEquipmentForm({
             <span className="text-muted-foreground">Last serviced: </span>
             {equipment.last_serviced_at ? (
               <span title={new Date(equipment.last_serviced_at).toLocaleString()}>
-                {formatRelativeTime(equipment.last_serviced_at)}
+                <RelativeTime iso={equipment.last_serviced_at} />
               </span>
             ) : (
               <span className="text-muted-foreground">no service recorded yet</span>

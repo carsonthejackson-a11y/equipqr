@@ -73,17 +73,21 @@ export function CloseOutDialog({
   function addPhoto(caption: "Before" | "After", files: FileList | null) {
     if (!files?.length) return;
     setError(null);
-    setPhotos((current) =>
-      [
-        ...current,
-        ...Array.from(files).map((file) => ({
-          id: crypto.randomUUID(),
-          file,
-          previewUrl: URL.createObjectURL(file),
-          caption,
-        })),
-      ].slice(0, MAX_PHOTOS)
-    );
+    // Snapshot the FileList now: it is live, and the input's value is cleared
+    // right after this call. Reading it inside the state updater (which React
+    // may run later, once other state is pending) would find it empty and
+    // silently drop the photos — e.g. whenever the summary was typed first.
+    const picked = Array.from(files).map((file) => ({
+      id: crypto.randomUUID(),
+      file,
+      previewUrl: URL.createObjectURL(file),
+      caption,
+    }));
+    setPhotos((current) => {
+      const next = [...current, ...picked];
+      for (const dropped of next.slice(MAX_PHOTOS)) URL.revokeObjectURL(dropped.previewUrl);
+      return next.slice(0, MAX_PHOTOS);
+    });
   }
 
   function removePhoto(id: string) {

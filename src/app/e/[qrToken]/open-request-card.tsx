@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CalendarClock, ClipboardList, UserRound } from "lucide-react";
 import { StatusBadge } from "@/components/status-badge";
 import { formatRelativeTime } from "@/lib/format";
+import { formatZonedDateTime } from "@/lib/schedule";
 import type { OpenRequestSummary } from "@/lib/types";
 
 // "Already reported" — the point of resolve_qr_code() returning
@@ -12,11 +13,18 @@ import type { OpenRequestSummary } from "@/lib/types";
 
 const MAX_SHOWN = 3;
 
-function formatVisitDate(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+/** The company's own zone (0023) — the server's clock is UTC on Vercel, which is not where the visit is. */
+function formatVisitDate(iso: string, timeZone: string | null | undefined): string {
+  return formatZonedDateTime(iso, timeZone || "UTC");
 }
 
-function OpenRequestRow({ request }: { request: OpenRequestSummary }) {
+function OpenRequestRow({
+  request,
+  timeZone,
+}: {
+  request: OpenRequestSummary;
+  timeZone: string | null | undefined;
+}) {
   return (
     <Link
       href={`/r/${request.public_token}`}
@@ -41,7 +49,7 @@ function OpenRequestRow({ request }: { request: OpenRequestSummary }) {
       {request.scheduled_for && (
         <p className="mt-2 flex items-center gap-1.5 text-sm">
           <CalendarClock className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
-          Visit scheduled {formatVisitDate(request.scheduled_for)}
+          Visit scheduled {formatVisitDate(request.scheduled_for, timeZone)}
         </p>
       )}
 
@@ -63,7 +71,14 @@ function OpenRequestRow({ request }: { request: OpenRequestSummary }) {
  * rest rather than growing the card without bound. Returns null when there's
  * nothing open so callers can render it unconditionally.
  */
-export function OpenRequestsCard({ requests }: { requests: OpenRequestSummary[] }) {
+export function OpenRequestsCard({
+  requests,
+  timeZone,
+}: {
+  requests: OpenRequestSummary[];
+  /** Company timezone from resolve_qr_code (absent on payloads cached before 0023). */
+  timeZone?: string | null;
+}) {
   if (requests.length === 0) return null;
 
   const shown = requests.slice(0, MAX_SHOWN);
@@ -78,7 +93,7 @@ export function OpenRequestsCard({ requests }: { requests: OpenRequestSummary[] 
 
       <div className="space-y-2">
         {shown.map((request) => (
-          <OpenRequestRow key={request.id} request={request} />
+          <OpenRequestRow key={request.id} request={request} timeZone={timeZone} />
         ))}
       </div>
 

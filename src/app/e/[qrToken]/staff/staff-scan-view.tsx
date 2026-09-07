@@ -99,7 +99,7 @@ export async function StaffScanView({
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Open requests</h2>
-        {openRequests && openRequests.length > 0 ? (
+        {openRequests && openRequests.length > 0 && (
           <div className="space-y-3">
             {openRequests.map((request) => (
               <StaffRequestCard
@@ -112,9 +112,16 @@ export async function StaffScanView({
               />
             ))}
           </div>
-        ) : (
-          <LogVisitCard qrToken={qrToken} equipmentId={guide.equipment.id} companyId={guide.company.id} />
         )}
+        {/* Always mounted (it hides itself while requests are open) so the
+            close-out dialog it opens survives the refresh that follows
+            "Log a visit" creating the request — see LogVisitCard. */}
+        <LogVisitCard
+          qrToken={qrToken}
+          equipmentId={guide.equipment.id}
+          companyId={guide.company.id}
+          hasOpenRequests={!!openRequests && openRequests.length > 0}
+        />
       </section>
 
       {recentResolved && recentResolved.length > 0 && (

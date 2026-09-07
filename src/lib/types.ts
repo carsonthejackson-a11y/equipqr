@@ -44,6 +44,8 @@ export type CompanyPublicProfile = {
   website?: string | null;
   logo_path: string | null;
   brand_color: string | null;
+  /** IANA zone for customer-facing times (0023). Absent on payloads cached before that migration. */
+  timezone?: string | null;
 };
 
 export type ApiKey = {

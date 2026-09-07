@@ -7,6 +7,7 @@ import { resolveBranding } from "@/lib/branding";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { checkRateLimit, getClientIpFromHeaders, RATE_LIMITS } from "@/lib/rate-limit";
 import { formatRelativeTime } from "@/lib/format";
+import { formatZonedDateTime } from "@/lib/schedule";
 import { REQUEST_STATUS_LABELS } from "@/components/status-badge";
 import { BrandHeader, BrandShell, ContactActions, PoweredBy } from "@/components/public/brand-shell";
 import { MessageComposer } from "./message-composer";
@@ -42,8 +43,9 @@ const STATUS_BLURB: Record<RequestStatus, string> = {
   canceled: "This request was canceled.",
 };
 
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+/** Customer-facing times in the company's own zone (0023); UTC only for payloads older than that. */
+function formatDateTime(iso: string, timeZone: string | null | undefined): string {
+  return formatZonedDateTime(iso, timeZone || "UTC");
 }
 
 /** First name only — the customer needs to know who's coming, not the staff directory. */
@@ -130,7 +132,7 @@ export default async function RequestStatusPage({
             <CalendarClock className="mt-0.5 size-5 shrink-0 text-[var(--brand)]" aria-hidden />
             <div>
               <p className="font-medium">Visit scheduled</p>
-              <p className="text-sm text-muted-foreground">{formatDateTime(status.scheduled_for)}</p>
+              <p className="text-sm text-muted-foreground">{formatDateTime(status.scheduled_for, status.company.timezone)}</p>
             </div>
           </div>
         )}
@@ -186,7 +188,7 @@ export default async function RequestStatusPage({
                     )}
                     {entry.body && <p className="text-sm whitespace-pre-wrap">{entry.body}</p>}
                     <p className="text-xs text-muted-foreground">
-                      {formatDateTime(entry.created_at)}
+                      {formatDateTime(entry.created_at, status.company.timezone)}
                     </p>
                   </li>
                 );

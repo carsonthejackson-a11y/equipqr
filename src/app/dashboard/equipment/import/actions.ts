@@ -108,6 +108,19 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
       fatal: `That file has ${table.rows.length} rows. Import at most ${MAX_ROWS} at a time.`,
     };
   }
+  // Accept our own equipment export as input: it heads the type column
+  // "type", carries read-only columns (id, qr_short_code, created_at, …) the
+  // import ignores, and heads each custom field by its label rather than
+  // `cf:<key>`. Only `cf:` columns are validated strictly; anything else
+  // unrecognised is skipped, as it always was.
+  if (!table.headers.includes("equipment_type") && table.headers.includes("type")) {
+    table.headers = table.headers.map((h) => (h === "type" ? "equipment_type" : h));
+    for (const record of table.rows) {
+      record.equipment_type = record.type;
+      delete record.type;
+    }
+  }
+
   if (!table.headers.includes("name") || !table.headers.includes("equipment_type")) {
     return {
       rows: [],
@@ -130,8 +143,20 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
         .join(", ")}. ${known.length > 0 ? `Defined fields: ${known.join(", ")}.` : "No custom fields are defined yet."}`,
     };
   }
-  const customFieldDefs = customFieldHeaders.map(
-    (h) => lookups.customFieldsByKey.get(h.slice(CUSTOM_FIELD_HEADER_PREFIX.length)) as EquipmentCustomField
+  // Header → definition. `cf:<key>` first; then a bare key or the field's
+  // label (normalised the way parseCsvTable normalises headers), which is
+  // what the equipment export writes.
+  const headerByKey = new Map<string, string>();
+  for (const h of customFieldHeaders) headerByKey.set(h.slice(CUSTOM_FIELD_HEADER_PREFIX.length), h);
+  const reserved = new Set<string>(EQUIPMENT_IMPORT_COLUMNS);
+  for (const def of lookups.customFieldsByKey.values()) {
+    if (headerByKey.has(def.key)) continue;
+    const labelHeader = def.label.trim().toLowerCase().replace(/\s+/g, "_");
+    const match = table.headers.find((h) => !reserved.has(h) && (h === def.key || h === labelHeader));
+    if (match) headerByKey.set(def.key, match);
+  }
+  const customFieldDefs = [...headerByKey.keys()].map(
+    (k) => lookups.customFieldsByKey.get(k) as EquipmentCustomField
   );
 
   // Names created earlier in the same file count as existing for later rows.
@@ -190,7 +215,10 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
 
     // The same parser the equipment form uses, fed by the row's `cf:` cells.
     const customFields = parseCustomFieldValues(customFieldDefs, {
-      get: (name) => record[`${CUSTOM_FIELD_HEADER_PREFIX}${name.replace(/^cf_/, "")}`] ?? null,
+      get: (name) => {
+        const header = headerByKey.get(name.replace(/^cf_/, ""));
+        return header ? (record[header] ?? null) : null;
+      },
     });
     errors.push(...customFields.errors);
 
