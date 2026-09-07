@@ -122,10 +122,16 @@ Verified here: `npm run lint`, `npx tsc --noEmit`, `npm test` (28 files / 382 te
 fan-out and visibility, leasing / retry / disable bookkeeping, the tightened insert policies,
 tenant isolation) and, on a separate reset, this branch's own `smoke-next.sql`.
 
-Not yet verified: 0022 against the production project (0019–0021 are already applied there;
-0022 is additive and next in sequence). Set `SUPABASE_SERVICE_ROLE_KEY` + `CRON_SECRET` for
-the webhook cron; Vercel Hobby only allows daily crons, so the 5-minute drain needs Pro
-(deliveries still go out via `after()` right after each event on any plan).
+**0022 is applied to the production project** (2026-09-07, recorded as version
+`20260907114750`): the three tables, twelve functions, five triggers and nine policies are in
+place, `webhook_endpoints.secret` is hidden from `authenticated`, anon cannot claim deliveries,
+`resolve_qr_code()` carries `custom_fields`, and the one advisor finding (mutable `search_path`
+on `webhook_event_type_for_equipment_event`) was fixed in production and in the file. Migrations
+0019–0022 are therefore all frozen from here.
+
+Still needed per environment: `SUPABASE_SERVICE_ROLE_KEY` + `CRON_SECRET` for the webhook cron;
+Vercel Hobby only allows daily crons, so the 5-minute drain needs Pro (deliveries still go out
+via `after()` right after each event on any plan).
 
 ## Known gaps / follow-ups
 
