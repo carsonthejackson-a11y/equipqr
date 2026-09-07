@@ -126,17 +126,39 @@ async function exportEquipment(supabase: SupabaseServerClient, companyId: string
     // One column per custom field definition, headed by its label, in the
     // owner's order. Values render the way the detail page shows them
     // (booleans as Yes/No); a unit without a value gets an empty cell.
-    ...(customFields ?? []).map(
-      (def): CsvColumn<Row> => ({
-        header: def.label,
-        value: (r) => formatCustomFieldValue(def, r.custom_fields?.[def.key]),
-      })
-    ),
+    ...customFieldColumns(customFields ?? []),
     { header: "created_at", value: (r) => r.created_at },
     { header: "updated_at", value: (r) => r.updated_at },
   ];
 
   return toCsv(equipment ?? [], columns);
+}
+
+/** Core equipment export headers, as the import normalises them (lower-case, spaces → underscores). */
+const EQUIPMENT_EXPORT_CORE_HEADERS = new Set([
+  "id", "name", "type", "equipment_type", "customer", "qr_short_code", "status", "make", "model",
+  "serial_number", "location", "address", "contact_name", "contact_phone", "install_date",
+  "warranty_ends_on", "last_serviced_at", "next_service_due_on", "notes", "created_at", "updated_at",
+]);
+
+/**
+ * A field labelled "Status" or "Notes" would otherwise produce a second
+ * column with the same header as a core one — ambiguous in a spreadsheet and
+ * silently dropped by the import. Such fields (and any two labels that
+ * normalise to the same header) fall back to the unambiguous `cf:<key>`
+ * form, which the import accepts as well.
+ */
+function customFieldColumns(defs: EquipmentCustomField[]): CsvColumn<Equipment>[] {
+  const used = new Set(EQUIPMENT_EXPORT_CORE_HEADERS);
+  return defs.map((def) => {
+    const normalized = def.label.trim().toLowerCase().replace(/\s+/g, "_");
+    const header = used.has(normalized) ? `cf:${def.key}` : def.label;
+    used.add(normalized);
+    return {
+      header,
+      value: (r) => formatCustomFieldValue(def, r.custom_fields?.[def.key]),
+    };
+  });
 }
 
 async function exportCustomers(supabase: SupabaseServerClient, companyId: string): Promise<string> {
