@@ -181,6 +181,13 @@ Fixed from what it found (all in this branch):
   "Unknown" for an unnamed sign-off; technicians saw no field definitions on Settings →
   Custom fields (now a read-only table, as the checklist expected).
 
+From the automated review of that push: the `visit-reminders` cron now claims each request
+(`update … where reminder_sent_at is null` returning the row) before emailing and releases
+the claim when nothing was sent, so two overlapping runs can't both email; and the
+cross-tenant `retry_webhook_delivery` case in `smoke-port.sql` now hands company B a real id
+captured as superuser (a subquery evaluated as B was RLS-filtered to NULL and proved nothing).
+The export's per-company custom-field columns are by design and documented in `docs/API.md`.
+
 Still not verified here: real Resend / Anthropic calls, the live `storage.objects`
 policies on the production Storage service (only the SQL policies were exercised), and
 Vercel cron scheduling itself. **0023 must be applied to the production project before

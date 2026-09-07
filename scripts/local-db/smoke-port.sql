@@ -313,11 +313,18 @@ reset role;
 reset request.jwt.claim.sub;
 
 -- Owner B (other company) can't retry A's deliveries — same error as "not found".
+-- The target id is captured as superuser and handed in via a GUC: a subquery
+-- evaluated as B would be RLS-filtered to NULL and the "refusal" would prove
+-- nothing (psql variables aren't expanded inside DO blocks, hence set_config).
+select set_config('smoke.delivery_of_a', :'failed_disabled', false);
 set role authenticated;
 set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
 do $$
 begin
-  perform retry_webhook_delivery((select id from webhook_deliveries where endpoint_id = 'aaaaaaa2-aaaa-aaaa-aaaa-aaaaaaaaaaaa' limit 1));
+  if current_setting('smoke.delivery_of_a') = '' then
+    raise exception 'smoke fixture: no failed delivery id captured for company A';
+  end if;
+  perform retry_webhook_delivery(current_setting('smoke.delivery_of_a')::uuid);
   raise exception 'TENANT LEAK: owner B retried one of A''s deliveries';
 exception
   when others then

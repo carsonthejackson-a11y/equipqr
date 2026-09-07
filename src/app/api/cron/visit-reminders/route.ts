@@ -80,6 +80,29 @@ export async function GET(request: Request) {
     const planId = isPlanId(flags?.plan_id) ? flags?.plan_id : null;
 
     try {
+      // Claim the row BEFORE sending: two overlapping runs (a manual trigger
+      // alongside the schedule, a retried invocation) would otherwise both
+      // pass the `reminder_sent_at is null` query above and both email. The
+      // conditional update is atomic — only one caller gets the row back.
+      const { data: claimed, error: claimError } = await admin
+        .from("service_requests")
+        .update({ reminder_sent_at: new Date().toISOString() })
+        .eq("id", req.id)
+        .is("reminder_sent_at", null)
+        .select("id")
+        .maybeSingle<{ id: string }>();
+
+      if (claimError) {
+        console.error(`visit-reminders cron: failed to claim request ${req.id}:`, claimError.message);
+        skipped++;
+        continue;
+      }
+      if (!claimed) {
+        // Another run got there first.
+        skipped++;
+        continue;
+      }
+
       const brand = brandingForEmail({
         company,
         planId,
@@ -96,17 +119,16 @@ export async function GET(request: Request) {
 
       const sent = await sendEmail({ to: req.contact_email, subject, html, text });
       if (!sent) {
+        // Release the claim so the next run tries again (email not configured,
+        // provider error); nothing went out, so the stamp must not stick.
+        const { error: releaseError } = await admin
+          .from("service_requests")
+          .update({ reminder_sent_at: null })
+          .eq("id", req.id);
+        if (releaseError) {
+          console.error(`visit-reminders cron: failed to release request ${req.id}:`, releaseError.message);
+        }
         skipped++;
-        continue;
-      }
-
-      const { error: updateError } = await admin
-        .from("service_requests")
-        .update({ reminder_sent_at: new Date().toISOString() })
-        .eq("id", req.id);
-
-      if (updateError) {
-        console.error(`visit-reminders cron: failed to stamp request ${req.id}:`, updateError.message);
         continue;
       }
 
