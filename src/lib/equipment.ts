@@ -58,10 +58,15 @@ function joinWords(words: string[]): string {
   return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
 }
 
-/** Summary for an `equipment_updated` event: "Updated make, model and status". */
-export function equipmentUpdateSummary(changed: EquipmentField[]): string {
-  if (changed.length === 0) return "Details updated";
-  return `Updated ${joinWords(changed.map((field) => EQUIPMENT_FIELD_LABELS[field]))}`;
+/**
+ * Summary for an `equipment_updated` event: "Updated make, model and status".
+ * `extraLabels` are already-human words appended after the column labels —
+ * the custom field labels from customFieldsDiff() in src/lib/custom-fields.ts.
+ */
+export function equipmentUpdateSummary(changed: EquipmentField[], extraLabels: string[] = []): string {
+  const words = [...changed.map((field) => EQUIPMENT_FIELD_LABELS[field]), ...extraLabels];
+  if (words.length === 0) return "Details updated";
+  return `Updated ${joinWords(words)}`;
 }
 
 /** Summary for a `status_changed` event: "Status: Active → Needs service". */

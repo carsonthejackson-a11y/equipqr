@@ -18,7 +18,8 @@ import {
   type EquipmentPatch,
 } from "@/lib/equipment";
 import { formatBytes } from "@/lib/format";
-import type { Equipment, EquipmentDocument, EquipmentStatus } from "@/lib/types";
+import { customFieldsDiff, parseCustomFieldValues } from "@/lib/custom-fields";
+import type { Equipment, EquipmentCustomField, EquipmentDocument, EquipmentStatus } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -79,6 +80,46 @@ function patchFromForm(formData: FormData, fallbackStatus?: EquipmentStatus): Eq
   };
 }
 
+/** The company's field definitions, in the order the form shows them. RLS scopes this to the caller. */
+async function loadCustomFieldDefinitions(supabase: Supabase): Promise<EquipmentCustomField[]> {
+  const { data } = await supabase
+    .from("equipment_custom_fields")
+    .select("*")
+    .order("sort_order")
+    .order("created_at")
+    .returns<EquipmentCustomField[]>();
+  return data ?? [];
+}
+
+/**
+ * The equipment_type_id / customer_id FKs are not tenant-constrained at the
+ * DB level, and resolve_qr_code() (security definer) publishes the type's
+ * whole guide graph to anyone scanning the unit. Only accept ids that come
+ * back through the RLS-scoped client, i.e. belong to the caller's company.
+ */
+async function assertOwnedReferences(
+  supabase: Supabase,
+  patch: Pick<EquipmentPatch, "equipment_type_id" | "customer_id">
+): Promise<{ error: string } | null> {
+  if (patch.equipment_type_id) {
+    const { data } = await supabase
+      .from("equipment_types")
+      .select("id")
+      .eq("id", patch.equipment_type_id)
+      .maybeSingle<{ id: string }>();
+    if (!data) return { error: "Equipment type not found" };
+  }
+  if (patch.customer_id) {
+    const { data } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("id", patch.customer_id)
+      .maybeSingle<{ id: string }>();
+    if (!data) return { error: "Customer not found" };
+  }
+  return null;
+}
+
 async function assignCode(
   supabase: Supabase,
   equipmentId: string,
@@ -129,9 +170,20 @@ export async function createEquipment(
     return { error: "No company found for this account" };
   }
 
+  const refError = await assertOwnedReferences(supabase, patch);
+  if (refError) {
+    return refError;
+  }
+
+  const definitions = await loadCustomFieldDefinitions(supabase);
+  const customFields = parseCustomFieldValues(definitions, formData);
+  if (customFields.errors.length > 0) {
+    return { error: customFields.errors[0] };
+  }
+
   const { data, error } = await supabase
     .from("equipment")
-    .insert({ company_id: staff.companyId, ...patch })
+    .insert({ company_id: staff.companyId, ...patch, custom_fields: customFields.values })
     .select("id")
     .single<{ id: string }>();
 
@@ -153,7 +205,10 @@ export async function createEquipment(
   return { id: data.id, codeError };
 }
 
-export async function updateEquipment(id: string, formData: FormData) {
+export async function updateEquipment(
+  id: string,
+  formData: FormData
+): Promise<{ error: string; success?: undefined } | { success: true; error?: undefined }> {
   const supabase = await createClient();
   const staff = await currentStaff(supabase);
   if (!staff) {
@@ -178,21 +233,39 @@ export async function updateEquipment(id: string, formData: FormData) {
     return { error: "Name and equipment type are required" };
   }
 
-  const { error } = await supabase.from("equipment").update(patch).eq("id", id);
+  const refError = await assertOwnedReferences(supabase, patch);
+  if (refError) {
+    return refError;
+  }
+
+  // Custom field values are replaced wholesale (not merged): the form posts
+  // every defined field, and a key whose definition was deleted must not be
+  // resurrected from the old row.
+  const definitions = await loadCustomFieldDefinitions(supabase);
+  const customFields = parseCustomFieldValues(definitions, formData);
+  if (customFields.errors.length > 0) {
+    return { error: customFields.errors[0] };
+  }
+
+  const { error } = await supabase
+    .from("equipment")
+    .update({ ...patch, custom_fields: customFields.values })
+    .eq("id", id);
 
   if (error) {
     return { error: error.message };
   }
 
   const changed = diffEquipment(existing, patch);
+  const changedCustom = customFieldsDiff(definitions, existing.custom_fields, customFields.values);
 
-  if (changed.length > 0) {
+  if (changed.length > 0 || changedCustom.length > 0) {
     await emitEquipmentEvent(supabase, {
       companyId: existing.company_id,
       equipmentId: id,
       kind: "equipment_updated",
-      summary: equipmentUpdateSummary(changed),
-      details: { fields: changed },
+      summary: equipmentUpdateSummary(changed, changedCustom),
+      details: { fields: changed, custom_fields: changedCustom },
       actorUserId: staff.userId,
     });
 

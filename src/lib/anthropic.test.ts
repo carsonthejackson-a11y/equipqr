@@ -196,3 +196,96 @@ describe("draftTroubleshootingGuide", () => {
     ).rejects.toThrow(/empty guide/i);
   });
 });
+
+describe("generateChecklistDraft", () => {
+  const createMock = vi.fn();
+
+  beforeEach(() => {
+    vi.resetModules();
+    createMock.mockReset();
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+
+    vi.doMock("@anthropic-ai/sdk", () => ({
+      default: class MockAnthropic {
+        messages = { create: createMock };
+      },
+    }));
+  });
+
+  it("returns items with no id, trimmed labels, and falls back to 'check' for a bad kind", async () => {
+    createMock.mockResolvedValue({
+      content: [
+        {
+          type: "tool_use",
+          input: {
+            items: [
+              { label: "  Descale boiler  ", kind: "check", required: true, help: null },
+              { label: "Group gasket condition", kind: "bogus-kind", required: false, help: " Look for cracks " },
+            ],
+          },
+        },
+      ],
+    });
+
+    const { generateChecklistDraft } = await import("./anthropic");
+    const result = await generateChecklistDraft({
+      equipmentTypeName: "Espresso machine",
+      equipmentTypeDescription: "",
+      purpose: "",
+    });
+
+    expect(result).toEqual([
+      { label: "Descale boiler", kind: "check", required: true, help: null },
+      { label: "Group gasket condition", kind: "check", required: false, help: "Look for cracks" },
+    ]);
+    expect(result[0]).not.toHaveProperty("id");
+  });
+
+  it("caps drafts at 15 items", async () => {
+    createMock.mockResolvedValue({
+      content: [
+        {
+          type: "tool_use",
+          input: {
+            items: Array.from({ length: 20 }, (_, i) => ({
+              label: `Item ${i}`,
+              kind: "check",
+              required: false,
+              help: null,
+            })),
+          },
+        },
+      ],
+    });
+
+    const { generateChecklistDraft } = await import("./anthropic");
+    const result = await generateChecklistDraft({
+      equipmentTypeName: "Boiler",
+      equipmentTypeDescription: "",
+      purpose: "",
+    });
+    expect(result).toHaveLength(15);
+  });
+
+  it("throws when the model doesn't return a tool_use block", async () => {
+    createMock.mockResolvedValue({ content: [{ type: "text", text: "no" }] });
+
+    const { generateChecklistDraft } = await import("./anthropic");
+    await expect(
+      generateChecklistDraft({ equipmentTypeName: "Fridge", equipmentTypeDescription: "", purpose: "" })
+    ).rejects.toThrow(/didn't return a checklist/i);
+  });
+
+  it("throws when the model returns zero items", async () => {
+    createMock.mockResolvedValue({
+      content: [{ type: "tool_use", input: { items: [] } }],
+    });
+
+    const { generateChecklistDraft } = await import("./anthropic");
+    await expect(
+      generateChecklistDraft({ equipmentTypeName: "Fridge", equipmentTypeDescription: "", purpose: "" })
+    ).rejects.toThrow(/empty checklist/i);
+  });
+});

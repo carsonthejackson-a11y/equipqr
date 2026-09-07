@@ -3,17 +3,45 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { MapPin, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import type { Equipment, ResolvedQrCode } from "@/lib/types";
+import type { Equipment, ResolvedQrCode, UserRole } from "@/lib/types";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { getPlan } from "@/lib/plans";
 import { FEATURES } from "@/lib/features";
 import { publicEnv } from "@/lib/env";
 import { companyAssetUrl, resolveBranding } from "@/lib/branding";
 import { formatRelativeTime } from "@/lib/format";
+import { formatDateOnly } from "@/lib/schedule";
 import { detectScanSource } from "@/lib/public-request";
 import { BrandHeader, BrandShell, PoweredBy } from "@/components/public/brand-shell";
 import { ClaimCodeCard } from "./claim-code-card";
 import { ScanActions } from "./scan-actions";
+import { StaffScanView } from "./staff/staff-scan-view";
+import { StaffSignInLink } from "./staff/staff-sign-in-link";
+
+/**
+ * Is the person scanning a logged-in member of the company that owns this
+ * unit? Staff get a different page (open requests, close-out, inspections —
+ * see ./staff). Anyone else, including staff of a *different* company, gets
+ * the customer page. Cheap when there's no session cookie at all.
+ */
+async function getScanningStaff(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  companyId: string
+): Promise<{ userId: string; role: UserRole; fullName: string | null } | null> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+  // `profiles.full_name` is nullable (0001) — an invited technician who never
+  // filled it in has none, so it stays nullable all the way through.
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("company_id, role, full_name")
+    .eq("id", user.id)
+    .maybeSingle<{ company_id: string; role: UserRole; full_name: string | null }>();
+  if (!profile || profile.company_id !== companyId) return null;
+  return { userId: user.id, role: profile.role, fullName: profile.full_name };
+}
 
 // The customer-facing landing page. Assume: a phone, one hand free, standing
 // in front of a machine that just stopped working, and no idea what EquipQR
@@ -140,6 +168,14 @@ export default async function EquipmentGuidePage({
 
   const { guide } = resolved;
 
+  // Staff scan mode (Next roadmap): a technician who scans their own
+  // company's sticker lands on the work view, not the customer guide.
+  // `?view=customer` lets staff preview what the customer sees.
+  const staff = await getScanningStaff(supabase, guide.company.id);
+  if (staff && (await searchParams).view !== "customer") {
+    return <StaffScanView guide={guide} qrToken={qrToken} staff={staff} />;
+  }
+
   // Billing status (trial expired, subscription lapsed, etc.) must never
   // block this public page — only which *features* are available narrows,
   // and even that fails open to "enabled" if we can't determine the plan.
@@ -187,6 +223,18 @@ export default async function EquipmentGuidePage({
               {guide.equipment.location}
             </p>
           )}
+          {/* Owner-defined fields flagged "show on scan page" (0022); the RPC
+              already filtered to those with a value, in the owner's order. */}
+          {guide.equipment.custom_fields && guide.equipment.custom_fields.length > 0 && (
+            <dl className="flex flex-wrap gap-x-4 gap-y-1 pt-1 text-sm">
+              {guide.equipment.custom_fields.map((field, index) => (
+                <div key={`${index}-${field.label}`} className="flex gap-1">
+                  <dt className="text-muted-foreground">{field.label}:</dt>
+                  <dd>{field.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </div>
 
         {outOfService && (
@@ -203,6 +251,7 @@ export default async function EquipmentGuidePage({
           qrToken={qrToken}
           branding={branding}
           aiChatEnabled={!!process.env.ANTHROPIC_API_KEY && planAllowsAiChat}
+          openRequests={guide.open_requests ?? []}
         />
 
         {guide.equipment.last_serviced_at && (
@@ -211,8 +260,15 @@ export default async function EquipmentGuidePage({
             Last serviced {formatRelativeTime(guide.equipment.last_serviced_at)}
           </p>
         )}
+        {guide.equipment.next_service_due_on && (
+          <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+            <Wrench className="size-4 shrink-0" aria-hidden />
+            Next service due {formatDateOnly(guide.equipment.next_service_due_on)}
+          </p>
+        )}
       </main>
 
+      <StaffSignInLink qrToken={qrToken} isStaffPreview={!!staff} />
       <PoweredBy />
     </BrandShell>
   );

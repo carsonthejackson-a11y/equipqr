@@ -7,8 +7,9 @@ import { assertCanAddEquipment, getEntitlements, planFor } from "@/lib/billing";
 import { emitEquipmentEvent } from "@/lib/events";
 import { createInstantCode } from "@/lib/qr-codes";
 import { EQUIPMENT_IMPORT_COLUMNS, parseCsvTable } from "@/lib/csv";
+import { parseCustomFieldValues } from "@/lib/custom-fields";
 import { normalizeDateInput, parseEquipmentStatus, type EquipmentPatch } from "@/lib/equipment";
-import type { Customer, EquipmentType } from "@/lib/types";
+import type { Customer, EquipmentCustomField, EquipmentType } from "@/lib/types";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
@@ -52,21 +53,28 @@ export type ImportPreview = {
 type Lookups = {
   typesByName: Map<string, EquipmentType>;
   customersByName: Map<string, Customer>;
+  /** Custom field definitions, keyed by field key — the `cf:<key>` columns the file may carry. */
+  customFieldsByKey: Map<string, EquipmentCustomField>;
 };
+
+/** Header prefix for custom field columns: `cf:filter_size`. */
+const CUSTOM_FIELD_HEADER_PREFIX = "cf:";
 
 function key(value: string): string {
   return value.trim().toLowerCase();
 }
 
 async function loadLookups(supabase: Supabase): Promise<Lookups> {
-  const [{ data: types }, { data: customers }] = await Promise.all([
+  const [{ data: types }, { data: customers }, { data: customFields }] = await Promise.all([
     supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
     supabase.from("customers").select("*").returns<Customer[]>(),
+    supabase.from("equipment_custom_fields").select("*").returns<EquipmentCustomField[]>(),
   ]);
 
   return {
     typesByName: new Map((types ?? []).map((type) => [key(type.name), type])),
     customersByName: new Map((customers ?? []).map((customer) => [key(customer.name), customer])),
+    customFieldsByKey: new Map((customFields ?? []).map((def) => [def.key, def])),
   };
 }
 
@@ -74,6 +82,8 @@ type ParsedRow = {
   preview: ImportRowPreview;
   /** Everything but equipment_type_id / customer_id, which are resolved at insert time. */
   patch: Omit<EquipmentPatch, "equipment_type_id" | "customer_id">;
+  /** Parsed `cf:<key>` cells, ready for equipment.custom_fields. */
+  customFields: Record<string, unknown>;
   typeName: string;
   customerName: string;
 };
@@ -98,12 +108,56 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
       fatal: `That file has ${table.rows.length} rows. Import at most ${MAX_ROWS} at a time.`,
     };
   }
+  // Accept our own equipment export as input: it heads the type column
+  // "type", carries read-only columns (id, qr_short_code, created_at, …) the
+  // import ignores, and heads each custom field by its label rather than
+  // `cf:<key>`. Only `cf:` columns are validated strictly; anything else
+  // unrecognised is skipped, as it always was.
+  if (!table.headers.includes("equipment_type") && table.headers.includes("type")) {
+    table.headers = table.headers.map((h) => (h === "type" ? "equipment_type" : h));
+    for (const record of table.rows) {
+      record.equipment_type = record.type;
+      delete record.type;
+    }
+  }
+
   if (!table.headers.includes("name") || !table.headers.includes("equipment_type")) {
     return {
       rows: [],
       fatal: `The header row needs at least "name" and "equipment_type". Expected columns: ${EQUIPMENT_IMPORT_COLUMNS.join(", ")}.`,
     };
   }
+
+  // Optional `cf:<key>` columns must all name a defined custom field — a typo
+  // silently dropping a whole column of data is worse than a clear stop.
+  const customFieldHeaders = table.headers.filter((h) => h.startsWith(CUSTOM_FIELD_HEADER_PREFIX));
+  const unknownCustom = customFieldHeaders
+    .map((h) => h.slice(CUSTOM_FIELD_HEADER_PREFIX.length))
+    .filter((k) => !lookups.customFieldsByKey.has(k));
+  if (unknownCustom.length > 0) {
+    const known = [...lookups.customFieldsByKey.keys()].map((k) => `${CUSTOM_FIELD_HEADER_PREFIX}${k}`);
+    return {
+      rows: [],
+      fatal: `Unknown custom field column${unknownCustom.length === 1 ? "" : "s"}: ${unknownCustom
+        .map((k) => `"${CUSTOM_FIELD_HEADER_PREFIX}${k}"`)
+        .join(", ")}. ${known.length > 0 ? `Defined fields: ${known.join(", ")}.` : "No custom fields are defined yet."}`,
+    };
+  }
+  // Header → definition. `cf:<key>` first; then a bare key or the field's
+  // label (normalised the way parseCsvTable normalises headers), which is
+  // what the equipment export writes.
+  const headerByKey = new Map<string, string>();
+  for (const h of customFieldHeaders) headerByKey.set(h.slice(CUSTOM_FIELD_HEADER_PREFIX.length), h);
+  const reserved = new Set<string>(EQUIPMENT_IMPORT_COLUMNS);
+  for (const def of lookups.customFieldsByKey.values()) {
+    if (headerByKey.has(def.key)) continue;
+    const labelHeader = def.label.trim().toLowerCase().replace(/\s+/g, "_");
+    const match = table.headers.find((h) => !reserved.has(h) && (h === def.key || h === labelHeader));
+    if (match) headerByKey.set(def.key, match);
+  }
+  const customFieldDefs = [...headerByKey.keys()].map(
+    (k) => lookups.customFieldsByKey.get(k) as EquipmentCustomField
+  );
 
   // Names created earlier in the same file count as existing for later rows.
   const pendingTypes = new Set<string>();
@@ -159,6 +213,15 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
     const warranty = normalizeDateInput(record.warranty_ends_on ?? "");
     if (!warranty.ok) errors.push("Warranty end date must be YYYY-MM-DD");
 
+    // The same parser the equipment form uses, fed by the row's `cf:` cells.
+    const customFields = parseCustomFieldValues(customFieldDefs, {
+      get: (name) => {
+        const header = headerByKey.get(name.replace(/^cf_/, ""));
+        return header ? (record[header] ?? null) : null;
+      },
+    });
+    errors.push(...customFields.errors);
+
     const trimmedOrNull = (value: string | undefined) => (value ?? "").trim() || null;
 
     return {
@@ -192,6 +255,7 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
         status: status ?? "active",
         notes: trimmedOrNull(record.notes),
       },
+      customFields: customFields.values,
       typeName,
       customerName,
     };
@@ -345,6 +409,7 @@ export async function runEquipmentImport(
         ? lookups.customersByName.get(key(row.customerName))?.id ?? null
         : null,
       ...row.patch,
+      custom_fields: row.customFields,
     }));
 
     // A type that still isn't resolvable here means the row shouldn't have

@@ -20,7 +20,25 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { ServiceRequest } from "@/lib/types";
 import { closeServiceRequest } from "../actions";
 
-export function CloseRequestDialog({ request }: { request: ServiceRequest }) {
+// ---- Next roadmap (migration 0019 / workstream A) ----
+// A request closed out from the phone (`/e/[qrToken]/staff`) may already
+// carry technician photos and a customer signature by the time someone
+// opens "Edit close-out" here — shown read-only so reopening the dialog
+// doesn't look like it lost them. This dialog itself still only edits the
+// summary/recommendations/email fields; photos and signatures are
+// phone-only (see close-out-dialog.tsx).
+export type CloseRequestExistingMedia = {
+  staffPhotos: { url: string; caption: string | null }[];
+  signature: { url: string; signedByName: string | null; signedAt: string | null } | null;
+};
+
+export function CloseRequestDialog({
+  request,
+  existingMedia,
+}: {
+  request: ServiceRequest;
+  existingMedia?: CloseRequestExistingMedia;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +86,34 @@ export function CloseRequestDialog({ request }: { request: ServiceRequest }) {
         </DialogHeader>
         <form action={handleSubmit} className="space-y-4">
           {error && <p className="text-sm text-destructive">{error}</p>}
+          {existingMedia && (existingMedia.staffPhotos.length > 0 || existingMedia.signature) && (
+            <div className="space-y-3 rounded-lg border bg-muted/30 p-3 text-sm">
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Captured from the phone
+              </p>
+              {existingMedia.staffPhotos.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {existingMedia.staffPhotos.map((photo, i) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={i}
+                      src={photo.url}
+                      alt={photo.caption ?? "Technician photo"}
+                      className="aspect-square w-full rounded-md border object-cover"
+                    />
+                  ))}
+                </div>
+              )}
+              {existingMedia.signature && (
+                <p className="text-muted-foreground">
+                  Signed by {existingMedia.signature.signedByName ?? "the customer"}
+                  {existingMedia.signature.signedAt
+                    ? ` on ${new Date(existingMedia.signature.signedAt).toLocaleDateString()}`
+                    : ""}
+                </p>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="summary">Summary of work performed</Label>
             <Textarea

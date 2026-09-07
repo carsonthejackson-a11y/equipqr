@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { formatRelativeTime } from "@/lib/format";
+import { RelativeTime } from "@/components/relative-time";
 import type { EquipmentScanStats } from "@/lib/types";
 // Type-only import: erased at compile time, so this never pulls @/lib/qr's
 // `qrcode` dependency into the client bundle.
@@ -325,9 +325,13 @@ function ScanStats({ stats }: { stats: EquipmentScanStats | null }) {
         <Stat label="7 days" value={stats?.last_7_days ?? 0} />
       </div>
       <p className="mt-2 text-center text-xs text-muted-foreground">
-        {stats?.last_scanned_at
-          ? `Last scanned ${formatRelativeTime(stats.last_scanned_at)}`
-          : "Not scanned yet"}
+        {stats?.last_scanned_at ? (
+          <>
+            Last scanned <RelativeTime iso={stats.last_scanned_at} />
+          </>
+        ) : (
+          "Not scanned yet"
+        )}
       </p>
     </div>
   );

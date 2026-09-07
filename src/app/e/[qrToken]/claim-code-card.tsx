@@ -60,42 +60,68 @@ export function ClaimCodeCard({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Assign this QR code</CardTitle>
-        <CardDescription>This code isn&apos;t linked to any equipment yet.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {unassignedEquipment.length === 0 ? (
-          <p className="text-muted-foreground">
-            You don&apos;t have any equipment waiting for a code. Create equipment first, then
-            scan this sticker again.
-          </p>
-        ) : (
-          <>
-            <Select
-              value={equipmentId}
-              onValueChange={(v) => setEquipmentId(v ?? "")}
-              items={Object.fromEntries(unassignedEquipment.map((e) => [e.id, e.name]))}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select equipment" />
-              </SelectTrigger>
-              <SelectContent>
-                {unassignedEquipment.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>
-                    {e.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button onClick={handleSubmit} disabled={submitting || !equipmentId} className="w-full">
-              {submitting ? "Linking..." : "Link this code"}
-            </Button>
-          </>
-        )}
-      </CardContent>
-    </Card>
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <CardTitle>Set up a new unit</CardTitle>
+          <CardDescription>
+            Photograph the nameplate and we&apos;ll read off the make, model and serial number for
+            you.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            render={<Link href={`/e/${token}/onboard`} />}
+            nativeButton={false}
+            size="lg"
+            className="w-full"
+          >
+            Add new equipment from this sticker
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Or assign this code to existing equipment</CardTitle>
+          <CardDescription>This code isn&apos;t linked to any equipment yet.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {unassignedEquipment.length === 0 ? (
+            <p className="text-muted-foreground">
+              You don&apos;t have any other equipment waiting for a code.
+            </p>
+          ) : (
+            <>
+              <Select
+                value={equipmentId}
+                onValueChange={(v) => setEquipmentId(v ?? "")}
+                items={Object.fromEntries(unassignedEquipment.map((e) => [e.id, e.name]))}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select equipment" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unassignedEquipment.map((e) => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleSubmit}
+                disabled={submitting || !equipmentId}
+                variant="outline"
+                className="w-full"
+              >
+                {submitting ? "Linking..." : "Link this code"}
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

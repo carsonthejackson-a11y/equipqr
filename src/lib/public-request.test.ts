@@ -4,6 +4,8 @@ import {
   isOwnedUploadPath,
   priorityFromChoice,
   requestReference,
+  requestUpdateAuthorStorageKey,
+  requestUpdateSchema,
   serviceRequestSchema,
 } from "@/lib/public-request";
 
@@ -153,5 +155,69 @@ describe("serviceRequestSchema", () => {
       expect(serviceRequestSchema.safeParse({ ...valid, priority }).success).toBe(true);
     }
     expect(serviceRequestSchema.safeParse({ ...valid, priority: "urgent" }).success).toBe(false);
+  });
+});
+
+describe("requestUpdateSchema", () => {
+  const valid = {
+    token: SHORT_CODE,
+    body: "Still leaking this morning, worse now",
+    authorName: "Alice",
+  };
+
+  it("accepts a minimal update and trims it", () => {
+    const parsed = requestUpdateSchema.parse(valid);
+    expect(parsed.body).toBe("Still leaking this morning, worse now");
+    expect(parsed.authorName).toBe("Alice");
+    expect(parsed.contactPhone).toBe("");
+    expect(parsed.contactEmail).toBe("");
+    expect(parsed.website).toBe("");
+  });
+
+  it("requires a name", () => {
+    expect(requestUpdateSchema.safeParse({ ...valid, authorName: "" }).success).toBe(false);
+    expect(requestUpdateSchema.safeParse({ ...valid, authorName: "   " }).success).toBe(false);
+  });
+
+  it("enforces the 2-2000 character message length, mirroring add_customer_request_update()", () => {
+    expect(requestUpdateSchema.safeParse({ ...valid, body: "x" }).success).toBe(false);
+    expect(requestUpdateSchema.safeParse({ ...valid, body: "xy" }).success).toBe(true);
+    expect(requestUpdateSchema.safeParse({ ...valid, body: "x".repeat(2000) }).success).toBe(true);
+    expect(requestUpdateSchema.safeParse({ ...valid, body: "x".repeat(2001) }).success).toBe(false);
+    expect(requestUpdateSchema.safeParse({ ...valid, body: "  x  " }).success).toBe(false);
+  });
+
+  it("rejects a malformed contact email but allows it blank", () => {
+    expect(requestUpdateSchema.safeParse({ ...valid, contactEmail: "not-an-email" }).success).toBe(
+      false
+    );
+    expect(requestUpdateSchema.safeParse({ ...valid, contactEmail: "" }).success).toBe(true);
+    expect(
+      requestUpdateSchema.safeParse({ ...valid, contactEmail: "alice@example.com" }).success
+    ).toBe(true);
+  });
+
+  it("accepts an honeypot field without requiring it", () => {
+    expect(requestUpdateSchema.parse(valid).website).toBe("");
+    expect(requestUpdateSchema.safeParse({ ...valid, website: "http://spam.example" }).success).toBe(
+      true
+    );
+  });
+
+  it("caps field lengths", () => {
+    expect(requestUpdateSchema.safeParse({ ...valid, authorName: "x".repeat(121) }).success).toBe(
+      false
+    );
+    expect(requestUpdateSchema.safeParse({ ...valid, token: "x".repeat(201) }).success).toBe(false);
+    expect(requestUpdateSchema.safeParse({ ...valid, contactPhone: "9".repeat(41) }).success).toBe(
+      false
+    );
+  });
+});
+
+describe("requestUpdateAuthorStorageKey", () => {
+  it("returns a stable, non-empty key", () => {
+    expect(requestUpdateAuthorStorageKey()).toBe(requestUpdateAuthorStorageKey());
+    expect(requestUpdateAuthorStorageKey().length).toBeGreaterThan(0);
   });
 });

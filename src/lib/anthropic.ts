@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serverEnv } from "@/lib/env";
-import type { GuideGraphNode, GuideOutcome } from "./types";
+import type { ChecklistItem, ChecklistItemKind, GuideGraphNode, GuideOutcome } from "./types";
 
 let client: Anthropic | null = null;
 
@@ -252,4 +252,102 @@ export async function classifyGuideOption({
     console.error("Failed to classify guide option", error);
     return null;
   }
+}
+
+const CHECKLIST_ITEM_KIND_VALUES: ChecklistItemKind[] = ["check", "pass_fail", "text", "number", "photo"];
+
+type DraftChecklistItem = {
+  label: string;
+  kind: string;
+  required: boolean;
+  help: string | null;
+};
+
+/**
+ * Drafts a scan-to-inspect checklist for one equipment type (Next roadmap,
+ * workstream D). Returns 6-15 items with no `id` — the caller (the dashboard
+ * server action) assigns real ids via src/lib/checklists.ts `newItemId()`
+ * before the technician edits or saves the draft, same division of labor as
+ * draftTroubleshootingGuide()/replaceGuideGraph() above.
+ */
+export async function generateChecklistDraft({
+  equipmentTypeName,
+  equipmentTypeDescription,
+  purpose,
+}: {
+  equipmentTypeName: string;
+  equipmentTypeDescription: string;
+  purpose: string;
+}): Promise<Omit<ChecklistItem, "id">[]> {
+  const anthropic = getClient();
+
+  const message = await anthropic.messages.create({
+    model: DRAFTING_MODEL,
+    max_tokens: 2048,
+    system: [
+      "You design inspection checklists a field-service technician fills out on their phone, standing at the equipment.",
+      "Produce 6 to 15 short, concrete items.",
+      "Each item has a kind: 'check' (a simple did-you-do-this checkbox), 'pass_fail' (a pass/fail judgment call), 'text' (a short written observation), 'number' (a measured reading, e.g. pressure or temperature), or 'photo' (a required photo of something specific).",
+      "Prefer 'check' and 'pass_fail' for most items. Use 'number' only for a real measurement. Use 'photo' sparingly, only when a picture is genuinely useful documentation.",
+      "Mark an item required only when skipping it would be a real problem — most items should not be required.",
+      "Keep labels short (a few words, no trailing period). 'help' is one short sentence of guidance, or null when the label is self-explanatory.",
+    ].join(" "),
+    tools: [
+      {
+        name: "propose_checklist",
+        description: "Propose an inspection checklist as a flat list of items.",
+        input_schema: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  label: { type: "string" },
+                  kind: { type: "string", enum: CHECKLIST_ITEM_KIND_VALUES },
+                  required: { type: "boolean" },
+                  help: { type: ["string", "null"] },
+                },
+                required: ["label", "kind", "required", "help"],
+              },
+            },
+          },
+          required: ["items"],
+        },
+      },
+    ],
+    tool_choice: { type: "tool", name: "propose_checklist" },
+    messages: [
+      {
+        role: "user",
+        content: [
+          `Equipment type: ${equipmentTypeName}`,
+          equipmentTypeDescription ? `Description: ${equipmentTypeDescription}` : null,
+          purpose ? `Purpose of this checklist: ${purpose}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n"),
+      },
+    ],
+  });
+
+  const toolUse = message.content.find((block) => block.type === "tool_use");
+  if (!toolUse || toolUse.type !== "tool_use") {
+    throw new Error("The model didn't return a checklist");
+  }
+
+  const rawItems = (toolUse.input as { items: DraftChecklistItem[] }).items ?? [];
+  if (rawItems.length === 0) {
+    throw new Error("The model returned an empty checklist");
+  }
+
+  const validKinds = new Set<string>(CHECKLIST_ITEM_KIND_VALUES);
+
+  return rawItems.slice(0, 15).map((item) => ({
+    label: (item.label || "").trim() || "Untitled item",
+    kind: (validKinds.has(item.kind) ? item.kind : "check") as ChecklistItemKind,
+    required: !!item.required,
+    help: item.help?.trim() || null,
+  }));
 }

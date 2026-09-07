@@ -3,11 +3,13 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getEntitlements, hasFeature } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { csvFilename, toCsv, type CsvColumn } from "@/lib/csv-export";
+import { formatCustomFieldValue } from "@/lib/custom-fields";
 import { formatShortCode } from "@/lib/qr";
 import { isExportEntity } from "@/app/dashboard/settings/api/export-entities";
 import type {
   Customer,
   Equipment,
+  EquipmentCustomField,
   EquipmentType,
   Profile,
   QrCode,
@@ -69,22 +71,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 async function exportEquipment(supabase: SupabaseServerClient, companyId: string): Promise<string> {
-  const [{ data: equipment }, { data: types }, { data: customers }, { data: codes }] = await Promise.all([
-    supabase
-      .from("equipment")
-      .select("*")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false })
-      .returns<Equipment[]>(),
-    supabase.from("equipment_types").select("*").eq("company_id", companyId).returns<EquipmentType[]>(),
-    supabase.from("customers").select("*").eq("company_id", companyId).returns<Customer[]>(),
-    supabase
-      .from("qr_codes")
-      .select("*")
-      .eq("company_id", companyId)
-      .eq("status", "active")
-      .returns<QrCode[]>(),
-  ]);
+  const [{ data: equipment }, { data: types }, { data: customers }, { data: codes }, { data: customFields }] =
+    await Promise.all([
+      supabase
+        .from("equipment")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .returns<Equipment[]>(),
+      supabase.from("equipment_types").select("*").eq("company_id", companyId).returns<EquipmentType[]>(),
+      supabase.from("customers").select("*").eq("company_id", companyId).returns<Customer[]>(),
+      supabase
+        .from("qr_codes")
+        .select("*")
+        .eq("company_id", companyId)
+        .eq("status", "active")
+        .returns<QrCode[]>(),
+      supabase
+        .from("equipment_custom_fields")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("sort_order")
+        .order("created_at")
+        .returns<EquipmentCustomField[]>(),
+    ]);
 
   const typeById = new Map((types ?? []).map((t) => [t.id, t]));
   const customerById = new Map((customers ?? []).map((c) => [c.id, c]));
@@ -113,11 +123,42 @@ async function exportEquipment(supabase: SupabaseServerClient, companyId: string
     { header: "last_serviced_at", value: (r) => r.last_serviced_at },
     { header: "next_service_due_on", value: (r) => r.next_service_due_on },
     { header: "notes", value: (r) => r.notes },
+    // One column per custom field definition, headed by its label, in the
+    // owner's order. Values render the way the detail page shows them
+    // (booleans as Yes/No); a unit without a value gets an empty cell.
+    ...customFieldColumns(customFields ?? []),
     { header: "created_at", value: (r) => r.created_at },
     { header: "updated_at", value: (r) => r.updated_at },
   ];
 
   return toCsv(equipment ?? [], columns);
+}
+
+/** Core equipment export headers, as the import normalises them (lower-case, spaces → underscores). */
+const EQUIPMENT_EXPORT_CORE_HEADERS = new Set([
+  "id", "name", "type", "equipment_type", "customer", "qr_short_code", "status", "make", "model",
+  "serial_number", "location", "address", "contact_name", "contact_phone", "install_date",
+  "warranty_ends_on", "last_serviced_at", "next_service_due_on", "notes", "created_at", "updated_at",
+]);
+
+/**
+ * A field labelled "Status" or "Notes" would otherwise produce a second
+ * column with the same header as a core one — ambiguous in a spreadsheet and
+ * silently dropped by the import. Such fields (and any two labels that
+ * normalise to the same header) fall back to the unambiguous `cf:<key>`
+ * form, which the import accepts as well.
+ */
+function customFieldColumns(defs: EquipmentCustomField[]): CsvColumn<Equipment>[] {
+  const used = new Set(EQUIPMENT_EXPORT_CORE_HEADERS);
+  return defs.map((def) => {
+    const normalized = def.label.trim().toLowerCase().replace(/\s+/g, "_");
+    const header = used.has(normalized) ? `cf:${def.key}` : def.label;
+    used.add(normalized);
+    return {
+      header,
+      value: (r) => formatCustomFieldValue(def, r.custom_fields?.[def.key]),
+    };
+  });
 }
 
 async function exportCustomers(supabase: SupabaseServerClient, companyId: string): Promise<string> {

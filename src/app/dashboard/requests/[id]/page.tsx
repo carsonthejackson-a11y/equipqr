@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ExternalLink, Mail, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { BackLink } from "@/components/back-link";
 import { phoneHref } from "@/lib/branding";
 import { getRequestStatusUrl } from "@/lib/qr";
@@ -21,8 +20,8 @@ import { PriorityControl } from "./priority-control";
 import { AssigneeControl } from "./assignee-control";
 import { CloseRequestDialog } from "./close-request-dialog";
 import { MediaGallery } from "./media-gallery";
-import { ActivityFeed } from "./activity-feed";
-import { AddNoteForm } from "./add-note-form";
+import { ActivityPanel } from "./activity-panel";
+import { ScheduleVisitCard } from "./schedule-visit-card";
 
 export default async function ServiceRequestDetailPage({
   params,
@@ -40,6 +39,20 @@ export default async function ServiceRequestDetailPage({
 
   if (!serviceRequest) {
     notFound();
+  }
+
+  // Zero the unread customer-message counter as soon as staff open this
+  // request. Deliberately an inline write before render rather than a
+  // useEffect + server action round trip: this route already runs
+  // server-side for every visit, RLS scopes the update to the caller's own
+  // company, and a failed best-effort update just means the badge stays lit
+  // a bit longer — nothing about the page itself depends on it succeeding.
+  if (serviceRequest.unread_customer_messages > 0) {
+    await supabase
+      .from("service_requests")
+      .update({ unread_customer_messages: 0 })
+      .eq("id", serviceRequest.id);
+    serviceRequest.unread_customer_messages = 0;
   }
 
   const [{ data: equipment }, { data: media }, { data: membersData }, { data: activity }, { data: customer }] =
@@ -68,9 +81,24 @@ export default async function ServiceRequestDetailPage({
       const { data: signed } = await supabase.storage
         .from("service-request-media")
         .createSignedUrl(item.storage_path, 3600);
-      return { url: signed?.signedUrl ?? "", media_type: item.media_type };
+      return { url: signed?.signedUrl ?? "", media_type: item.media_type, origin: item.origin, caption: item.caption };
     })
   );
+
+  // ---- Next roadmap (migration 0019 / workstream A) ----
+  // Signature captured at phone close-out, signed the same way the media
+  // above is.
+  const signatureUrl = serviceRequest.signature_path
+    ? (
+        await supabase.storage.from("service-request-media").createSignedUrl(serviceRequest.signature_path, 3600)
+      ).data?.signedUrl
+    : null;
+  const signature = signatureUrl
+    ? { url: signatureUrl, signedByName: serviceRequest.signed_by_name, signedAt: serviceRequest.signed_at }
+    : null;
+  const staffPhotoUrls = mediaWithUrls
+    .filter((m) => m.url && m.origin === "staff")
+    .map((m) => ({ url: m.url, caption: m.caption }));
 
   const staffNameById = new Map(
     (members ?? []).map((m) => [m.id, m.full_name?.trim() || m.email] as const)
@@ -103,7 +131,7 @@ export default async function ServiceRequestDetailPage({
             assignedTo={serviceRequest.assigned_to}
             members={members ?? []}
           />
-          <CloseRequestDialog request={serviceRequest} />
+          <CloseRequestDialog request={serviceRequest} existingMedia={{ staffPhotos: staffPhotoUrls, signature }} />
         </div>
       </div>
 
@@ -180,7 +208,7 @@ export default async function ServiceRequestDetailPage({
               <CardTitle>Photos &amp; videos</CardTitle>
             </CardHeader>
             <CardContent>
-              <MediaGallery items={mediaWithUrls.filter((m) => m.url)} />
+              <MediaGallery items={mediaWithUrls.filter((m) => m.url)} signature={signature} />
             </CardContent>
           </Card>
 
@@ -188,10 +216,12 @@ export default async function ServiceRequestDetailPage({
             <CardHeader>
               <CardTitle>Activity</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <ActivityFeed items={activity ?? []} staffNameById={staffNameById} />
-              <Separator />
-              <AddNoteForm requestId={serviceRequest.id} />
+            <CardContent>
+              <ActivityPanel
+                items={activity ?? []}
+                staffNameById={staffNameById}
+                requestId={serviceRequest.id}
+              />
             </CardContent>
           </Card>
         </div>
@@ -267,6 +297,8 @@ export default async function ServiceRequestDetailPage({
               )}
             </CardContent>
           </Card>
+
+          <ScheduleVisitCard request={serviceRequest} />
 
           <Card>
             <CardHeader>

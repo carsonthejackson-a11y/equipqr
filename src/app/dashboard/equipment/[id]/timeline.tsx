@@ -135,6 +135,19 @@ export async function Timeline({ equipmentId }: { equipmentId: string }) {
                         </Link>
                       </>
                     )}
+                    {/* Next roadmap (workstream D): link an inspection_completed event to its read view. */}
+                    {event.kind === "inspection_completed" &&
+                      typeof event.details.inspection_id === "string" && (
+                        <>
+                          {" · "}
+                          <Link
+                            href={`/dashboard/inspections/${event.details.inspection_id}`}
+                            className="underline underline-offset-2 hover:text-foreground"
+                          >
+                            View inspection
+                          </Link>
+                        </>
+                      )}
                   </p>
                 </div>
               </li>

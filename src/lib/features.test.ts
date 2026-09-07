@@ -12,18 +12,18 @@ describe("FEATURES.batchQr", () => {
     process.env = ORIGINAL_ENV;
   });
 
-  it("defaults to false when NEXT_PUBLIC_FEATURE_BATCH_QR is unset", async () => {
+  it("defaults to true when NEXT_PUBLIC_FEATURE_BATCH_QR is unset", async () => {
     delete process.env.NEXT_PUBLIC_FEATURE_BATCH_QR;
 
     const { FEATURES } = await import("./features");
-    expect(FEATURES.batchQr).toBe(false);
+    expect(FEATURES.batchQr).toBe(true);
   });
 
-  it("defaults to false when NEXT_PUBLIC_FEATURE_BATCH_QR is the empty string", async () => {
+  it("defaults to true when NEXT_PUBLIC_FEATURE_BATCH_QR is the empty string", async () => {
     process.env.NEXT_PUBLIC_FEATURE_BATCH_QR = "";
 
     const { FEATURES } = await import("./features");
-    expect(FEATURES.batchQr).toBe(false);
+    expect(FEATURES.batchQr).toBe(true);
   });
 
   it("is true when NEXT_PUBLIC_FEATURE_BATCH_QR is \"true\"", async () => {
@@ -40,15 +40,15 @@ describe("FEATURES.batchQr", () => {
     expect(FEATURES.batchQr).toBe(true);
   });
 
-  it("is false when NEXT_PUBLIC_FEATURE_BATCH_QR is \"false\"", async () => {
+  it("is false when NEXT_PUBLIC_FEATURE_BATCH_QR is \"false\" (the env kill switch still works)", async () => {
     process.env.NEXT_PUBLIC_FEATURE_BATCH_QR = "false";
 
     const { FEATURES } = await import("./features");
     expect(FEATURES.batchQr).toBe(false);
   });
 
-  it("is false for any other unrecognized value", async () => {
-    process.env.NEXT_PUBLIC_FEATURE_BATCH_QR = "yes";
+  it("is false when NEXT_PUBLIC_FEATURE_BATCH_QR is \"0\"", async () => {
+    process.env.NEXT_PUBLIC_FEATURE_BATCH_QR = "0";
 
     const { FEATURES } = await import("./features");
     expect(FEATURES.batchQr).toBe(false);

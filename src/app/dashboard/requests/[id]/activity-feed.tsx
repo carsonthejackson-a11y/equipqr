@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { formatRelativeTime } from "@/lib/format";
 import type { RequestActivity, RequestActivityKind } from "@/lib/types";
 
@@ -52,16 +53,41 @@ export function ActivityFeed({
     <ol className="divide-y">
       {items.map((item) => {
         const Icon = ACTIVITY_ICONS[item.kind];
-        const author =
-          item.author_kind === "customer"
+        const isCustomerMessage = item.kind === "message" && item.author_kind === "customer";
+        // Customer messages carry the name they typed into the /r/<token>
+        // composer in metadata.author_name (migration 0019) — free text from
+        // an anonymous visitor, so it's rendered as plain text, never as an
+        // identity claim.
+        const customerAuthorName =
+          isCustomerMessage && typeof item.metadata?.author_name === "string"
+            ? (item.metadata.author_name as string)
+            : null;
+        const author = isCustomerMessage
+          ? customerAuthorName
+            ? `Customer · ${customerAuthorName}`
+            : "Customer"
+          : item.author_kind === "customer"
             ? "Customer"
             : item.author_kind === "system"
               ? "System"
               : (item.author_user_id && staffNameById.get(item.author_user_id)) || "Staff";
 
         return (
-          <li key={item.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-            <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
+          <li
+            key={item.id}
+            className={cn(
+              "flex gap-3 py-3 first:pt-0 last:pb-0",
+              isCustomerMessage && "-mx-3 rounded-lg bg-sky-500/5 px-3 dark:bg-sky-400/10"
+            )}
+          >
+            <div
+              className={cn(
+                "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full",
+                isCustomerMessage
+                  ? "bg-sky-500/15 text-sky-700 dark:text-sky-400"
+                  : "bg-accent text-accent-foreground"
+              )}
+            >
               <Icon className="size-3.5" />
             </div>
             <div className="min-w-0 flex-1 space-y-1">

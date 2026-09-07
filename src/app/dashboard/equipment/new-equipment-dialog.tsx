@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Camera, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,20 +26,25 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QrScanButton } from "@/components/qr-scan-button";
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { toast } from "sonner";
-import type { Customer, EquipmentType } from "@/lib/types";
+import type { Customer, EquipmentCustomField, EquipmentType } from "@/lib/types";
 import { normalizeQrCode } from "@/lib/short-code";
+import { downscaleToJpeg, blobToBase64 } from "@/lib/client-image";
 import { FEATURES } from "@/lib/features";
 import { createEquipment } from "./actions";
+import { CustomFieldsInputs } from "./custom-fields-inputs";
 
 const statusItems = Object.fromEntries(Object.entries(EQUIPMENT_STATUS_LABELS));
 
 export function NewEquipmentDialog({
   equipmentTypes,
   customers,
+  customFields = [],
   batchQrEnabled = true,
 }: {
   equipmentTypes: EquipmentType[];
   customers: Customer[];
+  /** The company's field definitions (Settings → Custom fields), in display order. */
+  customFields?: EquipmentCustomField[];
   /** Whether the company's plan includes pre-printed batch QR codes (src/lib/plans.ts `batchQr`). Informational only — claiming still works either way. */
   batchQrEnabled?: boolean;
 }) {
@@ -52,6 +58,51 @@ export function NewEquipmentDialog({
   const [contactPhone, setContactPhone] = useState("");
   const [codeSource, setCodeSource] = useState("instant");
   const [preprintedCode, setPreprintedCode] = useState("");
+  const [make, setMake] = useState("");
+  const [model, setModel] = useState("");
+  const [serialNumber, setSerialNumber] = useState("");
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const nameplateInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleScanNameplate(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setScanError(null);
+    setScanning(true);
+    try {
+      const jpeg = await downscaleToJpeg(file);
+      const base64 = await blobToBase64(jpeg);
+      const response = await fetch("/api/nameplate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64: base64, mediaType: "image/jpeg" }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        throw new Error(body?.error ?? "Couldn't read that nameplate.");
+      }
+      const fields = body?.fields as {
+        make: string | null;
+        model: string | null;
+        serial_number: string | null;
+      };
+      if (fields.make) setMake(fields.make);
+      if (fields.model) setModel(fields.model);
+      if (fields.serial_number) setSerialNumber(fields.serial_number);
+      if (!fields.make && !fields.model && !fields.serial_number) {
+        toast.warning("Couldn't make anything out on that nameplate — fill it in by hand.");
+      } else {
+        toast.success("Filled in from the nameplate");
+      }
+    } catch (cause) {
+      setScanError(cause instanceof Error ? cause.message : "Couldn't read that nameplate.");
+    } finally {
+      setScanning(false);
+    }
+  }
 
   function handleCustomerChange(value: string | null) {
     setCustomerId(value ?? "");
@@ -137,14 +188,50 @@ export function NewEquipmentDialog({
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2 rounded-lg border p-3">
+            <input
+              ref={nameplateInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleScanNameplate}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => nameplateInputRef.current?.click()}
+              disabled={scanning}
+            >
+              {scanning ? <Loader2 className="size-4 animate-spin" /> : <Camera className="size-4" />}
+              {scanning ? "Reading nameplate..." : "Scan nameplate"}
+            </Button>
+            {scanError && <p className="text-sm text-destructive">{scanError}</p>}
+            <p className="text-xs text-muted-foreground">
+              Photograph the data plate to fill in make, model and serial number below.
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="make">Make (optional)</Label>
-              <Input id="make" name="make" placeholder="e.g. Rheem" />
+              <Input
+                id="make"
+                name="make"
+                placeholder="e.g. Rheem"
+                value={make}
+                onChange={(e) => setMake(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="model">Model (optional)</Label>
-              <Input id="model" name="model" placeholder="e.g. XG40T06" />
+              <Input
+                id="model"
+                name="model"
+                placeholder="e.g. XG40T06"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+              />
             </div>
           </div>
           <div className="space-y-2">
@@ -201,7 +288,12 @@ export function NewEquipmentDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="serialNumber">Serial number (optional)</Label>
-            <Input id="serialNumber" name="serialNumber" />
+            <Input
+              id="serialNumber"
+              name="serialNumber"
+              value={serialNumber}
+              onChange={(e) => setSerialNumber(e.target.value)}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="location">Location within site (optional)</Label>
@@ -217,6 +309,12 @@ export function NewEquipmentDialog({
               <Input id="warrantyEndsOn" name="warrantyEndsOn" type="date" />
             </div>
           </div>
+          {customFields.length > 0 && (
+            <fieldset className="space-y-4 rounded-lg border p-3">
+              <legend className="px-1 text-sm font-medium">Custom fields</legend>
+              <CustomFieldsInputs definitions={customFields} />
+            </fieldset>
+          )}
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (optional)</Label>
             <Textarea

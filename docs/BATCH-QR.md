@@ -1,110 +1,113 @@
-# Pre-printed QR sticker batches (parked)
+# Pre-printed QR sticker batches
 
-The founder parked this feature for launch. It is not deleted — it's gated behind
-`FEATURES.batchQr` in `src/lib/features.ts` (env `NEXT_PUBLIC_FEATURE_BATCH_QR`, default
-`false`). Set that env var to `true` (or `1`) and redeploy to turn it back on; no code changes
-are required for the gated behavior below. Marketing copy was removed outright (see the bottom
-of this doc) and will need to be re-added by hand.
+A "batch" code is a QR sticker that's printed and stuck on a machine *before*
+anyone tells EquipQR which unit it belongs to. Someone later scans it — or
+picks it from a list in the dashboard — and "claims" it to a specific piece
+of equipment. This is the alternative to an "instant" code, which a company
+generates and prints itself the moment it adds a unit.
 
-**Update (QR hardening, Sept 2026).** The parked code still compiles and still works
-exactly as described below, but the ground under it has shifted twice, and neither change
-needs anything doing while the flag is off. First, migration 0013 gave every `qr_codes`
-row a `short_code` and a lifecycle (`active` / `retired` / `replaced`); batch codes were
-backfilled from their own `XXXX-XXXX` token, `generate_qr_code_batch()` now populates
-`short_code` alongside `token`, and `claim_qr_code()` only claims codes that are still
-`active`. Batch tokens keep resolving forever — see the "codes never break" section of
-`docs/QR-LABELS.md`. Second, self-serve printing got good: a company can now print a
-real sticker at true size from `/dashboard/equipment/[id]/label` and a full Avery sheet
-(5160 / 5163 / 22806) from `/dashboard/equipment/labels`, which covers most of what
-ordering a pre-printed batch was for and is the reason there's no urgency to unpark this.
-The one shared touchpoint is `PrintButton` (`equipment/[id]/label/print-button.tsx`),
-which the admin batch sheet reuses: its `codeId` / `equipmentId` props are optional
-precisely so that page — where the codes belong to no single unit — keeps working.
-Nothing in this doc's restore checklist changes.
+The feature is gated behind `FEATURES.batchQr` in `src/lib/features.ts` (env
+`NEXT_PUBLIC_FEATURE_BATCH_QR`, **default `true`**). It was parked for launch
+(default `false`) through the Now roadmap; the Next roadmap (Sept 2026)
+un-parked it and added a second, faster way to create batch codes plus a
+camera-based way to claim one. Set the env var to `false` to turn the whole
+feature back off — see "What the flag gates" below for exactly what
+disappears.
 
-## What the feature is
+## Two ways a batch gets made
 
-Platform admins generate a pool of QR codes ("batches"), export them or print a physical sheet,
-and ship the stickers to a company. A company's technician later scans one of those stickers on
-the `/e/[qrToken]` page and "claims" it — links it to a specific piece of equipment — instead of
-generating a fresh code in the dashboard. This is the alternative to "instant" codes, which a
-company generates and prints itself on the spot.
+1. **Platform admin, for a company that ordered physical stickers**
+   (`src/app/admin/qr-codes`, unchanged from the original design). An EquipQR
+   team member generates a batch for a named company, exports it as CSV for
+   a print vendor, or prints a simple sheet in-house
+   (`/admin/qr-codes/print`). Uses `generate_qr_code_batch(p_company_id, p_count)`
+   (migrations 0004/0013), which any company id can be passed to — it's an
+   internal tool, not customer-facing.
 
-## What turning the flag on restores
+2. **Owner self-serve, added in the Next roadmap**
+   (`src/app/dashboard/settings/qr-codes` — "Blank codes" in Settings).
+   An owner on a plan with the `batchQr` feature (Pro and Business — see
+   `src/lib/plans.ts`) generates 1–100 blank codes for *their own* company
+   from the dashboard, no admin involved, and prints them on a standard
+   Avery sheet (`src/lib/labels/**`, same PDF engine the per-unit label
+   sheets use — see `docs/QR-LABELS.md`). Uses
+   `generate_company_qr_batch(p_count)` (migration 0019), which resolves the
+   caller's company server-side via `get_my_company_id()` and checks
+   `is_company_owner()` itself — so even if the app-side plan gate below were
+   somehow bypassed, a technician (or another company) still couldn't mint
+   codes for a company they don't own.
 
-- **Equipment QR setup UI** — `src/app/dashboard/equipment/new-equipment-dialog.tsx` and
-  `src/app/dashboard/equipment/[id]/assign-code-form.tsx` show the "How do you want to set up
-  this QR code?" radio group again (Generate a new code now / Use a pre-printed code), including
-  the pre-printed code input, the `QrScanButton` camera scanner, and the Pro-plan gating copy
-  ("Batch-printed codes are a Pro plan feature") when the company's plan doesn't include
-  `batchQr`. With the flag off, both forms only ever submit `codeSource=instant` via a hidden
-  field, so equipment always gets an instantly-generated code.
-- **The claim flow on a scanned code** — `src/app/e/[qrToken]/page.tsx` resolves an
-  `unclaimed` code (one that exists in a batch but isn't linked to equipment yet) to the real
-  claim experience: staff of the owning company see `claim-code-card.tsx` and can link the code
-  to a piece of equipment; anyone else sees a "not set up yet, contact the service company"
-  message. With the flag off, *everyone* sees that same friendly message for an unclaimed code —
-  the claim card never renders, even for staff.
-- **Platform admin batch tools** — everything under `src/app/admin/` (generate a batch, export
-  CSV, print a physical sheet). `src/app/admin/layout.tsx` calls `notFound()` for the whole
-  section when the flag is off; `src/app/admin/qr-codes/export/route.ts` (a route handler, not
-  covered by the layout) checks the flag itself and 404s too. The "Admin" link is hidden from
-  `src/components/dashboard-nav.tsx` / `dashboard-topnav.tsx` (via `dashboard-nav-links.ts`'s
-  `adminNavLink`) whenever the flag is off, even for platform admins.
-- **Plan-gating text and the pricing comparison row** — `src/app/dashboard/equipment/page.tsx`
-  and `[id]/page.tsx` only compute `batchQrEnabled` (from `src/lib/plans.ts`'s `batchQr` plan
-  feature, via `hasFeature()`) when the flag is on, so the "Pro plan feature" copy above never
-  shows while parked. `src/app/(marketing)/pricing/page.tsx`'s plan comparison table gets its
-  "Pre-printed batch QR sticker orders" row back (wired to `plan.features.batchQr`) — that row
-  is skipped, not deleted, so it reappears automatically once the flag is on.
-- **`src/components/qr-scan-button.tsx`** is untouched either way — it's a camera-scanning
-  component only ever rendered by the two forms above, so gating them is sufficient to keep it
-  out of the UI while parked.
+Both paths write the same `qr_codes` shape: `source = 'batch'`,
+`status = 'active'`, `equipment_id = null`, and a `token`/`short_code` pair
+generated the same way an instant code's is (see `docs/QR-LABELS.md`'s
+"Short codes" section) — there's nothing about a code itself that says which
+path made it.
 
-`src/lib/plans.ts`'s `PlanFeatures.batchQr` key (Pro/Business `true`, Starter `false`) was left
-in place regardless of the flag — the billing workstream depends on the shape, and it's already
-out of each plan's `highlights` list, so it doesn't appear anywhere in plan-card copy on its
-own.
+## Claiming a batch code
 
-## Marketing copy that was removed (re-add when re-enabling)
+However a batch code was made, claiming it works the same way, through the
+`claim_qr_code(p_token, p_equipment_id)` RPC (migration 0013): it only
+claims a code that is `active`, unclaimed, and belongs to the caller's own
+company, and it writes a `code_assigned` equipment-timeline event.
 
-Unlike the product UI above, marketing copy was **deleted**, not flag-gated — the founder didn't
-want any mention of pre-printed stickers while the feature is parked. Restore these by hand:
+There are three ways to reach it:
 
-- **`src/app/(marketing)/page.tsx`** (home): a feature-grid card, removed from the `features`
-  array —
-  ```
-  {
-    icon: Printer, // re-add the Printer import from lucide-react too
-    title: "Pre-printed sticker batches",
-    description:
-      "Print your own QR codes on demand, or order a batch of durable, pre-linked stickers shipped straight to your shop.",
-  },
-  ```
-- **`src/app/(marketing)/features/page.tsx`**: the page `metadata.description` used to end
-  "...AI dispatch summaries, and pre-printed sticker batches — everything EquipQR does for
-  field-service teams." (now ends at "AI dispatch summaries"). The "Stickers, printed your way"
-  card's body used to read: "Generate a QR code the instant you add a unit and print it
-  yourself, or order a batch of durable, weatherproof stickers pre-linked and ready to slap on
-  before you head out on the route." (now just describes printing your own).
-- **`src/app/(marketing)/contact/page.tsx`**: the intro paragraph used to read "Questions about
-  pricing, setting up your first guide, or ordering sticker batches — we read every message."
-  (now drops "or ordering sticker batches").
-- **`src/app/(marketing)/_components/faq-data.ts`** (`productFaqs`, shown on `/`, `/faq`): the
-  question "Can I print my own stickers, or do you print them for me?" with answer "Both.
-  Download a print-ready SVG or PNG for any QR code from the dashboard, or order a batch of
-  pre-printed, pre-linked stickers shipped to you — good for stocking a truck ahead of a route."
-  was narrowed to a self-print-only Q&A. The next FAQ's answer ("What does a customer see if a
-  sticker hasn't been assigned to a unit yet?") used to end "...If one of your technicians scans
-  it while signed in, they can claim it to a piece of equipment on the spot." — that sentence
-  was dropped since claiming is unavailable while parked.
+- **Type it in.** The "Use a pre-printed code" radio option on
+  `new-equipment-dialog.tsx` and `assign-code-form.tsx` — type or scan the
+  code, submit, done. This has always worked this way.
+- **Pick existing equipment.** Scan the sticker while signed in as staff of
+  the owning company: `/e/[qrToken]` resolves it as `unclaimed` and renders
+  `ClaimCodeCard`, which lists equipment that doesn't have an active code yet
+  and links the one you pick.
+- **Scan-to-onboard (new).** From that same `ClaimCodeCard`, "Add new
+  equipment from this sticker" goes to `/e/[qrToken]/onboard`: photograph the
+  nameplate, Claude vision reads off the make/model/serial number (or skip
+  and type it by hand), fill in the rest, submit. One server action
+  (`onboardEquipment` in `src/app/e/[qrToken]/actions.ts`) creates the unit
+  *and* claims this sticker to it, then lands back on the staff scan view.
+  This is the point of printing a batch ahead of a route: stick a code on
+  every truck-stock unit before you leave the shop, and finish setting each
+  one up on-site with a photo instead of typing everything from a clipboard.
 
-Nothing needed changing in `about/page.tsx`, `phone-mock.tsx`, or `site-footer.tsx` — their
-"sticker" mentions are about a company's own self-printed labels, not the pre-printed batch
-feature, and stay either way.
+Nameplate reading lives in `src/lib/nameplate.ts` (`extractNameplate()`,
+called only from `POST /api/nameplate`, staff-authenticated, rate-limited via
+`RATE_LIMITS.nameplatePerUser`) — every field is nullable and the UI always
+offers "skip, fill in by hand", because a blurry or partly-obscured plate is
+a normal outcome, not an error.
+
+## What the flag gates
+
+With `FEATURES.batchQr` on (the default):
+
+- The "How do you want to set up this QR code?" radio group on
+  `new-equipment-dialog.tsx` and `assign-code-form.tsx`, including the
+  pre-printed code input, the `QrScanButton` camera scanner, and Pro-plan
+  gating copy ("Batch-printed codes are a Pro plan feature") when the
+  company's plan doesn't include `batchQr`.
+- The claim flow on a scanned unclaimed code: staff of the owning company get
+  `ClaimCodeCard` (including the onboard button); anyone else still sees the
+  plain "not set up yet, contact the service company" message.
+- `/e/[qrToken]/onboard`, the scan-to-onboard flow.
+- `/dashboard/settings/qr-codes`, the owner self-serve blank-code pool.
+- Platform admin batch tools under `/admin/` (unrelated to plan — internal
+  tooling stays available to the team regardless of a customer's plan).
+- The pricing page's "Pre-printed batch QR sticker orders" comparison row.
+- The marketing mentions listed in `docs/` history below (now restored).
+
+With it off, all of the above reverts to the "not set up yet" / instant-code-
+only behavior described by the original (Now roadmap) parking of this
+feature: both equipment forms only ever submit `codeSource=instant`, an
+unclaimed code always shows the generic message regardless of who's signed
+in, `/admin` 404s, `/dashboard/settings/qr-codes` and `/e/*/onboard` 404, and
+the pricing row and marketing copy disappear again.
+
+`src/lib/plans.ts`'s `PlanFeatures.batchQr` key (Pro/Business `true`, Starter
+`false`) is independent of the flag and always present — the billing
+workstream depends on the shape.
 
 ## Not in scope here
 
-Dropping "onboarding call" from the Business plan (a separate founder request) is unrelated to
-this flag — `src/lib/plans.ts` already reads "Priority support", and no marketing copy mentioned
-it.
+Ordering *physical* pre-printed stickers from a vendor (as opposed to
+printing your own on an Avery sheet) is still a platform-admin-mediated
+process (`/admin/qr-codes`) — self-serve blank codes are meant for "print it
+yourself right now," not a fulfillment pipeline.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { addRequestNote } from "../actions";
 
-export function AddNoteForm({ requestId }: { requestId: string }) {
+/** Imperative handle so a sibling "Reply to customer" button can drive this form without lifting its whole state up a level. */
+export type AddNoteFormHandle = {
+  /** Checks "visible to customer" and focuses the textarea, ready to type. */
+  replyToCustomer: () => void;
+};
+
+export const AddNoteForm = forwardRef<AddNoteFormHandle, { requestId: string }>(function AddNoteForm(
+  { requestId },
+  ref
+) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [visibleToCustomer, setVisibleToCustomer] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    replyToCustomer() {
+      setVisibleToCustomer(true);
+      textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      textareaRef.current?.focus();
+    },
+  }));
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -41,6 +59,7 @@ export function AddNoteForm({ requestId }: { requestId: string }) {
     <form onSubmit={handleSubmit} className="space-y-3 rounded-lg border p-3">
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Textarea
+        ref={textareaRef}
         rows={3}
         value={body}
         onChange={(e) => setBody(e.target.value)}
@@ -63,4 +82,4 @@ export function AddNoteForm({ requestId }: { requestId: string }) {
       </div>
     </form>
   );
-}
+});

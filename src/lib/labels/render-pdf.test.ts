@@ -82,6 +82,34 @@ describe("renderLabelSheetPdf", () => {
     expect(parsed.getPageCount()).toBe(1);
   });
 
+  it("renders blank (unclaimed) codes when equipmentName is omitted, for every template", async () => {
+    const { renderLabelSheetPdf } = await import("./render-pdf");
+    for (const id of Object.keys(LABEL_TEMPLATES) as LabelTemplateId[]) {
+      const template = LABEL_TEMPLATES[id];
+      const bytes = await renderLabelSheetPdf({
+        template,
+        labels: [
+          { qrValue: "ABCD2345", shortCode: "ABCD2345" },
+          { qrValue: "EFGH6789", shortCode: "EFGH6789" },
+        ],
+        companyName: "Acme Coffee Service",
+        companyPhone: "(555) 010-2020",
+      });
+      const parsed = await PDFDocument.load(bytes);
+      expect(parsed.getPageCount()).toBe(1);
+    }
+  }, 20_000);
+
+  it("does not throw when a blank label's company name can't be encoded by a standard PDF font", async () => {
+    const { renderLabelSheetPdf } = await import("./render-pdf");
+    const bytes = await renderLabelSheetPdf({
+      template: LABEL_TEMPLATES.avery5163,
+      labels: [{ qrValue: "ABCD2345", shortCode: "ABCD2345" }],
+      companyName: "Café 冷蔵 Service",
+    });
+    expect(bytes.byteLength).toBeGreaterThan(0);
+  }, 20_000);
+
   it("does not throw on names a standard PDF font cannot encode", async () => {
     const { renderLabelSheetPdf } = await import("./render-pdf");
     const bytes = await renderLabelSheetPdf({

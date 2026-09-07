@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronRight, ClipboardList, MessageSquare, Phone, Wrench } from "lucide-react";
 import { GuideWalkthrough } from "./guide-walkthrough";
-import { openRequestStorageKey } from "@/lib/public-request";
+import { OpenRequestsCard } from "./open-request-card";
 import { phoneHref, type ResolvedBranding } from "@/lib/branding";
 import { cn } from "@/lib/utils";
-import type { EquipmentGuide } from "@/lib/types";
+import type { EquipmentGuide, OpenRequestSummary } from "@/lib/types";
 
 // The four things a customer standing in front of a broken machine might
 // want, in the order they'd want them: try to fix it, tell someone, call,
@@ -16,12 +16,14 @@ import type { EquipmentGuide } from "@/lib/types";
 //
 // Troubleshooting opens in place rather than on its own route so the guide
 // keeps its state if the customer backs out of it and tries again.
+//
+// When the unit already has an open request (Next roadmap, migration 0019),
+// the "already reported" card above takes the primary-action slot instead of
+// a sessionStorage-remembered chip: `openRequests` comes straight off
+// resolve_qr_code() so it works for ANY visitor who scans the sticker, not
+// just the browser that submitted it.
 
 type Mode = "menu" | "troubleshoot";
-
-// The value only changes when this page navigates away and back, which
-// remounts the component anyway — there is nothing to subscribe to.
-const subscribeNever = () => () => {};
 
 function ActionRow({
   href,
@@ -90,32 +92,18 @@ export function ScanActions({
   qrToken,
   branding,
   aiChatEnabled,
+  openRequests = [],
 }: {
   guide: EquipmentGuide;
   qrToken: string;
   branding: ResolvedBranding;
   aiChatEnabled: boolean;
+  /** Open requests on this unit from resolve_qr_code() — Next roadmap (workstream B renders these). */
+  openRequests?: OpenRequestSummary[];
 }) {
   const [mode, setMode] = useState<Mode>("menu");
   const hasGuide = guide.steps.length > 0;
-
-  // Best-effort "you already told us about this one" chip, read straight out
-  // of sessionStorage. useSyncExternalStore rather than an effect so the
-  // server snapshot is `null` (nothing to hydrate-mismatch on) and the value
-  // appears on the client's first commit. sessionStorage throws outright in
-  // some locked-down browsers, so the read is guarded; nothing else on this
-  // page depends on it.
-  const openRequestUrl = useSyncExternalStore(
-    subscribeNever,
-    () => {
-      try {
-        return sessionStorage.getItem(openRequestStorageKey(qrToken));
-      } catch {
-        return null;
-      }
-    },
-    () => null
-  );
+  const hasOpenRequest = openRequests.length > 0;
 
   if (mode === "troubleshoot") {
     return (
@@ -135,16 +123,7 @@ export function ScanActions({
 
   return (
     <div className="flex flex-col gap-3">
-      {openRequestUrl && (
-        <a
-          href={openRequestUrl}
-          className="flex min-h-[44px] items-center gap-2 rounded-xl border border-[var(--brand)]/40 bg-[var(--brand)]/10 px-4 py-2.5 text-sm font-medium"
-        >
-          <ClipboardList className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
-          <span className="flex-1">You have a request in progress</span>
-          <span className="underline">View status</span>
-        </a>
-      )}
+      <OpenRequestsCard requests={openRequests} timeZone={guide.company.timezone} />
 
       {hasGuide && (
         <ActionRow
@@ -157,11 +136,15 @@ export function ScanActions({
       )}
 
       <ActionRow
-        primary={!hasGuide}
+        primary={!hasGuide && !hasOpenRequest}
         href={`/e/${qrToken}/request`}
         icon={<ClipboardList className="size-5" />}
-        title="Report a problem"
-        subtitle="Send photos and we'll get back to you"
+        title={hasOpenRequest ? "Report a different problem" : "Report a problem"}
+        subtitle={
+          hasOpenRequest
+            ? "Already reported? Add a note above instead."
+            : "Send photos and we'll get back to you"
+        }
       />
 
       {branding.phone && (
