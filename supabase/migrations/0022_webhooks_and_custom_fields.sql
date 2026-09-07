@@ -235,6 +235,7 @@ create or replace function webhook_event_type_for_equipment_event(p_kind text)
 returns text
 language sql
 immutable
+set search_path = public
 as $$
   select case p_kind
     when 'equipment_created' then 'equipment.created'
