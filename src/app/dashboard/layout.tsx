@@ -11,9 +11,15 @@ import { TrialBanner } from "@/components/billing/trial-banner";
 import { getEntitlements } from "@/lib/billing";
 import { buildWelcomeEmail } from "@/lib/email/welcome";
 import { sendEmail } from "@/lib/email/send";
-import type { Company, Profile } from "@/lib/types";
+import type { Company, CompanyKind, Profile } from "@/lib/types";
 
 const BILLING_PATH = "/dashboard/settings/billing";
+const OWNER_ONBOARDING_PATH = "/dashboard/onboarding/owner";
+
+/** meta.pending_company_kind is user-supplied (auth metadata) — never trust it beyond these two literals. */
+function pendingCompanyKind(value: string | undefined): CompanyKind {
+  return value === "equipment_owner" ? "equipment_owner" : "service_provider";
+}
 
 function daysUntil(iso: string) {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
@@ -63,6 +69,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       p_company_name: companyName,
       p_notification_email: notificationEmail,
       p_full_name: fullName ?? "",
+      p_kind: pendingCompanyKind(meta.pending_company_kind),
     });
 
     if (error || !companyId) {
@@ -107,13 +114,32 @@ export default async function DashboardLayout({ children }: { children: React.Re
     });
   }
 
+  const kind: CompanyKind = company?.kind ?? "service_provider";
   const pathname = headerList.get("x-pathname") ?? "";
   const onBillingPage = pathname === BILLING_PATH || pathname.startsWith(`${BILLING_PATH}/`);
-  const isLocked = !!entitlements?.is_locked && !onBillingPage;
+  const onOwnerOnboarding = pathname === OWNER_ONBOARDING_PATH;
+
+  // Owner roadmap (docs/OWNER-ROADMAP-BRIEF.md §9 Q1): equipment_owner
+  // companies are never locked — get_company_entitlements() already returns
+  // is_locked: false for that kind, but the check is repeated here (belt and
+  // suspenders per §3.4's file-ownership note) so a future entitlements bug
+  // can't lock an owner out of their own free plan. Same for the trial
+  // banner: an owner's free tier isn't a "trial", so there's nothing to
+  // remind them to upgrade before.
+  const isLocked = kind !== "equipment_owner" && !!entitlements?.is_locked && !onBillingPage;
   const trialDaysLeft =
-    entitlements?.is_trialing && entitlements.trial_ends_at
+    kind !== "equipment_owner" && entitlements?.is_trialing && entitlements.trial_ends_at
       ? daysUntil(entitlements.trial_ends_at)
       : null;
+
+  // First-run wizard: an owner-kind company that hasn't finished setup yet
+  // (no location seeded, no equipment types confirmed) is sent to the
+  // wizard from every other /dashboard/** route — except from inside the
+  // wizard itself (that would loop) and never while locked (locked already
+  // renders LockedScreen above, and can't happen for this kind anyway).
+  if (kind === "equipment_owner" && !company?.owner_setup_completed_at && !onOwnerOnboarding && !isLocked) {
+    redirect(OWNER_ONBOARDING_PATH);
+  }
 
   return (
     <div className="flex min-h-svh">
@@ -126,7 +152,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <p className="truncate text-xs text-muted-foreground">{profile.full_name}</p>
             </div>
           </div>
-          <DashboardNav isAdmin={!!isAdmin} role={profile.role} />
+          <DashboardNav isAdmin={!!isAdmin} role={profile.role} kind={kind} />
         </div>
         <SignOutButton />
       </aside>
@@ -138,7 +164,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
           <SignOutButton />
         </header>
-        <DashboardTopNav isAdmin={!!isAdmin} role={profile.role} />
+        <DashboardTopNav isAdmin={!!isAdmin} role={profile.role} kind={kind} />
         {trialDaysLeft !== null && !onBillingPage && <TrialBanner daysLeft={trialDaysLeft} />}
         <main className="p-6">
           {isLocked ? <LockedScreen isOwner={profile.role === "owner"} /> : children}

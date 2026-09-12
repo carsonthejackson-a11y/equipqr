@@ -2,14 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { adminNavLink, dashboardNavLinks, isNavLinkActive } from "@/components/dashboard-nav-links";
+import { adminNavLink, navLinksFor, isNavLinkActive } from "@/components/dashboard-nav-links";
 import { cn } from "@/lib/utils";
-import type { UserRole } from "@/lib/types";
+import type { CompanyKind, UserRole } from "@/lib/types";
 import { FEATURES } from "@/lib/features";
 
-export function DashboardNav({ isAdmin = false, role }: { isAdmin?: boolean; role: UserRole }) {
+export function DashboardNav({
+  isAdmin = false,
+  role,
+  kind,
+}: {
+  isAdmin?: boolean;
+  role: UserRole;
+  kind: CompanyKind;
+}) {
   const pathname = usePathname();
-  const visibleLinks = dashboardNavLinks.filter((link) => !link.ownerOnly || role === "owner");
+  const visibleLinks = navLinksFor(kind).filter((link) => !link.ownerOnly || role === "owner");
   const links = isAdmin && FEATURES.batchQr ? [...visibleLinks, adminNavLink] : visibleLinks;
 
   return (

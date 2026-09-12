@@ -18,12 +18,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { PublicInvitation } from "@/lib/types";
+import type { CompanyKind, PublicInvitation } from "@/lib/types";
+import { KindStep } from "@/components/kind-step";
 
 export function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inviteToken = searchParams.get("invite");
+  // §3.2.1: ?kind=owner / ?kind=provider preselects; anything else (or
+  // nothing) defaults to service_provider. Hidden entirely once an invite
+  // token is present — an invited teammate is joining an existing company,
+  // whose kind was already chosen by whoever signed it up.
+  const [kind, setKind] = useState<CompanyKind>(
+    searchParams.get("kind") === "owner" ? "equipment_owner" : "service_provider"
+  );
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -111,6 +119,7 @@ export function SignupForm() {
               pending_company_name: values.companyName,
               pending_notification_email: values.notificationEmail,
               pending_full_name: values.fullName,
+              pending_company_kind: kind,
             },
       },
     });
@@ -169,7 +178,9 @@ export function SignupForm() {
         <CardDescription>
           {invite
             ? `Set up your login to join as ${invite.role === "owner" ? "an owner" : "a technician"}.`
-            : "Set up EquipQR for your service company."}
+            : kind === "equipment_owner"
+              ? "Set up EquipQR for your business."
+              : "Set up EquipQR for your service company."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -182,6 +193,8 @@ export function SignupForm() {
 
           {!inviteToken && (
             <>
+              <KindStep value={kind} onChange={setKind} />
+
               <div className="space-y-2">
                 <Label htmlFor="companyName">Company name</Label>
                 <Input id="companyName" {...register("companyName")} />

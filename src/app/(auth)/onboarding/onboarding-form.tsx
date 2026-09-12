@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -17,6 +17,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { KindStep } from "@/components/kind-step";
+import type { CompanyKind } from "@/lib/types";
 
 const schema = z.object({
   companyName: z.string().min(2, "Company name is required"),
@@ -26,9 +28,13 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export default function OnboardingPage() {
+export function OnboardingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [kind, setKind] = useState<CompanyKind>(
+    searchParams.get("kind") === "owner" ? "equipment_owner" : "service_provider"
+  );
 
   const {
     register,
@@ -44,6 +50,7 @@ export default function OnboardingPage() {
       p_company_name: values.companyName,
       p_notification_email: values.notificationEmail,
       p_full_name: values.fullName,
+      p_kind: kind,
     });
 
     if (error) {
@@ -68,6 +75,8 @@ export default function OnboardingPage() {
               <AlertDescription>{serverError}</AlertDescription>
             </Alert>
           )}
+
+          <KindStep value={kind} onChange={setKind} />
 
           <div className="space-y-2">
             <Label htmlFor="companyName">Company name</Label>
