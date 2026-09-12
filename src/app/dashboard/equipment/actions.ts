@@ -77,6 +77,10 @@ function patchFromForm(formData: FormData, fallbackStatus?: EquipmentStatus): Eq
     warranty_ends_on: nullable(formData, "warrantyEndsOn"),
     status: statusFrom(formData, fallbackStatus),
     notes: nullable(formData, "notes"),
+    // ---- Owner roadmap (migration 0024) ----
+    location_id: nullable(formData, "locationId"),
+    vendor_id: nullable(formData, "vendorId"),
+    warranty_vendor_id: nullable(formData, "warrantyVendorId"),
   };
 }
 
@@ -99,7 +103,7 @@ async function loadCustomFieldDefinitions(supabase: Supabase): Promise<Equipment
  */
 async function assertOwnedReferences(
   supabase: Supabase,
-  patch: Pick<EquipmentPatch, "equipment_type_id" | "customer_id">
+  patch: Pick<EquipmentPatch, "equipment_type_id" | "customer_id" | "location_id" | "vendor_id" | "warranty_vendor_id">
 ): Promise<{ error: string } | null> {
   if (patch.equipment_type_id) {
     const { data } = await supabase
@@ -116,6 +120,32 @@ async function assertOwnedReferences(
       .eq("id", patch.customer_id)
       .maybeSingle<{ id: string }>();
     if (!data) return { error: "Customer not found" };
+  }
+  // Owner roadmap (migration 0024): location_id/vendor_id/warranty_vendor_id
+  // are equally un-tenant-constrained FKs — same treatment as above.
+  if (patch.location_id) {
+    const { data } = await supabase
+      .from("locations")
+      .select("id")
+      .eq("id", patch.location_id)
+      .maybeSingle<{ id: string }>();
+    if (!data) return { error: "Location not found" };
+  }
+  if (patch.vendor_id) {
+    const { data } = await supabase
+      .from("vendors")
+      .select("id")
+      .eq("id", patch.vendor_id)
+      .maybeSingle<{ id: string }>();
+    if (!data) return { error: "Vendor not found" };
+  }
+  if (patch.warranty_vendor_id) {
+    const { data } = await supabase
+      .from("vendors")
+      .select("id")
+      .eq("id", patch.warranty_vendor_id)
+      .maybeSingle<{ id: string }>();
+    if (!data) return { error: "Warranty vendor not found" };
   }
   return null;
 }

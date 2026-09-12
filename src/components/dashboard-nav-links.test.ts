@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNavLinkActive } from "./dashboard-nav-links";
+import { dashboardNavLinks, isNavLinkActive, navLinksFor, ownerNavLinks } from "./dashboard-nav-links";
 
 describe("isNavLinkActive", () => {
   it("matches the dashboard overview link only on an exact path", () => {
@@ -22,5 +22,25 @@ describe("isNavLinkActive", () => {
 
   it("does not match an unrelated path", () => {
     expect(isNavLinkActive("/login", "/dashboard/customers")).toBe(false);
+  });
+});
+
+describe("navLinksFor", () => {
+  it("gives an equipment_owner company Locations, Vendors and Work Orders, and hides Customers/Schedule/Checklists", () => {
+    const labels = navLinksFor("equipment_owner").map((link) => link.label);
+    expect(labels).toContain("Locations");
+    expect(labels).toContain("Vendors");
+    expect(labels).toContain("Work Orders");
+    expect(labels).not.toContain("Customers");
+    expect(labels).not.toContain("Schedule");
+    expect(labels).not.toContain("Checklists");
+  });
+
+  it("keeps ownerNavLinks and navLinksFor('equipment_owner') the same list", () => {
+    expect(navLinksFor("equipment_owner")).toBe(ownerNavLinks);
+  });
+
+  it("deep-equals dashboardNavLinks for a service_provider company", () => {
+    expect(navLinksFor("service_provider")).toEqual(dashboardNavLinks);
   });
 });

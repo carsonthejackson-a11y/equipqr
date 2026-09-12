@@ -123,6 +123,13 @@ warning (see `src/app/dashboard/requests/actions.ts` and `src/app/api/service-re
 and the customer-facing chat assist during troubleshooting. Without it, those UI affordances
 are hidden and the app is otherwise unaffected.
 
+**Owner accounts** (`docs/OWNER-ROADMAP-BRIEF.md`): a company signs up as either
+`service_provider` (the original model) or `equipment_owner` — restaurants, cafes, and other
+businesses that own the equipment they track instead of servicing other people's. Owner-kind
+companies subscribe to a separate Free/Site/Multi-site plan set (see `docs/BILLING.md` §6) and
+are never locked out — a lapsed owner company just drops to the Free tier's limits. Set
+`NEXT_PUBLIC_FEATURE_OWNER_ACCOUNTS=false` to hide this while it's still landing.
+
 ### 4. Run it
 
 ```bash
@@ -194,6 +201,10 @@ an unknown `/e/[qrToken]`, and `/api/health`. It never creates data.
   dropdown / yes-no) under `/dashboard/settings/custom-fields`; they appear on the equipment form,
   the detail header, the equipment CSV export/import (`cf:<key>` columns) and `custom_fields` in
   the v1 API, and — when flagged — on the public scan page.
+- **Owner accounts** (Phase 1, Model A): `equipment_owner` companies get their own dashboard
+  vocabulary, locations, vendor contact cards, a PIN-gated public scan report form, and email
+  dispatch to the vendor on file for a unit — see `docs/OWNER-ROADMAP-BRIEF.md` and, for the
+  RPCs involved, `docs/API.md` "Owner accounts".
 
 ## Contributing
 

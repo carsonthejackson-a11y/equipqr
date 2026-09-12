@@ -254,6 +254,13 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
         warranty_ends_on: warranty.ok ? warranty.value : null,
         status: status ?? "active",
         notes: trimmedOrNull(record.notes),
+        // Owner roadmap (migration 0024): the CSV importer has no columns
+        // for site/vendor/warranty-vendor yet — leave them unset. An owner
+        // who imports equipment this way assigns those from the equipment
+        // form afterward.
+        location_id: null,
+        vendor_id: null,
+        warranty_vendor_id: null,
       },
       customFields: customFields.values,
       typeName,

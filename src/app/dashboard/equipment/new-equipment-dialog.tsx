@@ -26,12 +26,13 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QrScanButton } from "@/components/qr-scan-button";
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { toast } from "sonner";
-import type { Customer, EquipmentCustomField, EquipmentType } from "@/lib/types";
+import type { CategoryDefaultVendor, CompanyKind, Customer, EquipmentCustomField, EquipmentType, Location, Vendor } from "@/lib/types";
 import { normalizeQrCode } from "@/lib/short-code";
 import { downscaleToJpeg, blobToBase64 } from "@/lib/client-image";
 import { FEATURES } from "@/lib/features";
 import { createEquipment } from "./actions";
 import { CustomFieldsInputs } from "./custom-fields-inputs";
+import { VendorSelect } from "./vendor-select";
 
 const statusItems = Object.fromEntries(Object.entries(EQUIPMENT_STATUS_LABELS));
 
@@ -40,6 +41,10 @@ export function NewEquipmentDialog({
   customers,
   customFields = [],
   batchQrEnabled = true,
+  kind = "service_provider",
+  locations = [],
+  vendors = [],
+  categoryDefaultVendors = [],
 }: {
   equipmentTypes: EquipmentType[];
   customers: Customer[];
@@ -47,8 +52,14 @@ export function NewEquipmentDialog({
   customFields?: EquipmentCustomField[];
   /** Whether the company's plan includes pre-printed batch QR codes (src/lib/plans.ts `batchQr`). Informational only — claiming still works either way. */
   batchQrEnabled?: boolean;
+  /** Owner-kind swaps the customer field for location/vendor/warranty-vendor fields (docs/OWNER-ROADMAP-BRIEF.md §3.2). */
+  kind?: CompanyKind;
+  locations?: Location[];
+  vendors?: Vendor[];
+  categoryDefaultVendors?: CategoryDefaultVendor[];
 }) {
   const router = useRouter();
+  const isOwner = kind === "equipment_owner";
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -63,7 +74,14 @@ export function NewEquipmentDialog({
   const [serialNumber, setSerialNumber] = useState("");
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [equipmentTypeId, setEquipmentTypeId] = useState("");
+  const [warrantyEndsOn, setWarrantyEndsOn] = useState("");
   const nameplateInputRef = useRef<HTMLInputElement>(null);
+
+  const categoryDefaultVendor = (() => {
+    const defaultRow = categoryDefaultVendors.find((cd) => cd.equipment_type_id === equipmentTypeId);
+    return defaultRow ? (vendors.find((v) => v.id === defaultRow.vendor_id) ?? null) : null;
+  })();
 
   async function handleScanNameplate(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -158,6 +176,8 @@ export function NewEquipmentDialog({
             <Label htmlFor="equipmentTypeId">Equipment type</Label>
             <Select
               name="equipmentTypeId"
+              value={equipmentTypeId}
+              onValueChange={(value) => setEquipmentTypeId(value ?? "")}
               items={Object.fromEntries(equipmentTypes.map((type) => [type.id, type.name]))}
               required
             >
@@ -234,58 +254,95 @@ export function NewEquipmentDialog({
               />
             </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="customerId">Customer (optional)</Label>
-            <Select
-              name="customerId"
-              value={customerId}
-              onValueChange={handleCustomerChange}
-              items={Object.fromEntries(customers.map((c) => [c.id, c.name]))}
-            >
-              <SelectTrigger id="customerId" className="w-full">
-                <SelectValue placeholder="No customer" />
-              </SelectTrigger>
-              <SelectContent>
-                {customers.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-muted-foreground">
-              Selecting a customer fills in the address and contact below.
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="address">Address (optional)</Label>
-            <Textarea
-              id="address"
-              name="address"
-              rows={2}
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="contactName">Site contact name (optional)</Label>
-            <Input
-              id="contactName"
-              name="contactName"
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="contactPhone">Site contact phone (optional)</Label>
-            <Input
-              id="contactPhone"
-              name="contactPhone"
-              type="tel"
-              value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
-            />
-          </div>
+          {isOwner ? (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="locationId">Location (optional)</Label>
+                <Select
+                  name="locationId"
+                  items={{ "": "No location", ...Object.fromEntries(locations.map((l) => [l.id, l.name])) }}
+                  defaultValue=""
+                >
+                  <SelectTrigger id="locationId" className="w-full">
+                    <SelectValue placeholder="No location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No location</SelectItem>
+                    {locations.map((l) => (
+                      <SelectItem key={l.id} value={l.id}>
+                        {l.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vendorId">Vendor</Label>
+                <VendorSelect name="vendorId" kind="vendor" vendors={vendors} categoryDefault={categoryDefaultVendor} />
+                <p className="text-sm text-muted-foreground">
+                  Work orders for this unit go to this vendor, or to the category default when
+                  left as-is.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="customerId">Customer (optional)</Label>
+              <Select
+                name="customerId"
+                value={customerId}
+                onValueChange={handleCustomerChange}
+                items={Object.fromEntries(customers.map((c) => [c.id, c.name]))}
+              >
+                <SelectTrigger id="customerId" className="w-full">
+                  <SelectValue placeholder="No customer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-muted-foreground">
+                Selecting a customer fills in the address and contact below.
+              </p>
+            </div>
+          )}
+          {!isOwner && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="address">Address (optional)</Label>
+                <Textarea
+                  id="address"
+                  name="address"
+                  rows={2}
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactName">Site contact name (optional)</Label>
+                <Input
+                  id="contactName"
+                  name="contactName"
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Site contact phone (optional)</Label>
+                <Input
+                  id="contactPhone"
+                  name="contactPhone"
+                  type="tel"
+                  value={contactPhone}
+                  onChange={(e) => setContactPhone(e.target.value)}
+                />
+              </div>
+            </>
+          )}
           <div className="space-y-2">
             <Label htmlFor="serialNumber">Serial number (optional)</Label>
             <Input
@@ -306,9 +363,24 @@ export function NewEquipmentDialog({
             </div>
             <div className="space-y-2">
               <Label htmlFor="warrantyEndsOn">Warranty ends (optional)</Label>
-              <Input id="warrantyEndsOn" name="warrantyEndsOn" type="date" />
+              <Input
+                id="warrantyEndsOn"
+                name="warrantyEndsOn"
+                type="date"
+                value={warrantyEndsOn}
+                onChange={(e) => setWarrantyEndsOn(e.target.value)}
+              />
             </div>
           </div>
+          {isOwner && warrantyEndsOn && (
+            <div className="space-y-2">
+              <Label htmlFor="warrantyVendorId">Warranty vendor (optional)</Label>
+              <VendorSelect name="warrantyVendorId" kind="warranty" vendors={vendors} />
+              <p className="text-sm text-muted-foreground">
+                Preferred over the unit&apos;s vendor while the warranty is still active.
+              </p>
+            </div>
+          )}
           {customFields.length > 0 && (
             <fieldset className="space-y-4 rounded-lg border p-3">
               <legend className="px-1 text-sm font-medium">Custom fields</legend>

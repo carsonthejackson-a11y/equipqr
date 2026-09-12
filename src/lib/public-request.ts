@@ -205,3 +205,133 @@ export const requestUpdateSchema = z.object({
 });
 
 export type RequestUpdateInput = z.infer<typeof requestUpdateSchema>;
+
+// ----------------------------------------------------------------------------
+// Owner roadmap (docs/OWNER-ROADMAP-BRIEF.md §3.3) — the equipment_owner
+// branch of the public scan flow: /e/[qrToken]/owner/*, /api/site-pin,
+// /api/owner-requests, /v/[token] and /api/vendor-actions.
+// ----------------------------------------------------------------------------
+
+/**
+ * The urgency question asked on the owner-kind report form. Unlike
+ * {@link PRIORITY_CHOICES}, the top label is "We can't operate without this"
+ * rather than "Urgent" — a restaurant reporting a dead walk-in cooler is
+ * choosing the same stored priority, but "urgent" reads like a customer
+ * demanding queue-jumping, and this is a staff member describing how bad it
+ * actually is. Values are shared with priorityFromChoice() on purpose — a
+ * broken machine's severity doesn't need two different priority enums.
+ */
+export const OWNER_PRIORITY_CHOICES = [
+  { value: "not_urgent", label: "Not urgent", hint: "Whenever they're next nearby" },
+  { value: "soon", label: "Soon", hint: "It's slowing us down" },
+  { value: "urgent", label: "We can't operate without this", hint: "We're down right now" },
+] as const satisfies readonly { value: PriorityChoice; label: string; hint: string }[];
+
+/** Cap on symptom chips accepted per submission — mirrors submit_owner_service_request()'s `p_symptoms[1:12]` slice. */
+export const MAX_SYMPTOMS = 12;
+
+/**
+ * Validates the body of `POST /api/owner-requests`. Mirrors
+ * {@link serviceRequestSchema}'s media-ownership rule, but the owner form
+ * collects symptom chips instead of email/phone-required contact info (no
+ * email field at all — staff don't have work email) and an opaque site-PIN
+ * pass instead of nothing.
+ *
+ * `submit_owner_service_request()` requires a non-empty description
+ * (1-4000 chars) at the database layer, so a submission with only chips and
+ * no free text still needs *something* sent as `p_description` — the route
+ * synthesizes it from the chips. This schema only enforces that the visitor
+ * gave *some* signal (a chip or free text), not that `description` itself is
+ * non-empty.
+ */
+export const ownerServiceRequestSchema = z
+  .object({
+    qrToken: z.string().min(1).max(200),
+    description: z.string().trim().max(MAX_DESCRIPTION_LENGTH).optional().default(""),
+    contactName: z.string().trim().min(1, "Please enter your name").max(120),
+    reporterPhone: z.string().trim().max(40).optional().default(""),
+    symptoms: z.array(z.string().trim().min(1).max(120)).max(MAX_SYMPTOMS).optional().default([]),
+    priority: z.enum(["low", "normal", "high"]).optional().default("normal"),
+    media: z.array(mediaItemSchema).max(MAX_MEDIA_ITEMS).optional().default([]),
+    pinPass: z.string().max(200).optional().default(""),
+    /** Honeypot — a hidden field real visitors never fill in. */
+    website: z.string().max(200).optional().default(""),
+  })
+  .refine((v) => !!(v.description.trim() || v.symptoms.length > 0), {
+    message: "Pick a symptom or tell us what's wrong",
+    path: ["description"],
+  })
+  .refine((v) => v.media.every((m) => isOwnedUploadPath(m.storage_path, v.qrToken)), {
+    message: "Attachment paths are invalid",
+    path: ["media"],
+  });
+
+export type OwnerServiceRequestInput = z.infer<typeof ownerServiceRequestSchema>;
+
+/** Validates `POST /api/site-pin`. The PIN itself is 4-8 digits at the DB layer; kept loose here since a mismatch is just `ok: false`, never a hint. */
+export const sitePinSchema = z.object({
+  qrToken: z.string().min(1).max(200),
+  pin: z.string().trim().min(1, "Enter the code").max(20),
+});
+
+export type SitePinInput = z.infer<typeof sitePinSchema>;
+
+/**
+ * localStorage key holding the opaque `site_pin_passes` token for one
+ * location — never the PIN itself (see verify_site_pin() in migration 0025).
+ * Scoped per location, not per QR token, so a second machine at the same
+ * site reuses the same pass instead of prompting again.
+ */
+export function sitePinStorageKey(locationId: string): string {
+  return `equipqr-site-pin-${locationId}`;
+}
+
+/** Discriminated union validating `POST /api/vendor-actions`. `token` is always present; the rest depends on `action`. */
+const vendorActionBase = z.object({ token: z.string().min(1).max(200) });
+
+export const vendorActionSchema = z.discriminatedUnion("action", [
+  vendorActionBase.extend({
+    action: z.literal("acknowledge"),
+    note: z.string().trim().max(2000).optional(),
+  }),
+  vendorActionBase.extend({
+    action: z.literal("eta"),
+    etaAt: z.string().min(1, "Pick a date and time"),
+    note: z.string().trim().max(2000).optional(),
+  }),
+  vendorActionBase.extend({
+    action: z.literal("note"),
+    body: z.string().trim().min(2, "Add a bit more detail").max(2000),
+  }),
+  vendorActionBase.extend({
+    action: z.literal("finish"),
+    note: z.string().trim().max(2000).optional(),
+  }),
+  vendorActionBase.extend({
+    action: z.literal("decline"),
+    reason: z.string().trim().min(2, "Add a reason").max(500),
+  }),
+]);
+
+export type VendorActionInput = z.infer<typeof vendorActionSchema>;
+
+/**
+ * The same "is this link still live?" gate every vendor-token RPC in migration
+ * 0025 applies before it does anything: a declined dispatch, or a parent
+ * request that has been resolved or canceled, raises P0001 and the `/v/<token>`
+ * page 404s.
+ *
+ * `/v/<token>/media/<index>` reads `service_request_media` with the admin
+ * client rather than going through `get_vendor_dispatch()`, so without this it
+ * kept serving signed photo URLs from a dispatch the owner had already closed
+ * or declined — indefinitely, to anyone still holding the token. Exported (and
+ * unit tested) so the route and the RPCs can't drift apart.
+ */
+export function isVendorDispatchOpen(
+  dispatchStatus: string | null | undefined,
+  requestStatus: string | null | undefined
+): boolean {
+  if (dispatchStatus === "declined") return false;
+  if (requestStatus === "resolved" || requestStatus === "canceled") return false;
+  return true;
+}

@@ -29,6 +29,13 @@ export const EQUIPMENT_FIELD_LABELS = {
   warranty_ends_on: "warranty end date",
   status: "status",
   notes: "notes",
+  // ---- Owner roadmap (migration 0024) ----
+  // "site" (not "location") to stay distinct from the free-text `location`
+  // field above ("where in the building") in a timeline summary — see
+  // docs/OWNER-ROADMAP-BRIEF.md §9 Q5.
+  location_id: "site",
+  vendor_id: "vendor",
+  warranty_vendor_id: "warranty vendor",
 } as const;
 
 export type EquipmentField = keyof typeof EQUIPMENT_FIELD_LABELS;

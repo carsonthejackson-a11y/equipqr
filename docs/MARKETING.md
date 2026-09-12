@@ -19,6 +19,7 @@ layout only gained a "← Back to site" link).
 | `/terms`     | `src/app/(marketing)/terms/page.tsx`                       | Inline — **template text, needs a lawyer's review** (see in-page notice) |
 | `/privacy`   | `src/app/(marketing)/privacy/page.tsx`                     | Inline — **template text, needs a lawyer's review** (see in-page notice) |
 | `/security`  | `src/app/(marketing)/security/page.tsx`                    | Inline in the page |
+| `/restaurants` | `src/app/(marketing)/restaurants/page.tsx`               | Inline in the page (owner roadmap — see below) |
 
 Shared pieces under `src/app/(marketing)/_components/`:
 
@@ -30,8 +31,36 @@ Shared pieces under `src/app/(marketing)/_components/`:
   `/` (pricing teaser, fixed to monthly) and on `/pricing` (via `pricing-toggle.tsx`, a client
   component that owns the monthly/yearly toggle state).
 - `faq-item.tsx` / `faq-data.ts` — `<details>/<summary>` accordion (no JS required to expand)
-  and the FAQ copy, split into `productFaqs` and `billingFaqs`.
+  and the FAQ copy, split into `productFaqs`, `billingFaqs`, and (owner roadmap) `ownerFaqs`.
 - `legal.tsx` — shared header/prose wrapper/notice for the `/terms`, `/privacy` pages.
+- `owner-pricing-cards.tsx` — the owner-kind counterpart to `pricing-cards.tsx`, driven by
+  `ownerPlans`; owns its own monthly/yearly toggle (there's no free plan to special-case on the
+  provider side, so this couldn't just reuse `pricing-toggle.tsx`). Used on `/restaurants` and
+  in `/pricing`'s "For restaurants & small business" tab.
+
+## Owner roadmap (Phase 1, Model A)
+
+`docs/OWNER-ROADMAP-BRIEF.md` §3.4. Two additions, both scoped to `equipment_owner` companies
+(restaurants, cafes, and other businesses that own the equipment they track instead of
+servicing other people's):
+
+- **`/restaurants`** — a dedicated landing page: hero, an illustrative "7:40pm dishwasher"
+  scenario (not a real customer), the four-step flow, phone mocks of what staff see (reusing
+  `phone-mock.tsx`'s `PhoneFrame`, same convention as the homepage), a feature grid of what the
+  owner sees, an owner pricing teaser, and owner FAQs. The one factual, attributed stat allowed
+  by the brief — MachineQ's 2026 restaurant-operator downtime survey — appears exactly once,
+  in the story section. **No other numeric claim, named customer, logo, or testimonial appears
+  anywhere in this build** — there are no customers yet.
+- **`/pricing` is segmented** by audience via `pricing/audience-tabs.tsx` (client component,
+  `?for=owners|providers` URL param, default `providers`). `AudienceTabs` reads the query
+  param with `useSearchParams`, which requires a `Suspense` boundary on this statically
+  rendered page — `pricing/page.tsx` wraps it with `<Suspense fallback={<ProviderPricingSection />}>`,
+  where `ProviderPricingSection` (exported from `audience-tabs.tsx`) is the exact same content
+  rendered inside the "providers" tab, so there's no visible flash between the prerendered HTML
+  and the hydrated client render. `/restaurants`'s pricing teaser links `/pricing?for=owners`.
+
+Sign-up entry point: `/signup?kind=owner` (and `?kind=provider`) per brief §9 Q8 — the sign-up
+page's kind step itself is WS2's file, not this workstream's.
 
 ## Pricing data
 

@@ -1,6 +1,16 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { canAddEquipment, canAddMember, getPlan, isPlanId, type Plan, type PlanFeatures, type PlanId } from "@/lib/plans";
+import {
+  canAddEquipment,
+  canAddLocation,
+  canAddMember,
+  getPlan,
+  isPlanId,
+  type Plan,
+  type PlanFeatures,
+  type PlanId,
+} from "@/lib/plans";
+import type { CompanyKind } from "@/lib/types";
 
 export type Entitlements = {
   plan_id: PlanId;
@@ -11,6 +21,12 @@ export type Entitlements = {
   member_count: number;
   is_trialing: boolean;
   is_locked: boolean;
+  /** docs/OWNER-ROADMAP-BRIEF.md §2.1.11 — added to get_company_entitlements() by migration 0024. */
+  company_kind: CompanyKind;
+  /** Owner-kind only in practice; always 0 for service_provider (no `locations` rows are ever created for that kind). */
+  location_count: number;
+  /** The resolved plan's max_locations. `null` = unlimited (every provider plan; multi_site's own 5-cap is finite). */
+  max_locations: number | null;
 };
 
 /**
@@ -41,6 +57,9 @@ export async function getEntitlements(): Promise<Entitlements | null> {
     member_count: Number(raw.member_count ?? 0),
     is_trialing: !!raw.is_trialing,
     is_locked: !!raw.is_locked,
+    company_kind: raw.company_kind === "equipment_owner" ? "equipment_owner" : "service_provider",
+    location_count: Number(raw.location_count ?? 0),
+    max_locations: raw.max_locations == null ? null : Number(raw.max_locations),
   };
 }
 
@@ -84,6 +103,13 @@ export async function requireActiveSubscription(): Promise<{ error: string } | n
   const entitlements = await getEntitlements();
   if (!entitlements) return null;
 
+  // equipment_owner companies always have a free tier to fall back to and are
+  // never locked (docs/OWNER-ROADMAP-BRIEF.md §9 Q1) — checked explicitly
+  // here, rather than relying solely on is_locked already being false for
+  // this kind, so this guard can't regress into blocking an owner company
+  // even if that RPC-side invariant ever did.
+  if (entitlements.company_kind === "equipment_owner") return null;
+
   if (entitlements.is_locked) {
     return { error: "Your trial has ended. Choose a plan on the Billing page to keep going." };
   }
@@ -106,6 +132,30 @@ export async function assertCanAddEquipment(): Promise<{ error: string } | null>
   if (!canAddEquipment(plan, entitlements.equipment_count)) {
     return {
       error: `You've reached the ${plan.equipmentLimit}-unit limit of the ${plan.name} plan. Upgrade to add more.`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Guard for createLocation() (docs/OWNER-ROADMAP-BRIEF.md §3.4, §4.2 — WS2
+ * imports this; owner-kind companies only in practice, since every provider
+ * plan's locationLimit is null). Mirrors assertCanAddEquipment() exactly.
+ * Returns null when fine to proceed.
+ */
+export async function assertCanAddLocation(): Promise<{ error: string } | null> {
+  const entitlements = await getEntitlements();
+  if (!entitlements) return null;
+
+  if (entitlements.is_locked) {
+    return { error: "Your trial has ended. Choose a plan on the Billing page to keep going." };
+  }
+
+  const plan = planFor(entitlements);
+  if (!canAddLocation(plan, entitlements.location_count)) {
+    return {
+      error: `You've reached the ${plan.locationLimit}-location limit of the ${plan.name} plan. Upgrade to add more.`,
     };
   }
 

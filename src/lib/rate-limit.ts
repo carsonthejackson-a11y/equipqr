@@ -55,6 +55,14 @@ export const RATE_LIMITS = {
   vendorActionPerToken: { limit: 60, windowSeconds: 60 * 60 } satisfies RateLimitRule,
   /** POST /api/vendor-invoice — per dispatch token. */
   vendorInvoicePerToken: { limit: 10, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** GET /v/<token>/media/<index> — per dispatch token. Generous: a work order can carry 6 photos and the page reloads. */
+  vendorMediaPerToken: { limit: 120, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** POST /api/dispatch-to-vendor — per service request. A request only ever needs one; the rest is replay. */
+  dispatchToVendorPerRequest: { limit: 3, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** POST /api/dispatch-to-vendor — per signed-in user, across every request. */
+  dispatchToVendorPerUser: { limit: 60, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** resendDispatch() — per service request. Re-mails an existing work order to a third party's inbox. */
+  resendDispatchPerRequest: { limit: 5, windowSeconds: 60 * 60 } satisfies RateLimitRule,
 } as const;
 
 /** Anything with a header lookup: a `Headers`, or Next's ReadonlyHeaders from `headers()`. */

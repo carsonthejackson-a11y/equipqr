@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -16,6 +18,27 @@ import type { Customer } from "@/lib/types";
 
 export default async function CustomersPage() {
   const supabase = await createClient();
+  const { company } = await getCurrentProfile();
+
+  // Owner-kind companies work through vendors, not customers — the route
+  // stays live (docs/OWNER-ROADMAP-BRIEF.md §3.2 explicitly says not to
+  // delete it) but points staff at /dashboard/vendors instead.
+  if (company.kind === "equipment_owner") {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">Customers</h1>
+          <p className="text-muted-foreground">Not used on this account.</p>
+        </div>
+        <EmptyState
+          icon={Users}
+          message="Your account works with vendors instead of customers. Manage them from Vendors."
+          action={<Button render={<Link href="/dashboard/vendors" />}>Go to Vendors</Button>}
+        />
+      </div>
+    );
+  }
+
   const { data: customers } = await supabase
     .from("customers")
     .select("*")

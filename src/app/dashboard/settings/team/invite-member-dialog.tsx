@@ -117,17 +117,24 @@ export function InviteMemberDialog() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select name="role" value={role} onValueChange={(value) => setRole((value as UserRole) ?? "technician")} items={{ owner: "Owner", technician: "Technician" }}>
+              <Select
+                name="role"
+                value={role}
+                onValueChange={(value) => setRole((value as UserRole) ?? "technician")}
+                items={{ owner: "Owner", manager: "Manager", technician: "Technician" }}
+              >
                 <SelectTrigger id="role" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="technician">Technician</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
                   <SelectItem value="owner">Owner</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground">
-                Owners can manage billing, team, and company settings. Technicians can&apos;t.
+                Owners can manage billing, team, and company settings. Managers currently have the same
+                permissions as technicians. Technicians can&apos;t manage billing, team, or settings.
               </p>
             </div>
             <DialogFooter>

@@ -6,7 +6,15 @@ import { EquipmentStatusBadge } from "@/components/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCurrentProfile } from "@/lib/auth";
 import { formatCustomFieldValue } from "@/lib/custom-fields";
-import type { Customer, Equipment, EquipmentCustomField, EquipmentType } from "@/lib/types";
+import type {
+  CategoryDefaultVendor,
+  Customer,
+  Equipment,
+  EquipmentCustomField,
+  EquipmentType,
+  Location,
+  Vendor,
+} from "@/lib/types";
 import { EditEquipmentForm } from "./edit-equipment-form";
 import { PhotoUploader } from "./photo-uploader";
 import { Documents } from "./documents";
@@ -38,18 +46,28 @@ export default async function EquipmentDetailPage({
     notFound();
   }
 
-  const [{ data: equipmentTypes }, { data: customers }, { data: customFields }, { profile }] =
-    await Promise.all([
-      supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
-      supabase.from("customers").select("*").order("name").returns<Customer[]>(),
-      supabase
-        .from("equipment_custom_fields")
-        .select("*")
-        .order("sort_order")
-        .order("created_at")
-        .returns<EquipmentCustomField[]>(),
-      getCurrentProfile(),
-    ]);
+  const [
+    { data: equipmentTypes },
+    { data: customers },
+    { data: customFields },
+    { profile, company },
+    { data: locations },
+    { data: vendors },
+    { data: categoryDefaultVendors },
+  ] = await Promise.all([
+    supabase.from("equipment_types").select("*").returns<EquipmentType[]>(),
+    supabase.from("customers").select("*").order("name").returns<Customer[]>(),
+    supabase
+      .from("equipment_custom_fields")
+      .select("*")
+      .order("sort_order")
+      .order("created_at")
+      .returns<EquipmentCustomField[]>(),
+    getCurrentProfile(),
+    supabase.from("locations").select("*").eq("active", true).order("name").returns<Location[]>(),
+    supabase.from("vendors").select("*").eq("active", true).order("name").returns<Vendor[]>(),
+    supabase.from("category_default_vendors").select("*").returns<CategoryDefaultVendor[]>(),
+  ]);
   // Only fields with a value: an empty "Details" block is noise on every unit.
   const customDetails = (customFields ?? [])
     .map((def) => ({ def, value: formatCustomFieldValue(def, equipment.custom_fields?.[def.key]) }))
@@ -124,6 +142,10 @@ export default async function EquipmentDetailPage({
               customers={customers ?? []}
               customFields={customFields ?? []}
               canDelete={isOwner}
+              kind={company.kind}
+              locations={locations ?? []}
+              vendors={vendors ?? []}
+              categoryDefaultVendors={categoryDefaultVendors ?? []}
             />
           </TabsContent>
 

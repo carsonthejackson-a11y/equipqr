@@ -14,12 +14,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
-import type { Customer, EquipmentType } from "@/lib/types";
+import type { CompanyKind, Customer, EquipmentType, Location } from "@/lib/types";
 
 export type EquipmentFilterValues = {
   q: string;
   type: string;
   customer: string;
+  location: string;
   status: string;
 };
 
@@ -29,17 +30,26 @@ const ALL = "all";
  * Search + filter bar for the equipment list. Everything lives in the URL so
  * a filtered view is linkable, survives a refresh, and is filtered on the
  * server (the list can be thousands of rows — never in the browser).
+ *
+ * Owner-kind (docs/OWNER-ROADMAP-BRIEF.md §3.2): the customer filter is
+ * replaced by a location filter — equipment_owner companies have no
+ * customers, so "customer" is meaningless for them.
  */
 export function EquipmentFilters({
   values,
   equipmentTypes,
   customers,
+  kind = "service_provider",
+  locations = [],
 }: {
   values: EquipmentFilterValues;
   equipmentTypes: EquipmentType[];
   customers: Customer[];
+  kind?: CompanyKind;
+  locations?: Location[];
 }) {
   const router = useRouter();
+  const isOwnerKind = kind === "equipment_owner";
   const [query, setQuery] = useState(values.q);
 
   function apply(next: Partial<EquipmentFilterValues>) {
@@ -48,7 +58,11 @@ export function EquipmentFilters({
 
     if (merged.q.trim()) params.set("q", merged.q.trim());
     if (merged.type && merged.type !== ALL) params.set("type", merged.type);
-    if (merged.customer && merged.customer !== ALL) params.set("customer", merged.customer);
+    if (isOwnerKind) {
+      if (merged.location && merged.location !== ALL) params.set("location", merged.location);
+    } else if (merged.customer && merged.customer !== ALL) {
+      params.set("customer", merged.customer);
+    }
     if (merged.status && merged.status !== ALL) params.set("status", merged.status);
     // Any filter change invalidates the current page number.
 
@@ -69,10 +83,18 @@ export function EquipmentFilters({
     [ALL]: "All customers",
     ...Object.fromEntries(customers.map((customer) => [customer.id, customer.name])),
   };
+  const locationItems = {
+    [ALL]: "All locations",
+    ...Object.fromEntries(locations.map((location) => [location.id, location.name])),
+  };
   const statusItems = { [ALL]: "Any status", ...EQUIPMENT_STATUS_LABELS };
 
   const hasFilters =
-    !!values.q || (!!values.type && values.type !== ALL) || (!!values.customer && values.customer !== ALL) || (!!values.status && values.status !== ALL);
+    !!values.q ||
+    (!!values.type && values.type !== ALL) ||
+    (!isOwnerKind && !!values.customer && values.customer !== ALL) ||
+    (isOwnerKind && !!values.location && values.location !== ALL) ||
+    (!!values.status && values.status !== ALL);
 
   return (
     <form
@@ -118,26 +140,49 @@ export function EquipmentFilters({
         </Select>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="filter-customer">Customer</Label>
-        <Select
-          name="customer"
-          items={customerItems}
-          value={values.customer || ALL}
-          onValueChange={(value: string | null) => apply({ customer: value ?? ALL })}
-        >
-          <SelectTrigger id="filter-customer" className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {Object.entries(customerItems).map(([value, label]) => (
-              <SelectItem key={value} value={value}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {isOwnerKind ? (
+        <div className="space-y-2">
+          <Label htmlFor="filter-location">Location</Label>
+          <Select
+            name="location"
+            items={locationItems}
+            value={values.location || ALL}
+            onValueChange={(value: string | null) => apply({ location: value ?? ALL })}
+          >
+            <SelectTrigger id="filter-location" className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(locationItems).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="filter-customer">Customer</Label>
+          <Select
+            name="customer"
+            items={customerItems}
+            value={values.customer || ALL}
+            onValueChange={(value: string | null) => apply({ customer: value ?? ALL })}
+          >
+            <SelectTrigger id="filter-customer" className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(customerItems).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="filter-status">Status</Label>

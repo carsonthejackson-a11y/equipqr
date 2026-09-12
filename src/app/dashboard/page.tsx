@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
 import { formatRelativeTime } from "@/lib/format";
 import { GettingStartedChecklist, type ChecklistItem } from "./getting-started-checklist";
+import { vocabFor } from "@/lib/vocab";
 import type { Equipment, ServiceRequest } from "@/lib/types";
 
 type MonthlyRequestRow = { created_at: string; resolved_at: string | null };
@@ -49,6 +50,8 @@ function buildUsageLine(entitlements: Entitlements, plan: Plan): string {
 export default async function DashboardOverviewPage() {
   const supabase = await createClient();
   const { profile, company } = await getCurrentProfile();
+  const isOwnerKind = company.kind === "equipment_owner";
+  const vocab = vocabFor(company.kind);
 
   const { sixtyDaysAgoIso, thirtyDaysAgoIso, startOfThisMonth, startOfLastMonth } = getDateWindows();
 
@@ -66,6 +69,12 @@ export default async function DashboardOverviewPage() {
     { data: recentRequests },
     { data: monthlyRequests },
     entitlements,
+    { count: locationCount },
+    { count: vendorCount },
+    // "No vendor response yet" mirrors the cron's own eligibility set
+    // (docs/OWNER-ROADMAP-BRIEF.md §2.2 dispatch_sla_check: status in
+    // ('sent', 'viewed')) — sent to the vendor but not yet acknowledged.
+    { count: noVendorResponseCount },
   ] = await Promise.all([
     supabase.from("equipment").select("*", { count: "exact", head: true }),
     supabase.from("equipment_types").select("*", { count: "exact", head: true }),
@@ -104,6 +113,9 @@ export default async function DashboardOverviewPage() {
       .gte("created_at", sixtyDaysAgoIso)
       .returns<MonthlyRequestRow[]>(),
     getEntitlements(),
+    supabase.from("locations").select("*", { count: "exact", head: true }).eq("active", true),
+    supabase.from("vendors").select("*", { count: "exact", head: true }).eq("active", true),
+    supabase.from("service_requests").select("*", { count: "exact", head: true }).in("dispatch_status", ["sent", "viewed"]),
   ]);
 
   const recentEquipmentIds = [...new Set((recentRequests ?? []).map((r) => r.equipment_id))];
@@ -179,71 +191,130 @@ export default async function DashboardOverviewPage() {
         {usageLine && <p className="mt-1 text-sm text-muted-foreground">{usageLine}</p>}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Link href="/dashboard/customers">
-          <Card className="transition-colors hover:bg-accent/50">
+      {isOwnerKind ? (
+        // Owner-kind overview counts (docs/OWNER-ROADMAP-BRIEF.md §3.2): open
+        // work orders, units, locations, vendors — customers/equipment-types/
+        // scans don't carry their own card in this row for owner-kind.
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Link href="/dashboard/requests">
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Open work orders
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{openRequestCount ?? 0}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/equipment">
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Equipment units
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{equipmentCount ?? 0}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/locations">
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Locations
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{locationCount ?? 0}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/vendors">
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Vendors
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{vendorCount ?? 0}</p>
+              </CardContent>
+            </Card>
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <Link href="/dashboard/customers">
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Customers
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{customerCount ?? 0}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/requests">
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Open service requests
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{openRequestCount ?? 0}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/equipment">
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Equipment units
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{equipmentCount ?? 0}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/dashboard/equipment-types">
+            <Card className="transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Equipment types
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{typeCount ?? 0}</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Customers
+              <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                <ScanLine className="size-3.5" />
+                Scans (30 days)
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold">{customerCount ?? 0}</p>
+              <p className="text-3xl font-bold">{scanCount ?? 0}</p>
             </CardContent>
           </Card>
-        </Link>
-
-        <Link href="/dashboard/requests">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Open service requests
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{openRequestCount ?? 0}</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/equipment">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Equipment units
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{equipmentCount ?? 0}</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Link href="/dashboard/equipment-types">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Equipment types
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{typeCount ?? 0}</p>
-            </CardContent>
-          </Card>
-        </Link>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <ScanLine className="size-3.5" />
-              Scans (30 days)
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold">{scanCount ?? 0}</p>
-          </CardContent>
-        </Card>
-      </div>
+        </div>
+      )}
 
       {showChecklist && (
         <GettingStartedChecklist items={checklistItems} dismissible={profile.role === "owner"} />
@@ -296,12 +367,29 @@ export default async function DashboardOverviewPage() {
             </CardContent>
           </Card>
         </Link>
+
+        {isOwnerKind && (
+          <Link href="/dashboard/requests?dispatch=sent">
+            <Card className="h-full transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle>No vendor response</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{noVendorResponseCount ?? 0}</p>
+                <p className="text-xs text-muted-foreground">
+                  {noVendorResponseCount ?? 0} dispatch{(noVendorResponseCount ?? 0) === 1 ? "" : "es"} with no vendor
+                  response yet
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Recent service requests</CardTitle>
+            <CardTitle>Recent {vocab.requestPlural.toLowerCase()}</CardTitle>
           </CardHeader>
           <CardContent>
             {recentRequests && recentRequests.length > 0 ? (

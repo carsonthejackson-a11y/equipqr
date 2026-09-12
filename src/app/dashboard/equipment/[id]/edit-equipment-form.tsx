@@ -19,9 +19,19 @@ import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { RelativeTime } from "@/components/relative-time";
 import { formatWarranty, warrantyState } from "@/lib/equipment";
-import type { Customer, Equipment, EquipmentCustomField, EquipmentType } from "@/lib/types";
+import type {
+  CategoryDefaultVendor,
+  CompanyKind,
+  Customer,
+  Equipment,
+  EquipmentCustomField,
+  EquipmentType,
+  Location,
+  Vendor,
+} from "@/lib/types";
 import { deleteEquipment, updateEquipment } from "../actions";
 import { CustomFieldsInputs } from "../custom-fields-inputs";
+import { VendorSelect } from "../vendor-select";
 
 const statusItems = Object.fromEntries(Object.entries(EQUIPMENT_STATUS_LABELS));
 
@@ -31,6 +41,10 @@ export function EditEquipmentForm({
   customers,
   customFields,
   canDelete,
+  kind = "service_provider",
+  locations = [],
+  vendors = [],
+  categoryDefaultVendors = [],
 }: {
   equipment: Equipment;
   equipmentTypes: EquipmentType[];
@@ -39,8 +53,14 @@ export function EditEquipmentForm({
   customFields: EquipmentCustomField[];
   /** Owners only — technicians can edit every field but not remove the unit. */
   canDelete: boolean;
+  /** Owner-kind swaps the customer field for location/vendor/warranty-vendor fields (docs/OWNER-ROADMAP-BRIEF.md §3.2). */
+  kind?: CompanyKind;
+  locations?: Location[];
+  vendors?: Vendor[];
+  categoryDefaultVendors?: CategoryDefaultVendor[];
 }) {
   const router = useRouter();
+  const isOwner = kind === "equipment_owner";
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -48,6 +68,13 @@ export function EditEquipmentForm({
   const [address, setAddress] = useState(equipment.address ?? "");
   const [contactName, setContactName] = useState(equipment.contact_name ?? "");
   const [contactPhone, setContactPhone] = useState(equipment.contact_phone ?? "");
+  const [equipmentTypeId, setEquipmentTypeId] = useState(equipment.equipment_type_id);
+  const [warrantyEndsOn, setWarrantyEndsOn] = useState(equipment.warranty_ends_on ?? "");
+
+  const categoryDefaultVendor = (() => {
+    const defaultRow = categoryDefaultVendors.find((cd) => cd.equipment_type_id === equipmentTypeId);
+    return defaultRow ? (vendors.find((v) => v.id === defaultRow.vendor_id) ?? null) : null;
+  })();
 
   function handleCustomerChange(value: string | null) {
     setCustomerId(value ?? "");
@@ -133,7 +160,8 @@ export function EditEquipmentForm({
           <Select
             name="equipmentTypeId"
             items={Object.fromEntries(equipmentTypes.map((type) => [type.id, type.name]))}
-            defaultValue={equipment.equipment_type_id}
+            value={equipmentTypeId}
+            onValueChange={(value) => setEquipmentTypeId(value ?? equipment.equipment_type_id)}
             required
           >
             <SelectTrigger id="equipmentTypeId" className="w-full">
@@ -203,67 +231,124 @@ export function EditEquipmentForm({
             id="warrantyEndsOn"
             name="warrantyEndsOn"
             type="date"
-            defaultValue={equipment.warranty_ends_on ?? ""}
+            value={warrantyEndsOn}
+            onChange={(e) => setWarrantyEndsOn(e.target.value)}
           />
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="customerId">Customer</Label>
-        <Select
-          name="customerId"
-          value={customerId}
-          onValueChange={handleCustomerChange}
-          items={Object.fromEntries(customers.map((c) => [c.id, c.name]))}
-        >
-          <SelectTrigger id="customerId" className="w-full">
-            <SelectValue placeholder="No customer" />
-          </SelectTrigger>
-          <SelectContent>
-            {customers.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="text-sm text-muted-foreground">
-          Changing the customer fills in the address and contact below.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="address">Address</Label>
-        <Textarea
-          id="address"
-          name="address"
-          rows={2}
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
+      {isOwner && warrantyEndsOn && (
         <div className="space-y-2">
-          <Label htmlFor="contactName">Site contact name</Label>
-          <Input
-            id="contactName"
-            name="contactName"
-            value={contactName}
-            onChange={(e) => setContactName(e.target.value)}
+          <Label htmlFor="warrantyVendorId">Warranty vendor</Label>
+          <VendorSelect
+            name="warrantyVendorId"
+            kind="warranty"
+            vendors={vendors}
+            defaultValue={equipment.warranty_vendor_id ?? ""}
           />
+          <p className="text-sm text-muted-foreground">
+            Preferred over the unit&apos;s vendor while the warranty is still active.
+          </p>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="contactPhone">Site contact phone</Label>
-          <Input
-            id="contactPhone"
-            name="contactPhone"
-            type="tel"
-            value={contactPhone}
-            onChange={(e) => setContactPhone(e.target.value)}
-          />
-        </div>
-      </div>
+      )}
+
+      {isOwner ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="locationId">Location</Label>
+            <Select
+              name="locationId"
+              items={{ "": "No location", ...Object.fromEntries(locations.map((l) => [l.id, l.name])) }}
+              defaultValue={equipment.location_id ?? ""}
+            >
+              <SelectTrigger id="locationId" className="w-full">
+                <SelectValue placeholder="No location" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No location</SelectItem>
+                {locations.map((l) => (
+                  <SelectItem key={l.id} value={l.id}>
+                    {l.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="vendorId">Vendor</Label>
+            <VendorSelect
+              name="vendorId"
+              kind="vendor"
+              vendors={vendors}
+              categoryDefault={categoryDefaultVendor}
+              defaultValue={equipment.vendor_id ?? ""}
+            />
+            <p className="text-sm text-muted-foreground">
+              Work orders for this unit go to this vendor, or to the category default when
+              left as-is.
+            </p>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="customerId">Customer</Label>
+            <Select
+              name="customerId"
+              value={customerId}
+              onValueChange={handleCustomerChange}
+              items={Object.fromEntries(customers.map((c) => [c.id, c.name]))}
+            >
+              <SelectTrigger id="customerId" className="w-full">
+                <SelectValue placeholder="No customer" />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              Changing the customer fills in the address and contact below.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="address">Address</Label>
+            <Textarea
+              id="address"
+              name="address"
+              rows={2}
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="contactName">Site contact name</Label>
+              <Input
+                id="contactName"
+                name="contactName"
+                value={contactName}
+                onChange={(e) => setContactName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="contactPhone">Site contact phone</Label>
+              <Input
+                id="contactPhone"
+                name="contactPhone"
+                type="tel"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       <div className="space-y-2">
         <Label htmlFor="notes">Notes</Label>

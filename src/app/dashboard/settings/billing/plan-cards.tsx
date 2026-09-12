@@ -6,15 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { plans, type BillingInterval, type PlanId } from "@/lib/plans";
+import type { BillingInterval, Plan, PlanId } from "@/lib/plans";
 
 export function PlanCards({
+  plans,
   currentPlanId,
   hasActiveSubscription,
   stripeConfigured,
   onCheckout,
   onOpenPortal,
 }: {
+  /** plansFor(company.kind) — the plan set for this company's kind (docs/OWNER-ROADMAP-BRIEF.md §3.4). */
+  plans: Plan[];
   currentPlanId: PlanId;
   /**
    * Whether a live Stripe subscription sits behind `currentPlanId`. Changing
@@ -82,7 +85,12 @@ export function PlanCards({
 
       <div className="grid gap-4 md:grid-cols-3">
         {plans.map((plan) => {
-          const isCurrent = hasActiveSubscription && plan.id === currentPlanId;
+          // The Free plan (equipment_owner's floor — docs/OWNER-ROADMAP-BRIEF.md
+          // §3.1.5) has no Stripe price and is never "subscribed" in the
+          // Stripe sense, so it's "current" purely by plan_id, and it never
+          // gets a checkout button — there's nothing to check out.
+          const isFree = plan.priceMonthly === 0 && plan.priceYearly === 0;
+          const isCurrent = isFree ? plan.id === currentPlanId : hasActiveSubscription && plan.id === currentPlanId;
           const price = interval === "month" ? plan.priceMonthly : plan.priceYearly;
           return (
             <Card key={plan.id} className={cn(isCurrent && "ring-2 ring-primary")}>
@@ -110,7 +118,7 @@ export function PlanCards({
                   ))}
                 </ul>
               </CardContent>
-              {!hasActiveSubscription && (
+              {!isFree && !hasActiveSubscription && (
                 <CardFooter>
                   <Button
                     className="w-full"

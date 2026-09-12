@@ -30,7 +30,10 @@ export async function inviteMember(formData: FormData) {
   if (!email || !email.includes("@")) {
     return { error: "Enter a valid email" };
   }
-  if (role !== "owner" && role !== "technician") {
+  // "staff" has no invite path of its own yet — only owner/manager/technician
+  // are assignable at invite time (docs/OWNER-ROADMAP-BRIEF.md §3.2.2; a
+  // manager currently has exactly a technician's permissions, per §9 Q2).
+  if (role !== "owner" && role !== "technician" && role !== "manager") {
     return { error: "Invalid role" };
   }
 

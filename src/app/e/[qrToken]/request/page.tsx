@@ -8,6 +8,7 @@ import { publicEnv } from "@/lib/env";
 import { resolveBranding } from "@/lib/branding";
 import { BrandHeader, BrandShell, PoweredBy } from "@/components/public/brand-shell";
 import { ServiceRequestForm } from "./service-request-form";
+import { OwnerReportForm } from "../owner/owner-report-form";
 
 export default async function ServiceRequestPage({
   params,
@@ -49,7 +50,11 @@ export default async function ServiceRequestPage({
           <p className="text-muted-foreground">{guide.equipment.name}</p>
         </div>
 
-        <ServiceRequestForm qrToken={qrToken} branding={branding} />
+        {guide.company.kind === "equipment_owner" ? (
+          <OwnerReportForm qrToken={qrToken} guide={guide} />
+        ) : (
+          <ServiceRequestForm qrToken={qrToken} branding={branding} />
+        )}
       </main>
 
       <PoweredBy />

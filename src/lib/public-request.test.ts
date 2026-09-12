@@ -2,11 +2,17 @@ import { describe, expect, it } from "vitest";
 import {
   detectScanSource,
   isOwnedUploadPath,
+  MAX_SYMPTOMS,
+  ownerServiceRequestSchema,
   priorityFromChoice,
   requestReference,
   requestUpdateAuthorStorageKey,
   requestUpdateSchema,
   serviceRequestSchema,
+  isVendorDispatchOpen,
+  sitePinSchema,
+  sitePinStorageKey,
+  vendorActionSchema,
 } from "@/lib/public-request";
 
 const LEGACY_TOKEN = "a1b2c3d4e5f60718293a4b5c"; // 24 hex, pre-0013 instant code
@@ -219,5 +225,170 @@ describe("requestUpdateAuthorStorageKey", () => {
   it("returns a stable, non-empty key", () => {
     expect(requestUpdateAuthorStorageKey()).toBe(requestUpdateAuthorStorageKey());
     expect(requestUpdateAuthorStorageKey().length).toBeGreaterThan(0);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Owner roadmap (docs/OWNER-ROADMAP-BRIEF.md §3.3 / §6.2)
+// ----------------------------------------------------------------------------
+
+describe("ownerServiceRequestSchema", () => {
+  const SHORT_CODE = "OWNR2345";
+  const valid = {
+    qrToken: SHORT_CODE,
+    contactName: "Jamie Cook",
+    symptoms: ["Not cooling"],
+  };
+
+  it("rejects an empty description and empty symptoms together", () => {
+    const result = ownerServiceRequestSchema.safeParse({ ...valid, symptoms: [], description: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts free text alone with no symptom chips", () => {
+    const result = ownerServiceRequestSchema.safeParse({
+      ...valid,
+      symptoms: [],
+      description: "It's making a grinding noise",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a symptom chip alone with no free text", () => {
+    const result = ownerServiceRequestSchema.safeParse({ ...valid, description: "" });
+    expect(result.success).toBe(true);
+  });
+
+  it(`caps symptoms at ${MAX_SYMPTOMS} and each at 120 characters`, () => {
+    const tooMany = Array.from({ length: MAX_SYMPTOMS + 1 }, (_, i) => `Symptom ${i}`);
+    expect(ownerServiceRequestSchema.safeParse({ ...valid, symptoms: tooMany }).success).toBe(false);
+    expect(
+      ownerServiceRequestSchema.safeParse({
+        ...valid,
+        symptoms: Array.from({ length: MAX_SYMPTOMS }, (_, i) => `Symptom ${i}`),
+      }).success
+    ).toBe(true);
+
+    expect(
+      ownerServiceRequestSchema.safeParse({ ...valid, symptoms: ["x".repeat(121)] }).success
+    ).toBe(false);
+    expect(
+      ownerServiceRequestSchema.safeParse({ ...valid, symptoms: ["x".repeat(120)] }).success
+    ).toBe(true);
+  });
+
+  it("enforces the <qrToken>/ media prefix", () => {
+    const goodMedia = [{ storage_path: `${SHORT_CODE}/a.jpg`, media_type: "image" as const }];
+    const badMedia = [{ storage_path: "OTHER0000/a.jpg", media_type: "image" as const }];
+    expect(ownerServiceRequestSchema.safeParse({ ...valid, media: goodMedia }).success).toBe(true);
+    expect(ownerServiceRequestSchema.safeParse({ ...valid, media: badMedia }).success).toBe(false);
+  });
+
+  it("accepts an unfilled honeypot and doesn't require it", () => {
+    expect(ownerServiceRequestSchema.parse(valid).website).toBe("");
+    expect(
+      ownerServiceRequestSchema.safeParse({ ...valid, website: "http://spam.example" }).success
+    ).toBe(true);
+  });
+
+  it("requires a name and rejects the staff-only priority value", () => {
+    expect(ownerServiceRequestSchema.safeParse({ ...valid, contactName: "" }).success).toBe(false);
+    expect(ownerServiceRequestSchema.safeParse({ ...valid, priority: "urgent" }).success).toBe(false);
+    expect(ownerServiceRequestSchema.safeParse({ ...valid, priority: "high" }).success).toBe(true);
+  });
+});
+
+describe("sitePinSchema", () => {
+  it("accepts a plausible code and requires the qr token", () => {
+    expect(sitePinSchema.safeParse({ qrToken: "ABCD2345", pin: "4821" }).success).toBe(true);
+    expect(sitePinSchema.safeParse({ qrToken: "", pin: "4821" }).success).toBe(false);
+    expect(sitePinSchema.safeParse({ qrToken: "ABCD2345", pin: "" }).success).toBe(false);
+  });
+});
+
+describe("sitePinStorageKey", () => {
+  it("is stable per location and distinct across locations", () => {
+    expect(sitePinStorageKey("loc-1")).toBe(sitePinStorageKey("loc-1"));
+    expect(sitePinStorageKey("loc-1")).not.toBe(sitePinStorageKey("loc-2"));
+  });
+});
+
+describe("vendorActionSchema", () => {
+  it("rejects an unknown action", () => {
+    expect(vendorActionSchema.safeParse({ token: "t", action: "close" }).success).toBe(false);
+  });
+
+  it("requires an ETA for the eta action", () => {
+    expect(vendorActionSchema.safeParse({ token: "t", action: "eta" }).success).toBe(false);
+    expect(
+      vendorActionSchema.safeParse({ token: "t", action: "eta", etaAt: "2027-01-01T12:00:00Z" }).success
+    ).toBe(true);
+  });
+
+  it("accepts acknowledge/finish with an optional note", () => {
+    expect(vendorActionSchema.safeParse({ token: "t", action: "acknowledge" }).success).toBe(true);
+    expect(
+      vendorActionSchema.safeParse({ token: "t", action: "finish", note: "All set" }).success
+    ).toBe(true);
+  });
+
+  it("requires a 2-2000 char body for note and a 2-500 char reason for decline", () => {
+    expect(vendorActionSchema.safeParse({ token: "t", action: "note", body: "x" }).success).toBe(false);
+    expect(vendorActionSchema.safeParse({ token: "t", action: "note", body: "ok" }).success).toBe(true);
+    expect(vendorActionSchema.safeParse({ token: "t", action: "decline" }).success).toBe(false);
+    expect(
+      vendorActionSchema.safeParse({ token: "t", action: "decline", reason: "Not ours" }).success
+    ).toBe(true);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Security review (see the `-- security review` section of
+// scripts/local-db/smoke-owner.sql for the SQL-side half).
+// ----------------------------------------------------------------------------
+
+describe("isVendorDispatchOpen", () => {
+  it("closes a declined dispatch", () => {
+    expect(isVendorDispatchOpen("declined", "new")).toBe(false);
+  });
+
+  it("closes a dispatch whose parent request is resolved or canceled", () => {
+    expect(isVendorDispatchOpen("acknowledged", "resolved")).toBe(false);
+    expect(isVendorDispatchOpen("acknowledged", "canceled")).toBe(false);
+  });
+
+  it("stays open for every live combination", () => {
+    for (const dispatchStatus of ["sent", "viewed", "acknowledged", "eta_given", "finished", "failed"]) {
+      for (const requestStatus of ["new", "in_progress", "scheduled", "on_hold"]) {
+        expect(isVendorDispatchOpen(dispatchStatus, requestStatus)).toBe(true);
+      }
+    }
+  });
+
+  it("fails open only for genuinely unknown values, never for the two closed ones", () => {
+    expect(isVendorDispatchOpen(null, null)).toBe(true);
+    expect(isVendorDispatchOpen(undefined, "resolved")).toBe(false);
+  });
+});
+
+describe("isOwnedUploadPath (mirrors assert_submission_media_ok in migration 0026)", () => {
+  const token = "otoken0000000000000002";
+
+  it("rejects a path under another scan's prefix", () => {
+    expect(isOwnedUploadPath("someone-elses-token/secret.jpg", token)).toBe(false);
+  });
+
+  it("rejects traversal, absolute paths and the bare prefix", () => {
+    expect(isOwnedUploadPath(`${token}/../other/secret.jpg`, token)).toBe(false);
+    expect(isOwnedUploadPath(`/${token}/a.jpg`, token)).toBe(false);
+    expect(isOwnedUploadPath(`${token}/`, token)).toBe(false);
+  });
+
+  it("rejects a prefix that only looks like the token", () => {
+    expect(isOwnedUploadPath(`${token}-evil/a.jpg`, token)).toBe(false);
+  });
+
+  it("accepts what the uploader actually writes", () => {
+    expect(isOwnedUploadPath(`${token}/2f1c-photo.jpg`, token)).toBe(true);
   });
 });

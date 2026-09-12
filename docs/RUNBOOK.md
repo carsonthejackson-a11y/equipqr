@@ -101,6 +101,46 @@ route just 401s and the reminder silently never goes out.
 4. It's idempotent per company (`companies.trial_reminder_sent_at`), so re-running it after a fix
    is always safe — companies already flagged just get skipped, not double-emailed.
 
+**`GET /api/cron/dispatch-sla`** (`src/app/api/cron/dispatch-sla/route.ts`) runs hourly
+(`vercel.json`) and emails an `equipment_owner` company when a vendor hasn't acknowledged or
+viewed a dispatch within `vendors.ack_sla_minutes` — see `docs/EMAILS.md`. Same
+`Authorization: Bearer <CRON_SECRET>` gate as trial-reminders. Rows are claimed atomically via
+`claim_dispatch_sla_alerts()` (one `UPDATE ... FOR UPDATE SKIP LOCKED`, stamping
+`dispatches.sla_alerted_at`), so two overlapping runs can't double-alert, and a run only ever
+releases the claim it just took (never another run's) when a send fails. Manual run: `curl -H
+"Authorization: Bearer $CRON_SECRET" https://<your-domain>/api/cron/dispatch-sla` — the response
+reports `candidates`/`emailsSent`/`skipped` for that invocation.
+
+## A vendor dispatch didn't go out
+
+A customer or staff member expected a vendor to be emailed about a service request on an
+`equipment_owner` company and it didn't happen (no email, and/or **Requests** → the request →
+Dispatch card shows no vendor or shows one stuck at `sent`).
+
+1. **Check whether a dispatch row exists at all.** On `POST /api/owner-requests` (or a manual
+   dispatch from the request page), no `dispatches` row is created when the unit resolves to no
+   vendor at all — see `docs/OWNER-ROADMAP-BRIEF.md` §9 Q10. That's expected: the owner still
+   gets `buildOwnerNoVendorEmail` instead, and the confirmation screen says the manager was
+   notified. Look for that email before assuming something broke.
+2. **If a dispatch row exists but `dispatches.sent_at` is null**, the email attempt failed.
+   `mark_dispatch_sent(p_dispatch_id, p_ok, p_error)` records the failure — check
+   `request_activity` on that request (kind `dispatch`) for the `ok: false` entry and its
+   `metadata.error`; it's almost always a Resend outage/misconfiguration (see "Resend is
+   bouncing / rejecting email" above) or the vendor having no `vendors.email` on file.
+3. **If the vendor has no email on file**, `resendDispatch()` in
+   `src/app/dashboard/requests/dispatch-actions.ts` refuses outright ("This vendor has no email
+   on file") — add one on **Vendors** and use the Dispatch card's "Resend to vendor" button (an
+   owner or manager only; it re-sends the same `buildVendorDispatchEmail()` template, unchanged).
+4. **If the request has no dispatch yet at all** (e.g. the unit's vendor was added after the
+   request was filed), an owner/manager can dispatch one manually from the Dispatch card — this
+   goes through `POST /api/dispatch-to-vendor`, the one place in this build allowed to hold the
+   admin client outside a cron/webhook (`dispatches` has no staff insert policy; see that route's
+   header comment for why).
+5. **The vendor got the email but never responded**: that's what the hourly `dispatch-sla` cron
+   above is for. Its email leads with the vendor's phone number specifically because EquipQR
+   cannot confirm a vendor read a dispatch email — calling them is the only reliable check, for
+   the owner just as much as for the customer on the confirmation screen.
+
 ## Something's throwing and Sentry isn't configured
 
 If `SENTRY_DSN` isn't set on a deployment, errors are only visible in Vercel's function logs

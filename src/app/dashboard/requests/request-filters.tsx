@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { REQUEST_PRIORITY_LABELS, REQUEST_PRIORITY_ORDER } from "@/components/status-badge";
-import type { CompanyMember } from "@/lib/types";
+import { DISPATCH_STATUS_LABELS, DISPATCH_STATUS_ORDER } from "@/lib/dispatch";
+import type { CompanyKind, CompanyMember } from "@/lib/types";
 
 const STATUS_CHIPS: { label: string; value: string }[] = [
   { label: "All open", value: "open" },
@@ -28,8 +29,16 @@ const ALL_PRIORITIES = "all";
 const ALL_ASSIGNEES = "all";
 const ASSIGNEE_ME = "me";
 const ASSIGNEE_UNASSIGNED = "unassigned";
+const ALL_DISPATCH = "all";
 
-export function RequestFilters({ members }: { members: CompanyMember[] }) {
+export function RequestFilters({
+  members,
+  kind = "service_provider",
+}: {
+  members: CompanyMember[];
+  /** The dispatch-status filter only makes sense for equipment_owner companies (docs/OWNER-ROADMAP-BRIEF.md §3.2). */
+  kind?: CompanyKind;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -38,6 +47,7 @@ export function RequestFilters({ members }: { members: CompanyMember[] }) {
   const status = searchParams.get("status") ?? "open";
   const priority = searchParams.get("priority") ?? ALL_PRIORITIES;
   const assignee = searchParams.get("assignee") ?? ALL_ASSIGNEES;
+  const dispatch = searchParams.get("dispatch") ?? ALL_DISPATCH;
   // Next roadmap (two-way messaging): requests a customer has added a note to.
   const hasMessages = searchParams.get("messages") === "1";
 
@@ -81,6 +91,11 @@ export function RequestFilters({ members }: { members: CompanyMember[] }) {
     [ASSIGNEE_ME]: "Assigned to me",
     [ASSIGNEE_UNASSIGNED]: "Unassigned",
     ...Object.fromEntries(members.map((m) => [m.id, m.full_name?.trim() || m.email])),
+  };
+
+  const dispatchItems: Record<string, string> = {
+    [ALL_DISPATCH]: "Any dispatch status",
+    ...Object.fromEntries(DISPATCH_STATUS_ORDER.map((s) => [s, DISPATCH_STATUS_LABELS[s]])),
   };
 
   return (
@@ -147,6 +162,25 @@ export function RequestFilters({ members }: { members: CompanyMember[] }) {
             ))}
           </SelectContent>
         </Select>
+
+        {kind === "equipment_owner" && (
+          <Select
+            value={dispatch}
+            onValueChange={(value) => value && setParams({ dispatch: value === ALL_DISPATCH ? null : value })}
+            items={dispatchItems}
+          >
+            <SelectTrigger className="w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(dispatchItems).map(([value, label]) => (
+                <SelectItem key={value} value={value}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         <button
           type="button"
