@@ -65,3 +65,35 @@ export const billingFaqs: FaqEntry[] = [
     answer: `Yes. Cancel from Settings → Billing whenever you like; you'll keep access through the end of the period you already paid for. Questions? Email ${SUPPORT_EMAIL}.`,
   },
 ];
+
+// Owner roadmap (Phase 1, Model A — docs/OWNER-ROADMAP-BRIEF.md §3.4): FAQs
+// for equipment_owner companies (restaurants, cafes, and other businesses
+// that own the equipment they track). Shared between /restaurants and the
+// "For restaurants & small business" tab on /pricing.
+export const ownerFaqs: FaqEntry[] = [
+  {
+    question: "Is the Free plan actually free, forever?",
+    answer:
+      "Yes. One location and up to 10 pieces of equipment, no credit card, no trial to run out. If you outgrow it, Site and Multi-site add more equipment, AI troubleshooting, and pre-printed QR batches — but you're never locked out of the free tier for not upgrading.",
+  },
+  {
+    question: "Do I pay per staff member?",
+    answer:
+      "No. Every owner plan includes unlimited staff and unlimited vendor contacts — there's no seat count to manage and no reason to keep anyone off the account.",
+  },
+  {
+    question: "What happens if a vendor doesn't respond?",
+    answer:
+      "You get an email as soon as the vendor's typical response window passes, with their phone number right in it — EquipQR sends the work order and can't confirm anyone picked it up, so calling is the reliable check when it's urgent.",
+  },
+  {
+    question: "Does my staff need to download an app or make an account?",
+    answer:
+      "No. Scanning the tag opens a mobile page — no app store, no login, no account. They pick what's wrong, add a photo if it helps, and it's sent. No email address required either.",
+  },
+  {
+    question: "What if I don't have a vendor for something yet?",
+    answer:
+      "The report still gets filed and you're notified by email so you can call someone yourself — nothing is silently dropped because a unit has no vendor on file.",
+  },
+];
