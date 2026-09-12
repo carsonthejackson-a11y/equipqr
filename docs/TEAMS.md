@@ -4,18 +4,31 @@ How a second (or third...) user joins a company, and what each role can do.
 
 ## Roles
 
-| Capability | Owner | Technician |
-| --- | --- | --- |
-| View/manage customers, equipment, equipment types, requests | ✅ | ✅ |
-| Company settings (name, notification email) | ✅ | ❌ |
-| Team (invite, change roles, remove members) | ✅ | ❌ |
-| Billing (future workstream) | ✅ | ❌ |
-| Delete equipment types / customers | ✅ | ❌ (view/create/edit only) |
+| Capability | Owner | Manager | Technician |
+| --- | --- | --- | --- |
+| View/manage customers, equipment, equipment types, requests | ✅ | ✅ | ✅ |
+| Company settings (name, notification email) | ✅ | ❌ | ❌ |
+| Team (invite, change roles, remove members) | ✅ | ❌ | ❌ |
+| Billing (future workstream) | ✅ | ❌ | ❌ |
+| Delete equipment types / customers | ✅ | ❌ (view/create/edit only) | ❌ (view/create/edit only) |
 
 A technician who visits an owner-only page (`/dashboard/settings`,
 `/dashboard/settings/team`) sees an "only owners can manage this" card
 instead of the form. Owner-only nav items are hidden for technicians
 entirely.
+
+### Manager role (owner-roadmap, Phase 1)
+
+`manager` is a selectable role at invite time (`invite-member-dialog.tsx`),
+alongside owner and technician. **It grants nothing beyond what a technician
+already has** — `is_company_owner()` stays the only privilege check anywhere
+in RLS or entitlements, so in Phase 1 a manager is a technician with a
+different label. The invite dialog's help text says this explicitly, so
+nobody assigns "Manager" expecting owner-like powers.
+
+`"staff"` also exists on the `user_role` enum (for future use) but is not
+selectable anywhere in the UI today — not at invite time, not when changing
+an existing member's role.
 
 ## Invitation lifecycle
 
