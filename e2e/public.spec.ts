@@ -23,6 +23,12 @@ test.describe("public marketing + auth pages", () => {
     await expect(page.getByText("$79")).toBeVisible();
   });
 
+  test("/restaurants renders the owner landing page", async ({ page }) => {
+    const response = await page.goto("/restaurants");
+    expect(response?.status()).toBe(200);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Tag the kitchen");
+  });
+
   test("/login renders the login form", async ({ page }) => {
     const response = await page.goto("/login");
     expect(response?.status()).toBe(200);

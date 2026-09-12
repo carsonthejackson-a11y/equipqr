@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
-import { getStripePriceId, isPlanId, type BillingInterval, type PlanId } from "@/lib/plans";
+import { getPlan, getStripePriceId, isPlanId, type BillingInterval, type PlanId } from "@/lib/plans";
 import { isLiveSubscriptionStatus } from "@/lib/billing";
+import type { CompanyKind } from "@/lib/types";
 
 type OwnerCompanyResult =
   | { ok: true; supabase: Awaited<ReturnType<typeof createClient>>; company: OwnerCompany }
@@ -15,6 +16,7 @@ type OwnerCompany = {
   name: string;
   notification_email: string;
   stripe_customer_id: string | null;
+  kind: CompanyKind;
 };
 
 async function requireOwnerCompany(): Promise<OwnerCompanyResult> {
@@ -42,7 +44,7 @@ async function requireOwnerCompany(): Promise<OwnerCompanyResult> {
 
   const { data: company } = await supabase
     .from("companies")
-    .select("id, name, notification_email, stripe_customer_id")
+    .select("id, name, notification_email, stripe_customer_id, kind")
     .eq("id", profile.company_id)
     .maybeSingle<OwnerCompany>();
 
@@ -74,6 +76,12 @@ export async function createCheckoutSession(planId: string, interval: string) {
     return { error: auth.error };
   }
   const { supabase, company } = auth;
+
+  // A provider can't check out an owner plan (or vice versa) — the two plan
+  // sets are kind-specific (docs/OWNER-ROADMAP-BRIEF.md §3.4.1).
+  if (getPlan(planId as PlanId).kind !== company.kind) {
+    return { error: "That plan isn't available for this account." };
+  }
 
   // A company that's already subscribed has to switch plans through the
   // Customer Portal — a second Checkout would leave it paying for two

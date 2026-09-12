@@ -271,21 +271,14 @@ export function canAddLocation(plan: Plan, currentCount: number): boolean {
 }
 
 // ----------------------------------------------------------------------------
-// Stripe price id lookup. Each provider plan/interval pair maps to one of six
-// env vars — no price ids are hardcoded so they can differ between Stripe
-// test and live mode without a code change.
-//
-// Owner plans (free/site/multi_site) are NOT wired here — that's WS4's job
-// (docs/OWNER-ROADMAP-BRIEF.md §3.4). PRICE_ENV_VARS intentionally stays
-// keyed by ProviderPlanId only (not the broadened PlanId) so this map can't
-// silently go stale-but-typed once owner ids exist; getStripePriceId() below
-// still accepts any PlanId and throws a clear, catchable error for an owner
-// plan id rather than a TypeScript-widened runtime crash. The one existing
-// caller (dashboard/settings/billing/actions.ts) already wraps this call in
-// try/catch.
+// Stripe price id lookup (docs/OWNER-ROADMAP-BRIEF.md §3.4.1 — WS4's half of
+// this file; everything above is WS1's). Each paid plan/interval pair maps to
+// one of ten env vars — no price ids are hardcoded so they can differ between
+// Stripe test and live mode without a code change. `free` has no entry: it's
+// the zero-cost floor for equipment_owner companies and needs no checkout.
 // ----------------------------------------------------------------------------
 
-const PRICE_ENV_VARS: Record<ProviderPlanId, Record<BillingInterval, string>> = {
+const PRICE_ENV_VARS: Record<Exclude<PlanId, "free">, Record<BillingInterval, string>> = {
   starter: {
     month: "STRIPE_PRICE_STARTER_MONTHLY",
     year: "STRIPE_PRICE_STARTER_YEARLY",
@@ -298,15 +291,23 @@ const PRICE_ENV_VARS: Record<ProviderPlanId, Record<BillingInterval, string>> = 
     month: "STRIPE_PRICE_BUSINESS_MONTHLY",
     year: "STRIPE_PRICE_BUSINESS_YEARLY",
   },
+  site: {
+    month: "STRIPE_PRICE_SITE_MONTHLY",
+    year: "STRIPE_PRICE_SITE_YEARLY",
+  },
+  multi_site: {
+    month: "STRIPE_PRICE_MULTI_SITE_MONTHLY",
+    year: "STRIPE_PRICE_MULTI_SITE_YEARLY",
+  },
 };
 
-function isProviderPlanId(id: PlanId): id is ProviderPlanId {
-  return id === "starter" || id === "pro" || id === "business";
+function isFreePlanId(id: PlanId): id is "free" {
+  return id === "free";
 }
 
 export function getStripePriceId(planId: PlanId, interval: BillingInterval): string {
-  if (!isProviderPlanId(planId)) {
-    throw new Error(`Stripe billing for the "${planId}" plan is not wired up yet.`);
+  if (isFreePlanId(planId)) {
+    throw new Error("The Free plan has no Stripe price — it needs no checkout.");
   }
   const envVar = PRICE_ENV_VARS[planId][interval];
   const value = process.env[envVar];
@@ -318,10 +319,11 @@ export function getStripePriceId(planId: PlanId, interval: BillingInterval): str
   return value;
 }
 
-/** All six env var names, e.g. for a "which price ids are missing" admin check. Provider plans only — see PRICE_ENV_VARS. */
+/** All ten env var names, e.g. for a "which price ids are missing" admin check. Never includes a `free` entry. */
 export function listStripePriceEnvVars(): string[] {
-  return plans.flatMap((p) => {
-    const envVars = PRICE_ENV_VARS[p.id as ProviderPlanId];
+  return allPlans.flatMap((p) => {
+    if (isFreePlanId(p.id)) return [];
+    const envVars = PRICE_ENV_VARS[p.id];
     return [envVars.month, envVars.year];
   });
 }
@@ -329,14 +331,15 @@ export function listStripePriceEnvVars(): string[] {
 /**
  * Reverse-lookup: given a Stripe price id (from a webhook payload), find the
  * matching plan id + interval. Returns null if it doesn't match any of our
- * configured prices (e.g. a stale/unknown price). Provider plans only — see
- * PRICE_ENV_VARS.
+ * configured prices (e.g. a stale/unknown price, or the free plan — which
+ * never has one).
  */
 export function planFromStripePriceId(
   stripePriceId: string
-): { planId: ProviderPlanId; interval: BillingInterval } | null {
-  for (const plan of plans) {
-    const planId = plan.id as ProviderPlanId;
+): { planId: Exclude<PlanId, "free">; interval: BillingInterval } | null {
+  for (const plan of allPlans) {
+    if (isFreePlanId(plan.id)) continue;
+    const planId = plan.id;
     for (const interval of ["month", "year"] as const) {
       const envVar = PRICE_ENV_VARS[planId][interval];
       if (process.env[envVar] === stripePriceId) {
