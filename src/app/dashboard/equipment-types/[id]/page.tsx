@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { BackLink } from "@/components/back-link";
+import { getCurrentProfile } from "@/lib/auth";
 import type { EquipmentType, GuideOption, GuideStep } from "@/lib/types";
 import { EditTypeForm } from "./edit-type-form";
 import { GuideStepsEditor } from "./guide-steps-editor";
@@ -14,11 +15,10 @@ export default async function EquipmentTypeDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: type } = await supabase
-    .from("equipment_types")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle<EquipmentType>();
+  const [{ data: type }, { company }] = await Promise.all([
+    supabase.from("equipment_types").select("*").eq("id", id).maybeSingle<EquipmentType>(),
+    getCurrentProfile(),
+  ]);
 
   if (!type) {
     notFound();
@@ -50,7 +50,7 @@ export default async function EquipmentTypeDetailPage({
         <p className="text-muted-foreground">Equipment type details and troubleshooting guide.</p>
       </div>
 
-      <EditTypeForm type={type} />
+      <EditTypeForm type={type} kind={company.kind} />
 
       <AiGuideDrafter
         equipmentTypeId={type.id}

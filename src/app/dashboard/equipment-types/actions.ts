@@ -52,6 +52,28 @@ export async function createEquipmentType(formData: FormData) {
   return { id: data.id };
 }
 
+const MAX_SYMPTOM_CHIP_LENGTH = 40;
+
+/** `symptomChips` arrives as a JSON-stringified array (edit-type-form.tsx) — absent entirely on the create form, which never touches this column. */
+function parseSymptomChips(formData: FormData): string[] | undefined {
+  const raw = formData.get("symptomChips");
+  if (typeof raw !== "string") return undefined;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed)) return undefined;
+
+  return parsed
+    .filter((c): c is string => typeof c === "string")
+    .map((c) => c.trim())
+    .filter((c) => c.length > 0 && c.length <= MAX_SYMPTOM_CHIP_LENGTH)
+    .slice(0, 40);
+}
+
 export async function updateEquipmentType(id: string, formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
@@ -65,10 +87,16 @@ export async function updateEquipmentType(id: string, formData: FormData) {
     return { error: lockError.error };
   }
 
+  const symptomChips = parseSymptomChips(formData);
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("equipment_types")
-    .update({ name, description: description || null })
+    .update({
+      name,
+      description: description || null,
+      ...(symptomChips !== undefined ? { symptom_chips: symptomChips } : {}),
+    })
     .eq("id", id);
 
   if (error) {
