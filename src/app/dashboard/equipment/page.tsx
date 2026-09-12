@@ -15,7 +15,15 @@ import { EmptyState } from "@/components/empty-state";
 import { EquipmentStatusBadge } from "@/components/status-badge";
 import { NewEquipmentDialog } from "./new-equipment-dialog";
 import { EquipmentFilters } from "./equipment-filters";
-import type { Customer, Equipment, EquipmentCustomField, EquipmentType } from "@/lib/types";
+import type {
+  CategoryDefaultVendor,
+  Customer,
+  Equipment,
+  EquipmentCustomField,
+  EquipmentType,
+  Location,
+  Vendor,
+} from "@/lib/types";
 import { getEntitlements, hasFeature } from "@/lib/billing";
 import { FEATURES } from "@/lib/features";
 import { formatRelativeTime } from "@/lib/format";
@@ -57,6 +65,7 @@ export default async function EquipmentPage({
     q?: string;
     type?: string;
     customer?: string;
+    location?: string;
     status?: string;
     page?: string;
   }>;
@@ -65,10 +74,13 @@ export default async function EquipmentPage({
   const q = (raw.q ?? "").trim();
   const typeFilter = raw.type && raw.type !== "all" ? raw.type : "";
   const customerFilter = raw.customer && raw.customer !== "all" ? raw.customer : "";
+  const locationFilter = raw.location && raw.location !== "all" ? raw.location : "";
   const statusFilter = raw.status && isEquipmentStatus(raw.status) ? raw.status : "";
   const page = Math.max(1, Number.parseInt(raw.page ?? "1", 10) || 1);
 
   const supabase = await createClient();
+  const { profile, company } = await getCurrentProfile();
+  const isOwnerKind = company.kind === "equipment_owner";
 
   let query = supabase
     .from("equipment")
@@ -79,8 +91,12 @@ export default async function EquipmentPage({
   const orFilter = q ? searchFilter(q) : "";
   if (orFilter) query = query.or(orFilter);
   if (typeFilter) query = query.eq("equipment_type_id", typeFilter);
-  if (customerFilter) query = query.eq("customer_id", customerFilter);
   if (statusFilter) query = query.eq("status", statusFilter);
+  if (isOwnerKind) {
+    if (locationFilter) query = query.eq("location_id", locationFilter);
+  } else if (customerFilter) {
+    query = query.eq("customer_id", customerFilter);
+  }
 
   const [
     { data: equipment, count },
@@ -88,7 +104,9 @@ export default async function EquipmentPage({
     { data: customers },
     { data: customFields },
     entitlements,
-    { profile },
+    { data: locations },
+    { data: vendors },
+    { data: categoryDefaultVendors },
   ] = await Promise.all([
     query.returns<Equipment[]>(),
     supabase.from("equipment_types").select("*").order("name").returns<EquipmentType[]>(),
@@ -100,22 +118,34 @@ export default async function EquipmentPage({
       .order("created_at")
       .returns<EquipmentCustomField[]>(),
     getEntitlements(),
-    getCurrentProfile(),
+    isOwnerKind
+      ? supabase.from("locations").select("*").eq("active", true).order("name").returns<Location[]>()
+      : Promise.resolve({ data: [] as Location[] }),
+    isOwnerKind
+      ? supabase.from("vendors").select("*").eq("active", true).order("name").returns<Vendor[]>()
+      : Promise.resolve({ data: [] as Vendor[] }),
+    isOwnerKind
+      ? supabase.from("category_default_vendors").select("*").returns<CategoryDefaultVendor[]>()
+      : Promise.resolve({ data: [] as CategoryDefaultVendor[] }),
   ]);
 
   const batchQrEnabled = FEATURES.batchQr && hasFeature(entitlements, "batchQr");
   const typeById = new Map((equipmentTypes ?? []).map((t) => [t.id, t]));
   const customerById = new Map((customers ?? []).map((c) => [c.id, c]));
+  const locationById = new Map((locations ?? []).map((l) => [l.id, l]));
+  const vendorById = new Map((vendors ?? []).map((v) => [v.id, v]));
+  const categoryDefaultVendorByType = new Map((categoryDefaultVendors ?? []).map((cd) => [cd.equipment_type_id, cd.vendor_id]));
 
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const hasFilters = !!(q || typeFilter || customerFilter || statusFilter);
+  const hasFilters = !!(q || typeFilter || customerFilter || locationFilter || statusFilter);
   const noTypes = !equipmentTypes || equipmentTypes.length === 0;
 
   const currentParams = new URLSearchParams();
   if (q) currentParams.set("q", q);
   if (typeFilter) currentParams.set("type", typeFilter);
   if (customerFilter) currentParams.set("customer", customerFilter);
+  if (locationFilter) currentParams.set("location", locationFilter);
   if (statusFilter) currentParams.set("status", statusFilter);
 
   return (
@@ -146,6 +176,10 @@ export default async function EquipmentPage({
             customers={customers ?? []}
             customFields={customFields ?? []}
             batchQrEnabled={batchQrEnabled}
+            kind={company.kind}
+            locations={locations ?? []}
+            vendors={vendors ?? []}
+            categoryDefaultVendors={categoryDefaultVendors ?? []}
           />
         </div>
       </div>
@@ -155,9 +189,11 @@ export default async function EquipmentPage({
       ) : (
         <>
           <EquipmentFilters
-            values={{ q, type: typeFilter, customer: customerFilter, status: statusFilter }}
+            values={{ q, type: typeFilter, customer: customerFilter, location: locationFilter, status: statusFilter }}
             equipmentTypes={equipmentTypes ?? []}
             customers={customers ?? []}
+            kind={company.kind}
+            locations={locations ?? []}
           />
 
           {!equipment || equipment.length === 0 ? (
@@ -178,8 +214,9 @@ export default async function EquipmentPage({
                       <TableHead>Name</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Make / model</TableHead>
-                      <TableHead>Customer</TableHead>
-                      <TableHead>Location</TableHead>
+                      <TableHead>{isOwnerKind ? "Location" : "Customer"}</TableHead>
+                      <TableHead>{isOwnerKind ? "Area" : "Location"}</TableHead>
+                      {isOwnerKind && <TableHead>Vendor</TableHead>}
                       <TableHead>Last serviced</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -224,9 +261,32 @@ export default async function EquipmentPage({
                           </TableCell>
                           <TableCell>{makeModel || "—"}</TableCell>
                           <TableCell>
-                            {item.customer_id ? customerById.get(item.customer_id)?.name ?? "—" : "—"}
+                            {isOwnerKind
+                              ? item.location_id
+                                ? (locationById.get(item.location_id)?.name ?? "—")
+                                : "—"
+                              : item.customer_id
+                                ? (customerById.get(item.customer_id)?.name ?? "—")
+                                : "—"}
                           </TableCell>
                           <TableCell>{item.location ?? "—"}</TableCell>
+                          {isOwnerKind && (
+                            <TableCell>
+                              {item.vendor_id ? (
+                                vendorById.get(item.vendor_id)?.name ?? "—"
+                              ) : (
+                                (() => {
+                                  const defaultVendorId = categoryDefaultVendorByType.get(item.equipment_type_id);
+                                  const defaultVendor = defaultVendorId ? vendorById.get(defaultVendorId) : undefined;
+                                  return (
+                                    <span className="text-muted-foreground">
+                                      {defaultVendor ? `${defaultVendor.name} (default)` : "No vendor"}
+                                    </span>
+                                  );
+                                })()
+                              )}
+                            </TableCell>
+                          )}
                           <TableCell className="text-muted-foreground">
                             {item.last_serviced_at ? formatRelativeTime(item.last_serviced_at) : "—"}
                           </TableCell>

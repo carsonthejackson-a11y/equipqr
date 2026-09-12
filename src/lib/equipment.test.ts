@@ -30,6 +30,9 @@ const base: EquipmentPatch = {
   warranty_ends_on: "2029-03-18",
   status: "active",
   notes: null,
+  location_id: null,
+  vendor_id: null,
+  warranty_vendor_id: null,
 };
 
 describe("diffEquipment", () => {
