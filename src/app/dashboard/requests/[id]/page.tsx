@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ExternalLink, Mail, Phone } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BackLink } from "@/components/back-link";
 import { phoneHref } from "@/lib/branding";
@@ -22,6 +23,10 @@ import { CloseRequestDialog } from "./close-request-dialog";
 import { MediaGallery } from "./media-gallery";
 import { ActivityPanel } from "./activity-panel";
 import { ScheduleVisitCard } from "./schedule-visit-card";
+// WS2/WS3 frozen interface (docs/OWNER-ROADMAP-BRIEF.md §4.2) — WS3 owns this
+// file; this branch ships a temporary stub (see dispatch-panel.tsx) so the
+// import resolves until the branches merge.
+import { DispatchPanel } from "./dispatch-panel";
 
 export default async function ServiceRequestDetailPage({
   params,
@@ -30,6 +35,12 @@ export default async function ServiceRequestDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  // Deviation from the brief's literal "one import + one JSX line, nothing
+  // else in this file" (§4.2): `companyKind` isn't otherwise in scope here,
+  // so mounting <DispatchPanel> needs this one extra lookup. Reported as a
+  // deviation per the brief's own escape hatch (§1).
+  const { company } = await getCurrentProfile();
+  const companyKind = company.kind;
 
   const { data: serviceRequest } = await supabase
     .from("service_requests")
@@ -134,6 +145,8 @@ export default async function ServiceRequestDetailPage({
           <CloseRequestDialog request={serviceRequest} existingMedia={{ staffPhotos: staffPhotoUrls, signature }} />
         </div>
       </div>
+
+      {companyKind === "equipment_owner" && <DispatchPanel requestId={serviceRequest.id} companyKind={companyKind} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="space-y-6">

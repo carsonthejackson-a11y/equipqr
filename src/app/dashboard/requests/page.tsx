@@ -20,8 +20,22 @@ import {
 } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
 import { formatRelativeTime } from "@/lib/format";
+import { vocabFor } from "@/lib/vocab";
+import { DispatchStatusBadge } from "@/components/dispatch-status-badge";
+import { DISPATCH_STATUS_ORDER } from "@/lib/dispatch";
 import { RequestFilters } from "./request-filters";
-import type { CompanyMember, Customer, Equipment, RequestPriority, RequestStatus, ServiceRequest } from "@/lib/types";
+import type {
+  CompanyMember,
+  Customer,
+  Dispatch,
+  DispatchStatus,
+  Equipment,
+  Location,
+  RequestPriority,
+  RequestStatus,
+  ServiceRequest,
+  Vendor,
+} from "@/lib/types";
 
 const PAGE_SIZE = 50;
 const PRIORITY_VALUES: RequestPriority[] = ["low", "normal", "high", "urgent"];
@@ -34,6 +48,8 @@ type RequestsSearchParams = {
   page?: string;
   /** "1" = only requests with at least one customer message (Next roadmap). */
   messages?: string;
+  /** Owner-kind only (docs/OWNER-ROADMAP-BRIEF.md §3.2). */
+  dispatch?: string;
 };
 
 // PostgREST's `.or()` filter string uses "," to separate clauses and "()" for
@@ -50,6 +66,7 @@ function buildPageHref(params: RequestsSearchParams, page: number): string {
   if (params.assignee) usp.set("assignee", params.assignee);
   if (params.q) usp.set("q", params.q);
   if (params.messages === "1") usp.set("messages", "1");
+  if (params.dispatch) usp.set("dispatch", params.dispatch);
   if (page > 1) usp.set("page", String(page));
   const qs = usp.toString();
   return `/dashboard/requests${qs ? `?${qs}` : ""}`;
@@ -62,7 +79,10 @@ export default async function RequestsPage({
 }) {
   const params = await searchParams;
   const supabase = await createClient();
-  const { profile } = await getCurrentProfile();
+  const { profile, company } = await getCurrentProfile();
+  const kind = company.kind;
+  const vocab = vocabFor(kind);
+  const isOwnerKind = kind === "equipment_owner";
 
   const statusParam = params.status ?? "open";
   const q = params.q?.trim() ?? "";
@@ -99,6 +119,10 @@ export default async function RequestsPage({
     query = query.not("last_customer_message_at", "is", null);
   }
 
+  if (isOwnerKind && params.dispatch && (DISPATCH_STATUS_ORDER as string[]).includes(params.dispatch)) {
+    query = query.eq("dispatch_status", params.dispatch as DispatchStatus);
+  }
+
   if (q) {
     const { data: matchedEquipment } = await supabase.from("equipment").select("id").ilike("name", `%${q}%`);
     const equipmentIds = (matchedEquipment ?? []).map((e) => e.id);
@@ -126,18 +150,39 @@ export default async function RequestsPage({
 
   const equipmentIds = [...new Set((requests ?? []).map((r) => r.equipment_id))];
   const customerIds = [...new Set((requests ?? []).flatMap((r) => (r.customer_id ? [r.customer_id] : [])))];
+  const locationIds = [...new Set((requests ?? []).flatMap((r) => (r.location_id ? [r.location_id] : [])))];
+  const dispatchIds = [...new Set((requests ?? []).flatMap((r) => (r.dispatch_id ? [r.dispatch_id] : [])))];
 
-  const [{ data: equipment }, { data: customers }] = await Promise.all([
+  const [{ data: equipment }, { data: customers }, { data: locations }, { data: dispatches }] = await Promise.all([
     equipmentIds.length > 0
       ? supabase.from("equipment").select("id, name").in("id", equipmentIds).returns<Pick<Equipment, "id" | "name">[]>()
       : Promise.resolve({ data: [] as Pick<Equipment, "id" | "name">[] }),
     customerIds.length > 0
       ? supabase.from("customers").select("id, name").in("id", customerIds).returns<Pick<Customer, "id" | "name">[]>()
       : Promise.resolve({ data: [] as Pick<Customer, "id" | "name">[] }),
+    isOwnerKind && locationIds.length > 0
+      ? supabase.from("locations").select("id, name").in("id", locationIds).returns<Pick<Location, "id" | "name">[]>()
+      : Promise.resolve({ data: [] as Pick<Location, "id" | "name">[] }),
+    isOwnerKind && dispatchIds.length > 0
+      ? supabase
+          .from("dispatches")
+          .select("id, vendor_id, eta_at")
+          .in("id", dispatchIds)
+          .returns<Pick<Dispatch, "id" | "vendor_id" | "eta_at">[]>()
+      : Promise.resolve({ data: [] as Pick<Dispatch, "id" | "vendor_id" | "eta_at">[] }),
   ]);
+
+  const vendorIds = [...new Set((dispatches ?? []).map((d) => d.vendor_id))];
+  const { data: vendors } =
+    isOwnerKind && vendorIds.length > 0
+      ? await supabase.from("vendors").select("id, name").in("id", vendorIds).returns<Pick<Vendor, "id" | "name">[]>()
+      : { data: [] as Pick<Vendor, "id" | "name">[] };
 
   const equipmentById = new Map((equipment ?? []).map((e) => [e.id, e]));
   const customerById = new Map((customers ?? []).map((c) => [c.id, c]));
+  const locationById = new Map((locations ?? []).map((l) => [l.id, l]));
+  const vendorById = new Map((vendors ?? []).map((v) => [v.id, v]));
+  const dispatchById = new Map((dispatches ?? []).map((d) => [d.id, d]));
   const memberById = new Map((members ?? []).map((m) => [m.id, m]));
 
   const total = count ?? 0;
@@ -146,11 +191,15 @@ export default async function RequestsPage({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Service requests</h1>
-        <p className="text-muted-foreground">Requests submitted by customers via QR code.</p>
+        <h1 className="text-2xl font-semibold">{vocab.requestPlural}</h1>
+        <p className="text-muted-foreground">
+          {isOwnerKind
+            ? "Work orders reported from equipment QR codes."
+            : "Requests submitted by customers via QR code."}
+        </p>
       </div>
 
-      <RequestFilters key={params.q ?? ""} members={members ?? []} />
+      <RequestFilters key={params.q ?? ""} members={members ?? []} kind={kind} />
 
       {!requests || requests.length === 0 ? (
         <EmptyState icon={Inbox} message="No requests match these filters." />
@@ -162,11 +211,12 @@ export default async function RequestsPage({
                 <TableRow>
                   <TableHead>Priority</TableHead>
                   <TableHead>Equipment</TableHead>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>{isOwnerKind ? "Location" : "Customer"}</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Assignee</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead>Status</TableHead>
+                  {isOwnerKind && <TableHead>Dispatch</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -189,7 +239,15 @@ export default async function RequestsPage({
                       </Link>
                     </TableCell>
                     <TableCell>
-                      {req.customer_id ? (
+                      {isOwnerKind ? (
+                        req.location_id ? (
+                          <Link href={`/dashboard/locations/${req.location_id}`} className="hover:underline">
+                            {locationById.get(req.location_id)?.name ?? "—"}
+                          </Link>
+                        ) : (
+                          "—"
+                        )
+                      ) : req.customer_id ? (
                         <Link href={`/dashboard/customers/${req.customer_id}`} className="hover:underline">
                           {customerById.get(req.customer_id)?.name ?? "—"}
                         </Link>
@@ -218,6 +276,19 @@ export default async function RequestsPage({
                     <TableCell>
                       <StatusBadge status={req.status} />
                     </TableCell>
+                    {isOwnerKind && (
+                      <TableCell>
+                        <DispatchStatusBadge
+                          status={req.dispatch_status}
+                          vendorName={
+                            req.dispatch_id
+                              ? (vendorById.get(dispatchById.get(req.dispatch_id)?.vendor_id ?? "")?.name ?? null)
+                              : null
+                          }
+                          etaAt={req.dispatch_id ? (dispatchById.get(req.dispatch_id)?.eta_at ?? null) : null}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
