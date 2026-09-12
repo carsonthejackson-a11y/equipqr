@@ -15,6 +15,7 @@ import { detectScanSource } from "@/lib/public-request";
 import { BrandHeader, BrandShell, PoweredBy } from "@/components/public/brand-shell";
 import { ClaimCodeCard } from "./claim-code-card";
 import { ScanActions } from "./scan-actions";
+import { OwnerScanActions } from "./owner/owner-scan-actions";
 import { StaffScanView } from "./staff/staff-scan-view";
 import { StaffSignInLink } from "./staff/staff-sign-in-link";
 
@@ -246,13 +247,22 @@ export default async function EquipmentGuidePage({
           </div>
         )}
 
-        <ScanActions
-          guide={guide}
-          qrToken={qrToken}
-          branding={branding}
-          aiChatEnabled={!!process.env.ANTHROPIC_API_KEY && planAllowsAiChat}
-          openRequests={guide.open_requests ?? []}
-        />
+        {guide.company.kind === "equipment_owner" ? (
+          <OwnerScanActions
+            guide={guide}
+            qrToken={qrToken}
+            aiChatEnabled={!!process.env.ANTHROPIC_API_KEY && planAllowsAiChat}
+            openRequests={guide.open_requests ?? []}
+          />
+        ) : (
+          <ScanActions
+            guide={guide}
+            qrToken={qrToken}
+            branding={branding}
+            aiChatEnabled={!!process.env.ANTHROPIC_API_KEY && planAllowsAiChat}
+            openRequests={guide.open_requests ?? []}
+          />
+        )}
 
         {guide.equipment.last_serviced_at && (
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
