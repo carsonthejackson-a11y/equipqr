@@ -1588,3 +1588,58 @@ Playwright (`npm run test:e2e`) needs `npm run build` first; run it only if you 
 | 8 | Owner sign-up entry parameter | **`/signup?kind=owner`** (and `?kind=provider`). `/restaurants` links with it. |
 | 9 | Reporter phone stored twice (`contact_phone` + `reporter_phone`) | **Yes**, deliberately: `contact_phone` keeps every existing notification path working, `reporter_phone` is the stable "who reported it" value for the owner UI and the vendor page. |
 | 10 | What happens when a unit has no vendor at all? | **No dispatch row is created**; the request is still filed, the owner gets `buildOwnerNoVendorEmail`, and the confirmation screen says the manager was notified instead. There is no "notify me" vendor placeholder record. |
+
+---
+
+## 10. WS1 deviations
+
+Recorded per §1's "if the brief is silent, choose the smallest option and record it; if it
+contradicts reality, fix to match reality and list it" rule. Nothing here changes any
+migration column, RPC signature, JSON key, error code, or grant in §2 — every one of those
+matches this brief exactly.
+
+1. **Regression fix, not a spec change**: `get_company_entitlements()` and
+   `get_company_plan_flags()` in `0024_owner_foundation.sql` compute
+   `v_has_paid_or_trialing_sub` from `subscriptions.status`. The straightforward
+   `v_status in ('active','trialing')` is null (not false) when a company has no
+   subscription row at all, which silently produced `is_locked: null` for every lapsed
+   company with no `subscriptions` row — re-introducing a bug `0011_fix_lock_null.sql`
+   already fixed once. Both functions now use the same `coalesce(v_status, '') in (...)`
+   guard as 0011 (and as `enforce_equipment_limit`/`enforce_location_limit` already did).
+   Caught by smoke-owner.sql assertion 36.
+2. **`get_vendor_dispatch`'s `media` array** originally computed `row_number() over (...)`
+   directly inside the `json_agg(json_build_object(...))` call — Postgres rejects a window
+   function inside an aggregate call. Fixed by pre-computing the row number in a subquery,
+   same output shape.
+3. **Stripe price map compile safety (plans.ts)**: broadening `PlanId` to include the three
+   owner ids per §3.1.5 would otherwise make `PRICE_ENV_VARS: Record<PlanId, ...>` (which
+   WS1 does not own — it's WS4's) fail to type-check without adding placeholder owner env
+   vars that don't exist yet. `PRICE_ENV_VARS` stays typed over `ProviderPlanId` only (its
+   three keys and values are byte-identical to before); `getStripePriceId(planId: PlanId, …)`
+   keeps its existing signature but now throws a plain `Error` for any owner plan id. The
+   one existing caller (`dashboard/settings/billing/actions.ts`) already wraps this call in
+   try/catch, so behavior for provider plans is unchanged and no owner checkout is newly
+   reachable. WS4 replaces the `isProviderPlanId` guard with real owner price env vars.
+4. **Broadening `UserRole` and `RequestActivityKind` in place (§3.1.4) broke three
+   exhaustive `Record<UserRole/RequestActivityKind, …>` maps outside WS1's manifest** —
+   TypeScript, not a behavior gap: `src/lib/email/invite.ts`, `src/app/invite/[token]/page.tsx`
+   ROLE_LABEL maps, and `src/app/dashboard/settings/team/members-table.tsx` ROLE_LABEL (added
+   "Manager"/"Staff" labels), plus `activity-feed.tsx`'s `ACTIVITY_ICONS`/`ACTIVITY_KIND_LABELS`
+   (added a `dispatch` → `Truck` icon / "Vendor update" label). No behavior beyond making
+   these compile: per §9 Q2, `manager` already does exactly what `technician` does, and the
+   team page's role-assignment `<Select>` still only offers Owner/Technician — this build
+   does not add a UI path to actually assign `manager` or `staff` to a member.
+5. **`DispatchStatusBadge`'s color for `pending_approval`** isn't in §3.1.3's four-way color
+   rule (failed/declined destructive, finished emerald, acknowledged/eta_given sky,
+   sent/viewed muted — 7 of 8 statuses). Given amber-for-"waiting" is already this
+   codebase's convention (`in_progress` in `status-badge.tsx`), `pending_approval` uses the
+   same amber classes.
+6. **`DISPATCH_STATUS_ORDER`'s exact content** isn't specified beyond its type. It mirrors
+   the `dispatch_status` enum's own declaration order in `0024_owner_foundation.sql`.
+7. **Observation, not a change**: §8's verification block resets the database separately
+   before `smoke.sql` *and* before `smoke-port.sql`, but `smoke-port.sql`'s own header
+   comment says it must run immediately after `smoke.sql` on the *same* reset (it depends on
+   companies A/B that `smoke.sql` seeds) — running it after its own fresh reset fails with an
+   RLS violation on the first insert. WS1 verified both files by resetting once and running
+   `smoke.sql` then `smoke-port.sql` back to back, per `smoke-port.sql`'s own instructions;
+   neither file was modified.

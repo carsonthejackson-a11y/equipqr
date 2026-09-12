@@ -6,6 +6,7 @@ import {
   Flag,
   Mail,
   Info,
+  Truck,
   type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,8 @@ const ACTIVITY_ICONS: Record<RequestActivityKind, LucideIcon> = {
   priority_change: Flag,
   email_sent: Mail,
   system: Info,
+  // Owner roadmap (migration 0024/0025): vendor dispatch updates.
+  dispatch: Truck,
 };
 
 const ACTIVITY_KIND_LABELS: Record<RequestActivityKind, string> = {
@@ -31,6 +34,7 @@ const ACTIVITY_KIND_LABELS: Record<RequestActivityKind, string> = {
   priority_change: "Priority change",
   email_sent: "Email sent",
   system: "System",
+  dispatch: "Vendor update",
 };
 
 /**

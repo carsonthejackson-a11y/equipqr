@@ -35,7 +35,9 @@ import { removeMember, updateMemberRole } from "./actions";
 
 const ROLE_LABEL: Record<UserRole, string> = {
   owner: "Owner",
+  manager: "Manager",
   technician: "Technician",
+  staff: "Staff",
 };
 
 export function MembersTable({
