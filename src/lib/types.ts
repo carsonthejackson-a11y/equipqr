@@ -1,4 +1,4 @@
-export type UserRole = "owner" | "technician";
+export type UserRole = "owner" | "manager" | "technician" | "staff";
 export type RequestStatus =
   | "new"
   | "in_progress"
@@ -9,10 +9,29 @@ export type RequestStatus =
 export type RequestPriority = "low" | "normal" | "high" | "urgent";
 export type EquipmentStatus = "active" | "needs_service" | "out_of_service" | "retired";
 export type QrCodeStatus = "active" | "retired" | "replaced";
-export type ActorKind = "staff" | "customer" | "system";
+export type ActorKind = "staff" | "customer" | "system" | "vendor";
 export type MediaKind = "image" | "video";
 export type QrCodeSource = "instant" | "batch";
 export type ServiceRequestSource = "scan" | "staff" | "pm" | "api";
+
+// ============================================================================
+// Owner roadmap (migrations 0024/0025) — see docs/OWNER-ROADMAP-BRIEF.md
+// ============================================================================
+
+/** A company either provides service (the original model) or owns the equipment it tracks. */
+export type CompanyKind = "service_provider" | "equipment_owner";
+export type DispatchChannel = "email" | "sms" | "phone" | "url" | "platform";
+export type DispatchStatus =
+  | "pending_approval"
+  | "sent"
+  | "viewed"
+  | "acknowledged"
+  | "eta_given"
+  | "finished"
+  | "declined"
+  | "failed";
+/** Model B bridge enum (equipment_access.relationship). Unused in Phase 1 — the table stays empty. */
+export type EquipmentRelationship = "owner" | "servicer";
 
 export type Company = {
   id: string;
@@ -34,6 +53,10 @@ export type Company = {
   timezone: string;
   customer_updates_enabled: boolean;
   created_at: string;
+  /** Chosen at sign-up, never changed by any RPC. Drives dashboard vocabulary/nav (src/lib/vocab.ts) and plan resolution. */
+  kind: CompanyKind;
+  /** Null = the owner first-run wizard has not finished. Never set for service_provider companies. */
+  owner_setup_completed_at: string | null;
 };
 
 /** The subset of Company that anonymous customers may see (scan page, /r/ status page, emails). */
@@ -46,6 +69,8 @@ export type CompanyPublicProfile = {
   brand_color: string | null;
   /** IANA zone for customer-facing times (0023). Absent on payloads cached before that migration. */
   timezone?: string | null;
+  /** Owner roadmap (0024). Absent on payloads cached before that migration. */
+  kind?: CompanyKind;
 };
 
 export type ApiKey = {
@@ -120,6 +145,8 @@ export type EquipmentType = {
   name: string;
   description: string | null;
   created_at: string;
+  /** Owner-kind public report form quick-pick chips (max ~40 chars each). Always an array. */
+  symptom_chips: string[];
 };
 
 export type GuideOutcome = "continue" | "resolved" | "escalate";
@@ -185,6 +212,12 @@ export type Equipment = {
   custom_fields: Record<string, unknown>;
   updated_at: string;
   created_at: string;
+  // ---- Owner roadmap (migration 0024) ----
+  /** The site this unit lives at (owner-kind). Distinct from the free-text `location` column above. */
+  location_id: string | null;
+  vendor_id: string | null;
+  /** Preferred over vendor_id by submit_owner_service_request() while warranty_ends_on has not passed. */
+  warranty_vendor_id: string | null;
 };
 
 export type CustomFieldType = "text" | "number" | "date" | "select" | "boolean";
@@ -302,6 +335,18 @@ export type ServiceRequest = {
   signature_path: string | null;
   signed_by_name: string | null;
   signed_at: string | null;
+  // ---- Owner roadmap (migration 0024) ----
+  /** Always false in Phase 1 — no approval UI exists. */
+  requires_approval: boolean;
+  approved_at: string | null;
+  approved_by: string | null;
+  cost_cents: number | null;
+  /** The "who reported it" value the owner UI and the vendor page show (distinct from contact_phone). */
+  reporter_phone: string | null;
+  location_id: string | null;
+  /** Denormalised from the most recent dispatch — kept in sync by dispatches_sync_request(). */
+  dispatch_status: DispatchStatus | null;
+  dispatch_id: string | null;
 };
 
 export type RequestActivityKind =
@@ -311,7 +356,8 @@ export type RequestActivityKind =
   | "assignment"
   | "priority_change"
   | "email_sent"
-  | "system";
+  | "system"
+  | "dispatch";
 
 export type RequestActivity = {
   id: string;
@@ -382,7 +428,13 @@ export type EquipmentGuide = {
     custom_fields?: { label: string; value: string }[];
   };
   company: { id: string } & CompanyPublicProfile;
-  equipment_type: { id: string; name: string; description: string | null };
+  equipment_type: {
+    id: string;
+    name: string;
+    description: string | null;
+    /** Owner roadmap (0024). Absent on payloads cached before that migration. */
+    symptom_chips?: string[];
+  };
   code: { short_code: string; status: QrCodeStatus };
   /**
    * Open (new / in_progress / scheduled / on_hold) requests on this unit,
@@ -391,6 +443,10 @@ export type EquipmentGuide = {
    */
   open_requests: OpenRequestSummary[];
   root_step_id: string | null;
+  /** Owner roadmap (0024/0025). Absent on payloads cached before that migration. */
+  site_pin_required?: boolean;
+  /** Name only — no address, phone, hours, or site_pin. Owner roadmap (0024/0025). */
+  location?: { id: string; name: string } | null;
   steps: {
     id: string;
     title: string;
@@ -625,3 +681,219 @@ export type WebhookPayload = {
 
 /** A delivery row as the settings page lists it: everything but the payload. */
 export type WebhookDeliverySummary = Omit<WebhookDelivery, "payload">;
+
+// ============================================================================
+// Owner roadmap (migrations 0024/0025) — see docs/OWNER-ROADMAP-BRIEF.md
+// ============================================================================
+
+/** A physical site an equipment_owner company tracks (e.g. one restaurant location). */
+export type Location = {
+  id: string;
+  company_id: string;
+  name: string;
+  address: string | null;
+  phone: string | null;
+  hours: string | null;
+  /**
+   * Plaintext by design: a shared, owner-printable poster code, not a
+   * credential. Only exposed to the owning company's staff (RLS) — never
+   * returned by any anon-callable RPC (see verify_site_pin()).
+   */
+  site_pin: string | null;
+  notes: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** A service vendor's contact card (Phase 1 Model A — no login of its own). */
+export type Vendor = {
+  id: string;
+  company_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  dispatch_url: string | null;
+  preferred_channel: DispatchChannel;
+  hours: string | null;
+  account_number: string | null;
+  categories: string[];
+  notes: string | null;
+  sms_consent_at: string | null;
+  ack_sla_minutes: number;
+  /** Model B bridge column (unbuilt). Never read in Phase 1. */
+  linked_company_id: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** The default vendor for one equipment type, used when a unit has no vendor of its own. */
+export type CategoryDefaultVendor = {
+  company_id: string;
+  equipment_type_id: string;
+  vendor_id: string;
+  updated_by: string | null;
+  updated_at: string;
+};
+
+/** One request sent (or queued to send) to a vendor for a service request. */
+export type Dispatch = {
+  id: string;
+  company_id: string;
+  service_request_id: string;
+  vendor_id: string;
+  channel: DispatchChannel;
+  /** Unguessable capability token for the vendor's no-login /v/<token> page. Never sent to the reporter. */
+  token: string;
+  status: DispatchStatus;
+  eta_at: string | null;
+  vendor_notes: string | null;
+  decline_reason: string | null;
+  invoice_path: string | null;
+  invoice_uploaded_at: string | null;
+  /** Stamped by mark_dispatch_sent() once the API route has actually sent the email — null right after insert. */
+  sent_at: string | null;
+  viewed_at: string | null;
+  acknowledged_at: string | null;
+  finished_at: string | null;
+  declined_at: string | null;
+  sla_alerted_at: string | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Magic-link staff badge token. Table only in Phase 1 — no RPC reads or writes it yet, no UI. */
+export type StaffBadge = {
+  id: string;
+  company_id: string;
+  location_id: string | null;
+  display_name: string;
+  token: string;
+  revoked_at: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
+/** Model B bridge row (unbuilt). Table stays empty in Phase 1. */
+export type EquipmentAccess = {
+  equipment_id: string;
+  company_id: string;
+  relationship: EquipmentRelationship;
+  granted_by: string | null;
+  created_at: string;
+};
+
+/** Shape returned by get_vendor_dispatch() for the no-login /v/<token> vendor page. */
+export type VendorDispatchView = {
+  dispatch: {
+    id: string;
+    status: DispatchStatus;
+    eta_at: string | null;
+    vendor_notes: string | null;
+    decline_reason: string | null;
+    invoice_path: string | null;
+    sent_at: string | null;
+    acknowledged_at: string | null;
+    finished_at: string | null;
+    created_at: string;
+  };
+  vendor: {
+    id: string;
+    name: string;
+    account_number: string | null;
+    ack_sla_minutes: number;
+  };
+  /** contact_email is companies.notification_email — deliberately token-scoped, see docs/OWNER-ROADMAP-BRIEF.md. */
+  owner: {
+    company_name: string;
+    phone: string | null;
+    contact_email: string | null;
+    timezone: string;
+  };
+  request: {
+    public_token: string;
+    status: RequestStatus;
+    priority: RequestPriority;
+    description: string;
+    created_at: string;
+    contact_name: string;
+    reporter_phone: string | null;
+    symptoms: string[];
+  };
+  equipment: {
+    name: string;
+    make: string | null;
+    model: string | null;
+    serial_number: string | null;
+    location: string | null;
+    status: EquipmentStatus;
+    warranty_ends_on: string | null;
+    in_warranty: boolean;
+  };
+  location: { name: string; address: string | null; phone: string | null; hours: string | null } | null;
+  /** Index-only — no storage_path. The bytes come from the API route. */
+  media: { index: number; media_type: MediaKind }[];
+  /** visibility='customer' rows only. */
+  activity: {
+    kind: RequestActivityKind;
+    body: string | null;
+    author_kind: ActorKind;
+    author_name: string | null;
+    created_at: string;
+  }[];
+};
+
+/** Shape returned by submit_owner_service_request(). Fields marked service-role-only are null for anon/authenticated callers. */
+export type OwnerSubmitResult = {
+  request_id: string;
+  public_token: string;
+  company_id: string;
+  company_name: string;
+  /** service role ONLY */
+  company_notification_email: string | null;
+  company_phone: string | null;
+  company_logo_path: string | null;
+  company_brand_color: string | null;
+  customer_updates_enabled: boolean;
+  equipment_id: string;
+  equipment_name: string;
+  location_name: string | null;
+  vendor_source: "warranty" | "unit" | "category" | "none";
+  vendor: { id: string; name: string; phone: string | null } | null;
+  /** service role ONLY */
+  vendor_email: string | null;
+  /** service role ONLY */
+  dispatch_id: string | null;
+  /** service role ONLY — the reporter must never receive the token that acts as the vendor. */
+  dispatch_token: string | null;
+};
+
+/** Shape returned by verify_site_pin(). */
+export type SitePinVerifyResult = {
+  ok: boolean;
+  /** 48-char opaque site_pin_passes token on a match; never the PIN itself. */
+  pass: string | null;
+  location_name: string | null;
+};
+
+/** One row returned by claim_dispatch_sla_alerts() (cron, service role). */
+export type DispatchSlaAlert = {
+  dispatch_id: string;
+  company_id: string;
+  company_name: string;
+  company_notification_email: string | null;
+  company_timezone: string;
+  vendor_name: string;
+  vendor_phone: string | null;
+  ack_sla_minutes: number;
+  minutes_overdue: number;
+  equipment_name: string;
+  location_name: string | null;
+  request_public_token: string;
+  request_id: string;
+  request_priority: RequestPriority;
+};

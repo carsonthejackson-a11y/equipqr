@@ -42,6 +42,19 @@ export const RATE_LIMITS = {
   customerUpdatePerToken: { limit: 30, windowSeconds: 60 * 60 } satisfies RateLimitRule,
   /** POST /api/nameplate (staff-only Claude vision call) — per user. */
   nameplatePerUser: { limit: 30, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  // ---- Owner roadmap ----
+  /** POST /api/site-pin — per client IP. */
+  sitePinPerIp: { limit: 30, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** POST /api/owner-requests — per client IP. */
+  ownerRequestPerIp: { limit: 10, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** POST /api/owner-requests — per QR token. */
+  ownerRequestPerToken: { limit: 20, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** POST /api/vendor-actions — per client IP. */
+  vendorActionPerIp: { limit: 60, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** POST /api/vendor-actions and /v/<token> renders — per dispatch token. */
+  vendorActionPerToken: { limit: 60, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** POST /api/vendor-invoice — per dispatch token. */
+  vendorInvoicePerToken: { limit: 10, windowSeconds: 60 * 60 } satisfies RateLimitRule,
 } as const;
 
 /** Anything with a header lookup: a `Headers`, or Next's ReadonlyHeaders from `headers()`. */

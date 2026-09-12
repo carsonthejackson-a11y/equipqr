@@ -23,4 +23,12 @@ export const FEATURES = {
    * marketing copy).
    */
   batchQr: flag(process.env.NEXT_PUBLIC_FEATURE_BATCH_QR, true),
+  /**
+   * Owner roadmap (Phase 1, Model A): equipment_owner sign-up, locations,
+   * vendor contact cards, PIN-gated public report form, and vendor email
+   * dispatch (migrations 0024/0025, docs/OWNER-ROADMAP-BRIEF.md). Un-parked
+   * by default; set NEXT_PUBLIC_FEATURE_OWNER_ACCOUNTS=false to hide it while
+   * WS2/3/4's UI, routes and emails are still landing.
+   */
+  ownerAccounts: flag(process.env.NEXT_PUBLIC_FEATURE_OWNER_ACCOUNTS, true),
 } as const;
