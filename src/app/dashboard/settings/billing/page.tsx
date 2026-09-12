@@ -5,7 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getEntitlements, isLiveSubscriptionStatus, planFor } from "@/lib/billing";
+import { plansFor } from "@/lib/plans";
 import { isStripeConfigured } from "@/lib/stripe";
+import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 import { createCheckoutSession, createPortalSession } from "./actions";
 import { PlanCards } from "./plan-cards";
@@ -166,7 +168,12 @@ export default async function BillingPage() {
             </p>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div
+            className={cn(
+              "grid gap-4 sm:grid-cols-2",
+              entitlements.company_kind === "equipment_owner" && "lg:grid-cols-3"
+            )}
+          >
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span>Equipment</span>
@@ -181,6 +188,29 @@ export default async function BillingPage() {
                 }
               />
             </div>
+            {entitlements.company_kind === "equipment_owner" && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Locations</span>
+                  <span className="text-muted-foreground">
+                    {entitlements.location_count} / {entitlements.max_locations ?? "Unlimited"}
+                  </span>
+                </div>
+                <Progress
+                  value={
+                    entitlements.max_locations === null
+                      ? 0
+                      : Math.min(100, (entitlements.location_count / entitlements.max_locations) * 100)
+                  }
+                  indicatorClassName={
+                    entitlements.max_locations !== null &&
+                    entitlements.location_count >= entitlements.max_locations
+                      ? "bg-destructive"
+                      : undefined
+                  }
+                />
+              </div>
+            )}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span>Team members</span>
@@ -210,6 +240,7 @@ export default async function BillingPage() {
       </Card>
 
       <PlanCards
+        plans={plansFor(entitlements.company_kind)}
         currentPlanId={entitlements.plan_id}
         hasActiveSubscription={hasActiveSubscription}
         stripeConfigured={stripeConfigured}

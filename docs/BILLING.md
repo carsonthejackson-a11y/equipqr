@@ -1,7 +1,10 @@
 # Billing setup (Stripe)
 
-EquipQR sells three plans (Starter / Pro / Business, monthly or yearly) via Stripe Checkout +
-Customer Portal. Plan data (pricing, limits, feature flags) lives in `src/lib/plans.ts` — that
+EquipQR sells three plans for service-provider companies (Starter / Pro / Business, monthly or
+yearly) via Stripe Checkout + Customer Portal. As of the owner roadmap
+(`docs/OWNER-ROADMAP-BRIEF.md`), equipment_owner companies (restaurants, cafes, and other
+businesses that own the equipment they track) sell three more — Free / Site / Multi-site, see
+§6 below. Plan data (pricing, limits, feature flags) lives in `src/lib/plans.ts` — that
 file is the single source of truth; everything else (the DB's `plan_limits` reference table,
 the billing page, the Stripe products you create) should match it.
 
@@ -127,3 +130,48 @@ In the Stripe dashboard → Settings → Billing → Customer portal, enable it 
   `assertCanAddEquipment()`, for a friendly inline error) and again as a Postgres `before insert`
   trigger on `equipment` (`enforce_equipment_limit()`), reading from the `plan_limits` table as a
   backstop against any other insert path.
+
+## 6. Owner-kind plans (Free / Site / Multi-site)
+
+Equipment_owner companies (`companies.kind = 'equipment_owner'`) subscribe to a separate plan
+set — `ownerPlans` in `src/lib/plans.ts` — instead of Starter/Pro/Business. The two plan sets
+never mix: `createCheckoutSession()` rejects a plan whose `kind` doesn't match the caller's
+company (`"That plan isn't available for this account."`), so a provider can't buy an owner
+plan or vice versa.
+
+Create two more products in Stripe (Free has no Stripe price — it's the zero-cost floor and
+needs no checkout):
+
+| Plan       | Monthly | Yearly |
+|------------|---------|--------|
+| Site       | $24     | $240   |
+| Multi-site | $69     | $690   |
+
+```
+STRIPE_PRICE_SITE_MONTHLY=price_...
+STRIPE_PRICE_SITE_YEARLY=price_...
+STRIPE_PRICE_MULTI_SITE_MONTHLY=price_...
+STRIPE_PRICE_MULTI_SITE_YEARLY=price_...
+```
+
+Add all four new prices to the Customer Portal's "Switch plans" list (step 4 above) alongside
+the six provider ones. `scripts/stripe-setup.mjs` has **not** been updated for this build — it
+still only creates the three provider products, so the two owner products need to be created by
+hand (or the script extended) until that's done.
+
+**How owner billing differs from provider billing:**
+
+- **Never locked.** `equipment_owner` companies have a `free` tier to fall back to, so
+  `get_company_entitlements()` hard-codes `is_locked = false` for this kind regardless of trial
+  or subscription status — a lapsed owner company simply drops to Free's limits (1 location, 10
+  units) instead of seeing the locked screen. `requireActiveSubscription()` in
+  `src/lib/billing.ts` mirrors this explicitly. Provider companies are unchanged.
+- **A second limit: locations.** `assertCanAddLocation()` (`src/lib/billing.ts`) and the
+  `enforce_location_limit()` Postgres trigger enforce `plan_limits.max_locations` the same way
+  the existing equipment limit works — `null` (every provider plan) means unlimited.
+- **The billing page** (`/dashboard/settings/billing`) renders `plansFor(company.kind)` instead
+  of the provider `plans` array, shows a locations used/limit bar alongside the equipment one
+  for owner-kind companies, and shows the Free plan as "Current plan" with no checkout button
+  (there's nothing to buy).
+- `src/components/billing/locked-screen.tsx` and `trial-banner.tsx` never render for
+  `equipment_owner` — see their `companyKind` prop.
