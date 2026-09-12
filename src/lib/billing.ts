@@ -1,6 +1,16 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
-import { canAddEquipment, canAddMember, getPlan, isPlanId, type Plan, type PlanFeatures, type PlanId } from "@/lib/plans";
+import {
+  canAddEquipment,
+  canAddLocation,
+  canAddMember,
+  getPlan,
+  isPlanId,
+  type Plan,
+  type PlanFeatures,
+  type PlanId,
+} from "@/lib/plans";
+import type { CompanyKind } from "@/lib/types";
 
 export type Entitlements = {
   plan_id: PlanId;
@@ -11,6 +21,17 @@ export type Entitlements = {
   member_count: number;
   is_trialing: boolean;
   is_locked: boolean;
+  // ---- Owner roadmap (docs/OWNER-ROADMAP-BRIEF.md §3.4) ----
+  // WS2 STUB: WS4 owns this file. get_company_entitlements() (migration
+  // 0024) already returns these three keys — this is the minimal parsing
+  // needed so src/app/dashboard/locations/actions.ts can call
+  // assertCanAddLocation() below before WS4's branch lands. WS4 should
+  // reconcile/replace this block per docs/OWNER-ROADMAP-BRIEF.md §3.4 (it
+  // also touches requireActiveSubscription()'s owner-kind fast path and
+  // assertCanAddEquipment()'s error copy, which this stub does not).
+  company_kind: CompanyKind;
+  location_count: number;
+  max_locations: number | null;
 };
 
 /**
@@ -41,6 +62,9 @@ export async function getEntitlements(): Promise<Entitlements | null> {
     member_count: Number(raw.member_count ?? 0),
     is_trialing: !!raw.is_trialing,
     is_locked: !!raw.is_locked,
+    company_kind: raw.company_kind === "equipment_owner" ? "equipment_owner" : "service_provider",
+    location_count: Number(raw.location_count ?? 0),
+    max_locations: raw.max_locations === null || raw.max_locations === undefined ? null : Number(raw.max_locations),
   };
 }
 
@@ -106,6 +130,36 @@ export async function assertCanAddEquipment(): Promise<{ error: string } | null>
   if (!canAddEquipment(plan, entitlements.equipment_count)) {
     return {
       error: `You've reached the ${plan.equipmentLimit}-unit limit of the ${plan.name} plan. Upgrade to add more.`,
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Guard for createLocation() (src/app/dashboard/locations/actions.ts):
+ * blocks once the company is locked, or once it's at its plan's location
+ * limit. Mirrors assertCanAddEquipment() above. Returns null when fine to
+ * proceed.
+ *
+ * WS2 STUB — see the Entitlements.company_kind/location_count/max_locations
+ * comment above.
+ */
+export async function assertCanAddLocation(): Promise<{ error: string } | null> {
+  const entitlements = await getEntitlements();
+  if (!entitlements) return null;
+
+  if (entitlements.is_locked) {
+    return { error: "Your trial has ended. Choose a plan on the Billing page to keep going." };
+  }
+
+  const plan = planFor(entitlements);
+  if (!canAddLocation(plan, entitlements.location_count)) {
+    return {
+      error:
+        plan.locationLimit === null
+          ? "Couldn't add another location."
+          : `You've reached the ${plan.locationLimit}-location limit of the ${plan.name} plan. Upgrade to add more.`,
     };
   }
 
