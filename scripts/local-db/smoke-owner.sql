@@ -809,4 +809,220 @@ select (submit_service_request('ptoken0000000000000001', 'Regression check', 'Re
   ->>'company_name' as p_submit_regression;
 reset role;
 
+-- ============================================================================
+-- security review -- BEGIN
+-- ============================================================================
+-- Assertions added by the independent security review of the owner stack.
+-- Each one is an attack that SUCCEEDED against 0024/0025 before
+-- 0026_owner_security_review.sql; see that file's header for the write-up.
+-- P = the provider company (a0000000-...-0001), O = the owner company
+-- (b0000000-...-0001).
+
+-- A location and a vendor that belong to P, never to O.
+insert into locations (id, company_id, name, site_pin) values
+  ('c0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001', 'P Depot', '9999');
+insert into vendors (id, company_id, name, email) values
+  ('c0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000001', 'P Secret Vendor', 'psecret@x.test');
+
+-- SR1. O's own staff cannot point O's equipment at P's vendor / warranty
+-- vendor / location. RLS on `equipment` only constrains company_id, so this
+-- UPDATE passes the policy -- a 42501 here can only come from the trigger.
+-- Before 0026 all three succeeded, which is what made SR2 and SR3 possible
+-- and would have emailed a work order to another tenant's vendor.
+set role authenticated;
+set request.jwt.claim.sub = 'b0000000-0000-0000-0000-000000000002';  -- O's owner
+do $$
+begin
+  begin
+    update equipment set vendor_id = 'c0000000-0000-0000-0000-000000000002'
+    where id = 'b0000000-0000-0000-0000-000000000007';
+    raise exception 'CROSS-TENANT: equipment.vendor_id accepted another company''s vendor';
+  exception when insufficient_privilege then
+    raise notice 'ok: equipment.vendor_id rejects a foreign vendor';
+  end;
+
+  begin
+    update equipment set warranty_vendor_id = 'c0000000-0000-0000-0000-000000000002'
+    where id = 'b0000000-0000-0000-0000-000000000007';
+    raise exception 'CROSS-TENANT: equipment.warranty_vendor_id accepted another company''s vendor';
+  exception when insufficient_privilege then
+    raise notice 'ok: equipment.warranty_vendor_id rejects a foreign vendor';
+  end;
+
+  begin
+    update equipment set location_id = 'c0000000-0000-0000-0000-000000000001'
+    where id = 'b0000000-0000-0000-0000-000000000007';
+    raise exception 'CROSS-TENANT: equipment.location_id accepted another company''s location';
+  exception when insufficient_privilege then
+    raise notice 'ok: equipment.location_id rejects a foreign location';
+  end;
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
+-- SR1b. Same rule on service_requests.location_id (0020 lets staff insert a
+-- request directly and that policy, too, only constrains company_id). Run as
+-- superuser so RLS cannot be what rejects it -- the trigger must.
+do $$
+begin
+  insert into service_requests (company_id, equipment_id, location_id, description, contact_name, source)
+  values ('b0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000007',
+          'c0000000-0000-0000-0000-000000000001', 'foreign location', 'Mallory', 'staff');
+  raise exception 'CROSS-TENANT: service_requests.location_id accepted another company''s location';
+exception when insufficient_privilege then
+  raise notice 'ok: service_requests.location_id rejects a foreign location';
+end $$;
+
+-- SR2. Consequence check: O's sticker still resolves to O's OWN location, so
+-- resolve_qr_code() cannot be steered into publishing P's location name.
+set role anon;
+do $$
+declare v json;
+begin
+  v := resolve_qr_code('otoken0000000000000001')->'guide'->'location';
+  if (v->>'id') is distinct from 'b0000000-0000-0000-0000-000000000004' then
+    raise exception 'CROSS-TENANT: resolve_qr_code returned location %', v;
+  end if;
+  raise notice 'ok: resolve_qr_code still returns only the unit''s own location';
+end $$;
+
+-- SR3. ...and verify_site_pin() can only ever be an oracle for the PIN of the
+-- unit's own location: P's '9999' must not validate through O's sticker.
+-- (54000 means the location bucket is already spent by the brute-force
+-- assertion above -- also "did not validate", which is what this asserts.)
+do $$
+declare v json;
+begin
+  v := verify_site_pin('otoken0000000000000001', '9999');
+  if (v->>'ok')::boolean then
+    raise exception 'CROSS-TENANT: another company''s site PIN validated through this sticker';
+  end if;
+  raise notice 'ok: a foreign site PIN does not validate';
+exception when sqlstate '54000' then
+  raise notice 'ok: rate limited before comparison (still not validated)';
+end $$;
+
+-- SR4. submit_owner_service_request() is granted to anon, so the route's
+-- isOwnedUploadPath() check in src/lib/public-request.ts is not a boundary.
+-- An attachment path outside the scanned token's own prefix would let a
+-- direct anon-key call name any object in the service-request-media bucket --
+-- 0001's "Company staff can view their own service request media" storage
+-- policy matches on service_request_media.storage_path, so the row alone
+-- grants the read. Validation runs before the PIN gate, so no pass is needed
+-- to reach it.
+do $$
+begin
+  begin
+    perform submit_owner_service_request(
+      'otoken0000000000000002', 'foreign media', 'Mallory', null, '{}'::text[], 'normal',
+      '[{"storage_path":"someone-elses-token/secret.jpg","media_type":"image"}]'::jsonb, null);
+    raise exception 'LEAK: a foreign attachment path was accepted';
+  exception when sqlstate '22023' then
+    raise notice 'ok: foreign attachment path rejected';
+  end;
+
+  begin
+    perform submit_owner_service_request(
+      'otoken0000000000000002', 'traversal media', 'Mallory', null, '{}'::text[], 'normal',
+      '[{"storage_path":"otoken0000000000000002/../other/secret.jpg","media_type":"image"}]'::jsonb, null);
+    raise exception 'LEAK: a traversal attachment path was accepted';
+  exception when sqlstate '22023' then
+    raise notice 'ok: traversal attachment path rejected';
+  end;
+
+  begin
+    perform submit_owner_service_request(
+      'otoken0000000000000002', 'too much media', 'Mallory', null, '{}'::text[], 'normal',
+      (select jsonb_agg(jsonb_build_object(
+         'storage_path', 'otoken0000000000000002/' || g || '.jpg', 'media_type', 'image'))
+       from generate_series(1, 7) g), null);
+    raise exception 'LEAK: 7 attachments were accepted';
+  exception when sqlstate '22023' then
+    raise notice 'ok: attachment count capped at 6';
+  end;
+end $$;
+
+-- SR4b. Nothing above wrote a media row.
+do $$
+declare v_n int;
+begin
+  select count(*) into v_n from service_request_media where storage_path not like 'otoken%';
+  if v_n <> 0 then
+    raise exception 'LEAK: % service_request_media row(s) name a foreign object', v_n;
+  end if;
+  raise notice 'ok: no foreign-object media rows exist';
+end $$;
+
+-- SR5. The provider RPC must not accept owner-kind equipment: it has no site
+-- PIN gate, so accepting O's sticker walked straight past the only access
+-- control the owner report flow has.
+do $$
+begin
+  perform submit_service_request('otoken0000000000000001', 'pin bypass', 'Mallory', 'm@x.test', '555');
+  raise exception 'BYPASS: submit_service_request accepted owner-kind equipment';
+exception when sqlstate 'P0003' then
+  raise notice 'ok: submit_service_request rejects owner-kind equipment (P0003)';
+end $$;
+
+-- SR6. Anon still sees nothing in any of the seven new tables.
+do $$
+declare v_n int;
+begin
+  select (select count(*) from locations) + (select count(*) from vendors)
+       + (select count(*) from category_default_vendors) + (select count(*) from dispatches)
+       + (select count(*) from staff_badges) + (select count(*) from equipment_access)
+       + (select count(*) from site_pin_passes)
+  into v_n;
+  if v_n <> 0 then
+    raise exception 'LEAK: anon can read % row(s) across the new tables', v_n;
+  end if;
+  raise notice 'ok: anon reads nothing from the seven new tables';
+end $$;
+reset role;
+
+-- SR7. Grants. Supabase's default privileges grant EXECUTE on every new
+-- function in `public` to anon/authenticated, and `revoke ... from public`
+-- does NOT undo a role grant -- which is how the 4-arg
+-- create_company_and_profile() shipped anon-callable.
+do $$
+declare v_bad text;
+begin
+  select string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')', ', ')
+  into v_bad
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and has_function_privilege('anon', p.oid, 'execute')
+    and p.proname in (
+      'create_company_and_profile', 'check_rate_limit', 'mark_dispatch_sent',
+      'claim_dispatch_sla_alerts', 'vendor_attach_dispatch_invoice',
+      'enforce_location_limit', 'dispatches_sync_request',
+      'enforce_equipment_tenant_refs', 'enforce_service_request_tenant_refs',
+      'assert_submission_media_ok'
+    );
+  if v_bad is not null then
+    raise exception 'GRANT: anon can execute %', v_bad;
+  end if;
+  raise notice 'ok: no staff-only or trigger-only function is anon-callable';
+end $$;
+
+-- SR8. Every SECURITY DEFINER function in `public` pins search_path.
+do $$
+declare v_bad text;
+begin
+  select string_agg(p.proname, ', ') into v_bad
+  from pg_proc p
+  join pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public' and p.prosecdef
+    and (p.proconfig is null or not (p.proconfig @> array['search_path=public']));
+  if v_bad is not null then
+    raise exception 'SEARCH_PATH: security definer function(s) without a pinned search_path: %', v_bad;
+  end if;
+  raise notice 'ok: every security definer function pins search_path=public';
+end $$;
+
+-- ============================================================================
+-- security review -- END
+-- ============================================================================
+
 select 'smoke-owner OK' as result;

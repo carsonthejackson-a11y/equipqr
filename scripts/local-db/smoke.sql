@@ -17,8 +17,23 @@ select (resolve_qr_code(:'sc'))->>'status' as by_short;
 select (resolve_qr_code('nope'))->>'status' as missing;
 select resolve_qr_code('0123456789abcdef01234567')->'guide'->'company' as company;
 select record_scan('0123456789abcdef01234567','ua','short_code');
+-- The attachment path must sit under the scanned token's own prefix (0026 —
+-- the rule src/lib/public-request.ts already applied at the route, moved into
+-- the RPC because the RPC itself is granted to anon).
 select submit_service_request('0123456789abcdef01234567','Broken','Bob','bob@x.test','555',
-  '[{"storage_path":"a/b.jpg","media_type":"image"}]'::jsonb,'[]'::jsonb,'high') as submit \gset
+  '[{"storage_path":"0123456789abcdef01234567/b.jpg","media_type":"image"}]'::jsonb,'[]'::jsonb,'high') as submit \gset
+-- 0026: a path outside that prefix is rejected (22023) — it would otherwise
+-- let a direct anon-key call attach another tenant's storage object.
+do $$
+begin
+  begin
+    perform submit_service_request('0123456789abcdef01234567','Foreign media','Eve','eve@x.test','555',
+      '[{"storage_path":"someone-elses-token/secret.jpg","media_type":"image"}]'::jsonb,'[]'::jsonb,'low');
+    raise exception 'LEAK: submit_service_request accepted a foreign attachment path';
+  exception when sqlstate '22023' then
+    raise notice 'ok: foreign attachment path rejected';
+  end;
+end $$;
 -- 0018: an anon caller must never see the company's internal notification inbox.
 do $$
 declare v text;
