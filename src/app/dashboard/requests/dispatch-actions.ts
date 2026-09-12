@@ -8,6 +8,7 @@ import { buildVendorDispatchEmail } from "@/lib/email/vendor-dispatch";
 import { sendEmail } from "@/lib/email/send";
 import { sanitizeEmailHeader } from "@/lib/email/layout";
 import { getVendorDispatchUrl } from "@/lib/qr";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { serverEnv } from "@/lib/env";
 import type { Company, Dispatch, Equipment, Profile, ServiceRequest, Vendor } from "@/lib/types";
 
@@ -58,6 +59,12 @@ export async function resendDispatch(requestId: string): Promise<{ error?: strin
     .maybeSingle<ServiceRequest>();
   if (!serviceRequest || !serviceRequest.dispatch_id) {
     return { error: "This request has no dispatch to resend" };
+  }
+
+  // Nothing else bounds how many times this can put mail in a third party's
+  // inbox — the vendor is not a user and cannot unsubscribe.
+  if (!(await checkRateLimit(`rsd:req:${requestId}`, RATE_LIMITS.resendDispatchPerRequest))) {
+    return { error: "You've resent this work order a few times already — give it a bit." };
   }
 
   const { data: dispatch } = await supabase

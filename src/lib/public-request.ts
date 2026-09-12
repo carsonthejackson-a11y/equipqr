@@ -314,3 +314,24 @@ export const vendorActionSchema = z.discriminatedUnion("action", [
 ]);
 
 export type VendorActionInput = z.infer<typeof vendorActionSchema>;
+
+/**
+ * The same "is this link still live?" gate every vendor-token RPC in migration
+ * 0025 applies before it does anything: a declined dispatch, or a parent
+ * request that has been resolved or canceled, raises P0001 and the `/v/<token>`
+ * page 404s.
+ *
+ * `/v/<token>/media/<index>` reads `service_request_media` with the admin
+ * client rather than going through `get_vendor_dispatch()`, so without this it
+ * kept serving signed photo URLs from a dispatch the owner had already closed
+ * or declined — indefinitely, to anyone still holding the token. Exported (and
+ * unit tested) so the route and the RPCs can't drift apart.
+ */
+export function isVendorDispatchOpen(
+  dispatchStatus: string | null | undefined,
+  requestStatus: string | null | undefined
+): boolean {
+  if (dispatchStatus === "declined") return false;
+  if (requestStatus === "resolved" || requestStatus === "canceled") return false;
+  return true;
+}

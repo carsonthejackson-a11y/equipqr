@@ -9,6 +9,7 @@ import {
   requestUpdateAuthorStorageKey,
   requestUpdateSchema,
   serviceRequestSchema,
+  isVendorDispatchOpen,
   sitePinSchema,
   sitePinStorageKey,
   vendorActionSchema,
@@ -338,5 +339,56 @@ describe("vendorActionSchema", () => {
     expect(
       vendorActionSchema.safeParse({ token: "t", action: "decline", reason: "Not ours" }).success
     ).toBe(true);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Security review (see the `-- security review` section of
+// scripts/local-db/smoke-owner.sql for the SQL-side half).
+// ----------------------------------------------------------------------------
+
+describe("isVendorDispatchOpen", () => {
+  it("closes a declined dispatch", () => {
+    expect(isVendorDispatchOpen("declined", "new")).toBe(false);
+  });
+
+  it("closes a dispatch whose parent request is resolved or canceled", () => {
+    expect(isVendorDispatchOpen("acknowledged", "resolved")).toBe(false);
+    expect(isVendorDispatchOpen("acknowledged", "canceled")).toBe(false);
+  });
+
+  it("stays open for every live combination", () => {
+    for (const dispatchStatus of ["sent", "viewed", "acknowledged", "eta_given", "finished", "failed"]) {
+      for (const requestStatus of ["new", "in_progress", "scheduled", "on_hold"]) {
+        expect(isVendorDispatchOpen(dispatchStatus, requestStatus)).toBe(true);
+      }
+    }
+  });
+
+  it("fails open only for genuinely unknown values, never for the two closed ones", () => {
+    expect(isVendorDispatchOpen(null, null)).toBe(true);
+    expect(isVendorDispatchOpen(undefined, "resolved")).toBe(false);
+  });
+});
+
+describe("isOwnedUploadPath (mirrors assert_submission_media_ok in migration 0026)", () => {
+  const token = "otoken0000000000000002";
+
+  it("rejects a path under another scan's prefix", () => {
+    expect(isOwnedUploadPath("someone-elses-token/secret.jpg", token)).toBe(false);
+  });
+
+  it("rejects traversal, absolute paths and the bare prefix", () => {
+    expect(isOwnedUploadPath(`${token}/../other/secret.jpg`, token)).toBe(false);
+    expect(isOwnedUploadPath(`/${token}/a.jpg`, token)).toBe(false);
+    expect(isOwnedUploadPath(`${token}/`, token)).toBe(false);
+  });
+
+  it("rejects a prefix that only looks like the token", () => {
+    expect(isOwnedUploadPath(`${token}-evil/a.jpg`, token)).toBe(false);
+  });
+
+  it("accepts what the uploader actually writes", () => {
+    expect(isOwnedUploadPath(`${token}/2f1c-photo.jpg`, token)).toBe(true);
   });
 });

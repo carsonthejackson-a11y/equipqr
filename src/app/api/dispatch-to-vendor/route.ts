@@ -6,6 +6,7 @@ import { sendEmail } from "@/lib/email/send";
 import { sanitizeEmailHeader } from "@/lib/email/layout";
 import { getVendorDispatchUrl } from "@/lib/qr";
 import { emitEquipmentEvent, emitRequestActivity } from "@/lib/events";
+import { enforceRateLimits, RATE_LIMITS } from "@/lib/rate-limit";
 import type { Company, Equipment, Profile, ServiceRequest, Vendor } from "@/lib/types";
 
 // Backs `dispatchToVendor()` in src/app/dashboard/requests/dispatch-actions.ts
@@ -80,6 +81,23 @@ export async function POST(request: Request) {
   if (serviceRequest.dispatch_id) {
     return NextResponse.json({ error: "This request already has a dispatch" }, { status: 409 });
   }
+  // A closed request has nothing to dispatch, and every vendor-token RPC would
+  // refuse the resulting work order anyway (P0001) — so all this could do is
+  // email a vendor a link that 404s.
+  if (serviceRequest.status === "resolved" || serviceRequest.status === "canceled") {
+    return NextResponse.json({ error: "This request is closed" }, { status: 409 });
+  }
+
+  // The dispatch_id guard above is a read-then-write, so two overlapping calls
+  // can both pass it and mail the vendor twice; and nothing else here bounds
+  // how often a signed-in owner/manager may drive a send to a third party's
+  // inbox. Both are only worth a rate limit, not a lock — the request-scoped
+  // bucket is the one that stops a replay.
+  const limited = await enforceRateLimits([
+    { key: `d2v:req:${requestId}`, rule: RATE_LIMITS.dispatchToVendorPerRequest },
+    { key: `d2v:usr:${user.id}`, rule: RATE_LIMITS.dispatchToVendorPerUser },
+  ]);
+  if (limited) return limited;
 
   const { data: vendor } = await supabase
     .from("vendors")
