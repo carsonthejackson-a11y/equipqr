@@ -132,3 +132,26 @@ export function renderEmailText({ heading, lines, cta, footerNote }: PlainTextOp
 
   return [heading, "", ...bodyLines, ...trailer].join("\n");
 }
+
+// ----------------------------------------------------------------------------
+// Owner roadmap (docs/OWNER-ROADMAP-BRIEF.md §7 "Email header injection") —
+// a dispatch email's subject and Reply-To can carry values a customer or
+// owner typed (equipment name, company name), so both go through here before
+// ever reaching an email header.
+// ----------------------------------------------------------------------------
+
+/** Strips CR/LF/tab and other C0 control characters and truncates to `max` chars. Every email subject must go through this. */
+export function sanitizeEmailSubject(value: string, max = 140): string {
+  return value.replace(/[\x00-\x1f\x7f]/g, " ").trim().slice(0, max);
+}
+
+/**
+ * For header values (e.g. Reply-To) that must be a single clean token, not
+ * free text: returns null if `value` contains a comma, semicolon, whitespace,
+ * or any control character — signalling "leave this header off" rather than
+ * risk a forged/injected one.
+ */
+export function sanitizeEmailHeader(value: string): string | null {
+  if (/[\x00-\x1f\x7f,;\s]/.test(value)) return null;
+  return value;
+}

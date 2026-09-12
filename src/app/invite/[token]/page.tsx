@@ -15,7 +15,9 @@ import { AcceptInviteForm } from "./accept-invite-form";
 
 const ROLE_LABEL: Record<PublicInvitation["role"], string> = {
   owner: "an owner",
+  manager: "a manager",
   technician: "a technician",
+  staff: "a staff member",
 };
 
 const STATUS_MESSAGE: Record<Exclude<PublicInvitation["status"], "pending">, { title: string; body: string }> = {

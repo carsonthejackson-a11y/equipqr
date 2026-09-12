@@ -7,8 +7,18 @@
 // `before insert` trigger on `equipment` (RLS-adjacent enforcement that
 // can't call back into this TS module). If you change limits here, update
 // that seed data too — see the comment above the `plan_limits` insert.
+//
+// Owner roadmap (migration 0024, docs/OWNER-ROADMAP-BRIEF.md §3.1.5): a
+// company is either a service_provider (the original model, plans below) or
+// an equipment_owner (ownerPlans below). `supabase/migrations/0024_owner_foundation.sql`
+// seeds the matching `plan_limits` rows (company_kind/max_locations columns)
+// — keep that seed in sync with `ownerPlans` the same way.
 
-export type PlanId = "starter" | "pro" | "business";
+import type { CompanyKind } from "@/lib/types";
+
+export type ProviderPlanId = "starter" | "pro" | "business";
+export type OwnerPlanId = "free" | "site" | "multi_site";
+export type PlanId = ProviderPlanId | OwnerPlanId;
 export type BillingInterval = "month" | "year";
 
 export type PlanFeatures = {
@@ -34,6 +44,11 @@ export type Plan = {
   highlights: string[];
   /** Visually emphasised on pricing pages. */
   popular?: boolean;
+  kind: CompanyKind;
+  /** Owner plans only; null = unlimited / not applicable (every provider plan). */
+  locationLimit: number | null;
+  /** Display-only retention hint. Nothing enforces it. */
+  historyDays: number | null;
 };
 
 export const plans: Plan[] = [
@@ -59,6 +74,9 @@ export const plans: Plan[] = [
       "Service requests with photo & video",
       "Email support",
     ],
+    kind: "service_provider",
+    locationLimit: null,
+    historyDays: null,
   },
   {
     id: "pro",
@@ -83,6 +101,9 @@ export const plans: Plan[] = [
       "Priority email support",
     ],
     popular: true,
+    kind: "service_provider",
+    locationLimit: null,
+    historyDays: null,
   },
   {
     id: "business",
@@ -106,14 +127,124 @@ export const plans: Plan[] = [
       "Data export & API access",
       "Priority support",
     ],
+    kind: "service_provider",
+    locationLimit: null,
+    historyDays: null,
   },
 ];
+
+// ----------------------------------------------------------------------------
+// Owner plans (equipment_owner companies) — docs/OWNER-ROADMAP-BRIEF.md §3.1.5.
+// Requester/staff seats are free and unlimited at every tier: memberLimit is
+// null everywhere.
+// ----------------------------------------------------------------------------
+
+export const ownerPlans: Plan[] = [
+  {
+    id: "free",
+    name: "Free",
+    priceMonthly: 0,
+    priceYearly: 0,
+    equipmentLimit: 10,
+    memberLimit: null,
+    features: {
+      aiChat: false,
+      batchQr: false,
+      branding: false,
+      exportApi: false,
+    },
+    supportLabel: "Email support",
+    blurb: "For one site tracking equipment and taking service requests, at no cost.",
+    highlights: [
+      "Up to 10 pieces of equipment",
+      "1 location",
+      "Unlimited staff and vendor contacts",
+      "Service requests with photo & video",
+      "Email support",
+    ],
+    kind: "equipment_owner",
+    locationLimit: 1,
+    historyDays: 30,
+  },
+  {
+    id: "site",
+    name: "Site",
+    priceMonthly: 24,
+    priceYearly: 240,
+    equipmentLimit: 75,
+    memberLimit: null,
+    features: {
+      aiChat: true,
+      batchQr: true,
+      branding: false,
+      exportApi: false,
+    },
+    supportLabel: "Priority email support",
+    blurb: "For one location that wants AI troubleshooting and pre-printed QR batches.",
+    highlights: [
+      "Up to 75 pieces of equipment",
+      "1 location",
+      "AI-drafted troubleshooting guides",
+      "Pre-printed QR code batches",
+      "Priority email support",
+    ],
+    popular: true,
+    kind: "equipment_owner",
+    locationLimit: 1,
+    historyDays: null,
+  },
+  {
+    id: "multi_site",
+    name: "Multi-site",
+    priceMonthly: 69,
+    priceYearly: 690,
+    equipmentLimit: 400,
+    memberLimit: null,
+    features: {
+      aiChat: true,
+      batchQr: true,
+      branding: true,
+      exportApi: false,
+    },
+    supportLabel: "Priority support",
+    blurb: "For an owner running multiple sites who wants branding across all of them.",
+    highlights: [
+      "Up to 400 pieces of equipment",
+      "Up to 5 locations",
+      "Your logo & colors on customer pages",
+      "Everything in Site",
+      "Priority support",
+    ],
+    kind: "equipment_owner",
+    locationLimit: 5,
+    historyDays: null,
+  },
+];
+
+export const allPlans: Plan[] = [...plans, ...ownerPlans];
 
 export const TRIAL_DAYS = 14;
 export const TRIAL_PLAN: PlanId = "pro";
 
+/** The plan an in-trial company of this kind is treated as having (mirrors enforce_*_limit()/get_company_entitlements() in 0024). */
+export const TRIAL_PLAN_BY_KIND: Record<CompanyKind, PlanId> = {
+  service_provider: "pro",
+  equipment_owner: "site",
+};
+
+/** The plan a lapsed (trial ended, no active subscription) company of this kind falls back to. */
+export const FREE_PLAN_BY_KIND: Record<CompanyKind, PlanId> = {
+  service_provider: "starter",
+  equipment_owner: "free",
+};
+
+/** All plans available to companies of this kind, in display order. */
+export function plansFor(kind: CompanyKind): Plan[] {
+  return kind === "equipment_owner" ? ownerPlans : plans;
+}
+
 export function getPlan(id: PlanId): Plan {
-  const plan = plans.find((p) => p.id === id);
+  const plan = allPlans.find((p) => p.id === id);
   if (!plan) {
     throw new Error(`Unknown plan id: ${id}`);
   }
@@ -121,7 +252,7 @@ export function getPlan(id: PlanId): Plan {
 }
 
 export function isPlanId(value: string | null | undefined): value is PlanId {
-  return !!value && plans.some((p) => p.id === value);
+  return !!value && allPlans.some((p) => p.id === value);
 }
 
 export function canAddEquipment(plan: Plan, currentCount: number): boolean {
@@ -133,13 +264,28 @@ export function canAddMember(plan: Plan, currentCount: number): boolean {
   return currentCount < plan.memberLimit;
 }
 
+/** Owner plans only in practice (provider plans have locationLimit: null, so this is always true for them). */
+export function canAddLocation(plan: Plan, currentCount: number): boolean {
+  if (plan.locationLimit === null) return true;
+  return currentCount < plan.locationLimit;
+}
+
 // ----------------------------------------------------------------------------
-// Stripe price id lookup. Each plan/interval pair maps to one of six env
-// vars — no price ids are hardcoded so they can differ between Stripe test
-// and live mode without a code change.
+// Stripe price id lookup. Each provider plan/interval pair maps to one of six
+// env vars — no price ids are hardcoded so they can differ between Stripe
+// test and live mode without a code change.
+//
+// Owner plans (free/site/multi_site) are NOT wired here — that's WS4's job
+// (docs/OWNER-ROADMAP-BRIEF.md §3.4). PRICE_ENV_VARS intentionally stays
+// keyed by ProviderPlanId only (not the broadened PlanId) so this map can't
+// silently go stale-but-typed once owner ids exist; getStripePriceId() below
+// still accepts any PlanId and throws a clear, catchable error for an owner
+// plan id rather than a TypeScript-widened runtime crash. The one existing
+// caller (dashboard/settings/billing/actions.ts) already wraps this call in
+// try/catch.
 // ----------------------------------------------------------------------------
 
-const PRICE_ENV_VARS: Record<PlanId, Record<BillingInterval, string>> = {
+const PRICE_ENV_VARS: Record<ProviderPlanId, Record<BillingInterval, string>> = {
   starter: {
     month: "STRIPE_PRICE_STARTER_MONTHLY",
     year: "STRIPE_PRICE_STARTER_YEARLY",
@@ -154,7 +300,14 @@ const PRICE_ENV_VARS: Record<PlanId, Record<BillingInterval, string>> = {
   },
 };
 
+function isProviderPlanId(id: PlanId): id is ProviderPlanId {
+  return id === "starter" || id === "pro" || id === "business";
+}
+
 export function getStripePriceId(planId: PlanId, interval: BillingInterval): string {
+  if (!isProviderPlanId(planId)) {
+    throw new Error(`Stripe billing for the "${planId}" plan is not wired up yet.`);
+  }
   const envVar = PRICE_ENV_VARS[planId][interval];
   const value = process.env[envVar];
   if (!value) {
@@ -165,24 +318,29 @@ export function getStripePriceId(planId: PlanId, interval: BillingInterval): str
   return value;
 }
 
-/** All six env var names, e.g. for a "which price ids are missing" admin check. */
+/** All six env var names, e.g. for a "which price ids are missing" admin check. Provider plans only — see PRICE_ENV_VARS. */
 export function listStripePriceEnvVars(): string[] {
-  return plans.flatMap((p) => [PRICE_ENV_VARS[p.id].month, PRICE_ENV_VARS[p.id].year]);
+  return plans.flatMap((p) => {
+    const envVars = PRICE_ENV_VARS[p.id as ProviderPlanId];
+    return [envVars.month, envVars.year];
+  });
 }
 
 /**
  * Reverse-lookup: given a Stripe price id (from a webhook payload), find the
  * matching plan id + interval. Returns null if it doesn't match any of our
- * configured prices (e.g. a stale/unknown price).
+ * configured prices (e.g. a stale/unknown price). Provider plans only — see
+ * PRICE_ENV_VARS.
  */
 export function planFromStripePriceId(
   stripePriceId: string
-): { planId: PlanId; interval: BillingInterval } | null {
+): { planId: ProviderPlanId; interval: BillingInterval } | null {
   for (const plan of plans) {
+    const planId = plan.id as ProviderPlanId;
     for (const interval of ["month", "year"] as const) {
-      const envVar = PRICE_ENV_VARS[plan.id][interval];
+      const envVar = PRICE_ENV_VARS[planId][interval];
       if (process.env[envVar] === stripePriceId) {
-        return { planId: plan.id, interval };
+        return { planId, interval };
       }
     }
   }

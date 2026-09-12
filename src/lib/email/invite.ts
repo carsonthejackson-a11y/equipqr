@@ -3,7 +3,9 @@ import { renderEmail, renderEmailText, escapeHtml, type EmailCta } from "./layou
 
 const ROLE_LABEL: Record<UserRole, string> = {
   owner: "an owner",
+  manager: "a manager",
   technician: "a technician",
+  staff: "a staff member",
 };
 
 // Plain function (no Resend dependency) so the invite email content can be

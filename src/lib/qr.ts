@@ -56,6 +56,12 @@ export function getRequestStatusUrl(publicToken: string) {
   return `${base}/r/${publicToken}`;
 }
 
+/** No-login vendor action page URL for a dispatch (owner roadmap — migration 0025's dispatches.token). */
+export function getVendorDispatchUrl(dispatchToken: string) {
+  const base = serverEnv.NEXT_PUBLIC_APP_URL;
+  return `${base}/v/${dispatchToken}`;
+}
+
 /**
  * Every value worth looking up for something a person typed or pasted into the
  * staff "enter a code" box, most specific first: the 8-char short code printed

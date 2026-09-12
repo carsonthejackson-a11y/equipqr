@@ -37,6 +37,9 @@ export const EQUIPMENT_EVENT_KINDS = {
   inspection_completed: "Inspection completed",
   pm_due: "Maintenance due",
   imported: "Imported",
+  // ---- Owner roadmap (migration 0024/0025) ----
+  dispatch_sent: "Dispatched to vendor",
+  dispatch_update: "Vendor update",
 } as const;
 
 export type EquipmentEventKind = keyof typeof EQUIPMENT_EVENT_KINDS;

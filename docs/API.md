@@ -443,3 +443,86 @@ This mirrors EquipQR's own reference verifier (`verifyWebhookSignature` in
 - **Retention**: the delivery log is kept for 30 days.
 - **Privacy**: internal notes never leave the tenant (see the catalogue above), and payloads
   never include other companies' data, API keys, or signing secrets.
+
+## Owner accounts
+
+Not part of `/api/v1/*` — these are the Postgres RPCs behind the owner roadmap (Phase 1,
+Model A: `companies.kind = 'equipment_owner'`, `supabase/migrations/0024_owner_foundation.sql`
+and `0025_owner_rpcs.sql`, `docs/OWNER-ROADMAP-BRIEF.md`). An equipment_owner company tracks
+its own equipment across one or more `locations`, and routes public service reports to
+`vendors` (contact cards with no login) instead of to in-house technicians. Every RPC below is
+`security definer`, resolves its tenant from the token/session server-side, and never accepts a
+`company_id` from the caller.
+
+| Function | Signature | Grants |
+|---|---|---|
+| `resolve_qr_code` | `(p_token text) returns json` | `anon, authenticated` |
+| `verify_site_pin` | `(p_qr_token text, p_pin text) returns json` | `anon, authenticated, service_role` |
+| `submit_owner_service_request` | `(p_qr_token text, p_description text, p_contact_name text, p_reporter_phone text default null, p_symptoms text[] default '{}', p_priority text default 'normal', p_media jsonb default '[]', p_pin_pass text default null) returns json` | `anon, authenticated, service_role` |
+| `get_vendor_dispatch` | `(p_token text) returns json` | `anon, authenticated, service_role` |
+| `vendor_acknowledge_dispatch` | `(p_token text, p_note text default null) returns json` | `anon, authenticated, service_role` |
+| `vendor_set_dispatch_eta` | `(p_token text, p_eta_at timestamptz, p_note text default null) returns json` | `anon, authenticated, service_role` |
+| `vendor_add_dispatch_note` | `(p_token text, p_body text) returns json` | `anon, authenticated, service_role` |
+| `vendor_finish_dispatch` | `(p_token text, p_note text default null) returns json` | `anon, authenticated, service_role` |
+| `vendor_decline_dispatch` | `(p_token text, p_reason text) returns json` | `anon, authenticated, service_role` |
+| `vendor_attach_dispatch_invoice` | `(p_token text, p_storage_path text) returns json` | **`service_role` only** |
+| `mark_dispatch_sent` | `(p_dispatch_id uuid, p_ok boolean, p_error text default null) returns void` | **`service_role` only** |
+| `claim_dispatch_sla_alerts` | `(p_claim_stamp timestamptz, p_limit int default 50) returns setof json` | **`service_role` only** |
+
+### `resolve_qr_code` (v5)
+
+Same signature and body as before, plus: `guide.company.kind`, `guide.equipment_type.symptom_chips`
+(always an array), `guide.location` (`{ id, name }` or `null` — name only, never address/phone/
+hours/site_pin), and `guide.site_pin_required` (`boolean`). Vendor details are never exposed here —
+only `submit_owner_service_request()` returns a vendor's name/phone, and only its **email** is
+service-role-gated.
+
+### `verify_site_pin`
+
+Checks a location's shared PIN without ever returning it. Not `equipment_owner`, or the location
+has no PIN set → `{ "ok": true, "pass": null, "location_name": … }` (nothing to verify). A match
+inserts a `site_pin_passes` row and returns its opaque 48-char token as `pass`; a mismatch or an
+unknown QR token both return `{ "ok": false, "pass": null, "location_name": null }` — no oracle
+for whether a sticker exists. Rate-limited (`54000`) per location **and** per QR token before the
+comparison ever runs.
+
+### `submit_owner_service_request`
+
+The equipment-owner counterpart to `submit_service_request` — a separate function, not an
+overload (PostgREST cannot resolve two RPCs of the same name reliably; see 0010). Resolves a
+vendor in `warranty → unit → category-default` order (an inactive vendor is treated as none) and,
+when one has an email on file, creates a `dispatches` row and returns its token — gated behind
+`is_service_role()` so the person filing the report can never act as the vendor.
+
+| Error code | Meaning |
+|---|---|
+| `P0003` | The QR code belongs to a `service_provider` company — use `submit_service_request` instead |
+| `22023` | Description/name out of length range |
+| `P0004` | The location has a site PIN and no valid `site_pin_passes` token was supplied |
+| `54000` | Rate limit exceeded (`osr:rpc:<qr code id>`, 30/hour) |
+
+### Vendor-token RPCs (`/v/<token>`)
+
+No login — a vendor acts entirely through the 48-char `dispatches.token` from the dispatch email.
+Shared preamble for all seven: unknown token → `P0002`; the dispatch is `declined` or its request
+is `resolved`/`canceled` → `P0001`; then a per-dispatch rate limit (`vd:<dispatch id>`, 60/hour) →
+`54000`. Every write appends one customer-visible `request_activity` row and returns an
+owner-notification payload (service-role-gated fields hidden from anon/authenticated callers).
+`get_vendor_dispatch`'s payload is documented in full in `docs/OWNER-ROADMAP-BRIEF.md` §2.2.4 —
+in short: `dispatch`, `vendor`, `owner`, `request`, `equipment`, `location`, index-only `media`
+(no storage paths), and customer-visible `activity` only. `vendor_set_dispatch_eta` additionally
+rejects a null, past, or >90-day-out ETA with `22023`; `vendor_add_dispatch_note` requires 2–2000
+chars (`22023`); `vendor_decline_dispatch` requires 2–500 chars (`22023`) and only runs from
+`sent`/`viewed`/`acknowledged`/`eta_given` (else `P0001`); `vendor_attach_dispatch_invoice` is
+service-role only and validates the storage path against
+`<company_id>/dispatch-invoices/<dispatch_id>/…` (else `22023`).
+
+### `mark_dispatch_sent` / `claim_dispatch_sla_alerts`
+
+Both service-role only, called from cron/API routes, never from the browser.
+`mark_dispatch_sent(p_dispatch_id, p_ok, p_error)` stamps `sent_at` (or marks the dispatch
+`failed` with `last_error`) — idempotent, safe to call twice. `claim_dispatch_sla_alerts` atomically
+claims (`FOR UPDATE SKIP LOCKED`) every `sent`/`viewed` dispatch whose vendor's ack SLA has elapsed
+and stamps `sla_alerted_at = p_claim_stamp`, so two overlapping cron runs can't double-alert on the
+same dispatch; releasing an alert (to retry a failed send) means clearing `sla_alerted_at` back to
+`null` **where it still equals the stamp that was passed in**.
