@@ -46,6 +46,40 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Marketing "Nocturne" ramp (docs/design/marketing-2026-09/BRIEF.md D1).
+     The --eq-* variables are only defined inside .theme-nocturne, so these
+     utilities are inert elsewhere in the app. */
+  --color-eq-bg: var(--eq-bg);
+  --color-eq-surface: var(--eq-surface);
+  --color-eq-text: var(--eq-text);
+  --color-eq-divider: var(--eq-divider);
+  --color-eq-neutral-100: var(--eq-neutral-100);
+  --color-eq-neutral-200: var(--eq-neutral-200);
+  --color-eq-neutral-300: var(--eq-neutral-300);
+  --color-eq-neutral-400: var(--eq-neutral-400);
+  --color-eq-neutral-500: var(--eq-neutral-500);
+  --color-eq-neutral-600: var(--eq-neutral-600);
+  --color-eq-neutral-700: var(--eq-neutral-700);
+  --color-eq-neutral-800: var(--eq-neutral-800);
+  --color-eq-neutral-900: var(--eq-neutral-900);
+  --color-eq-accent: var(--eq-accent);
+  --color-eq-accent-100: var(--eq-accent-100);
+  --color-eq-accent-200: var(--eq-accent-200);
+  --color-eq-accent-300: var(--eq-accent-300);
+  --color-eq-accent-400: var(--eq-accent-400);
+  --color-eq-accent-500: var(--eq-accent-500);
+  --color-eq-accent-600: var(--eq-accent-600);
+  --color-eq-accent-700: var(--eq-accent-700);
+  --color-eq-accent-800: var(--eq-accent-800);
+  --color-eq-accent-900: var(--eq-accent-900);
+  --color-eq-accent-tint-8: var(--eq-accent-tint-8);
+  --color-eq-accent-tint-9: var(--eq-accent-tint-9);
+  --color-eq-accent-tint-12: var(--eq-accent-tint-12);
+  --color-eq-accent-tint-16: var(--eq-accent-tint-16);
+  --color-eq-bezel: var(--eq-bezel);
+  --shadow-eq-sm: var(--eq-shadow-sm);
+  --shadow-eq-md: var(--eq-shadow-md);
 }
 
 :root {
@@ -115,6 +149,127 @@
   --sidebar-accent-foreground: oklch(0.91 0.096 180.426);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.6 0.118 184.704);
+}
+
+/* ---------------------------------------------------------------------------
+   Marketing theme ("Nocturne", docs/design/marketing-2026-09/README.md "Design
+   tokens" with the EquipQR green accent). Scoped to the (marketing) route
+   group's layout root — the dashboard, admin, auth and public scan pages keep
+   the light :root theme above. Placed after .dark so that a root carrying
+   `dark theme-nocturne` gets shadcn's dark: refinements with these values.
+   Promoting this to :root is a separate, later workstream (BRIEF.md §8).
+   ------------------------------------------------------------------------ */
+.theme-nocturne {
+  color-scheme: dark;
+
+  /* shadcn semantic vars → Nocturne, so Button/Card/Input/Table inherit */
+  --background: #161826;
+  --foreground: #e9e9ed;
+  --card: #232532;
+  --card-foreground: #e9e9ed;
+  --popover: #232532;
+  --popover-foreground: #e9e9ed;
+  --primary: #3ecf8e;
+  --primary-foreground: #093421;
+  --secondary: #232532;
+  --secondary-foreground: #e9e9ed;
+  --muted: #232532;
+  --muted-foreground: #9397ab;
+  --accent: #232532;
+  --accent-foreground: #e9e9ed;
+  --border: #292b31;
+  --input: #3f424d;
+  --ring: #3ecf8e;
+
+  /* Nocturne ramp */
+  --eq-bg: #161826;
+  --eq-surface: #232532;
+  --eq-text: #e9e9ed;
+  --eq-divider: color-mix(in srgb, #e9e9ed 16%, transparent);
+  --eq-neutral-100: #f3f5fe;
+  --eq-neutral-200: #e4e7f5;
+  --eq-neutral-300: #cfd3e5;
+  --eq-neutral-400: #b2b6ca;
+  --eq-neutral-500: #9397ab;
+  --eq-neutral-600: #75798c;
+  --eq-neutral-700: #595d6c;
+  --eq-neutral-800: #3f424d;
+  --eq-neutral-900: #292b31;
+  --eq-accent: #3ecf8e;
+  --eq-accent-100: #ecf9f1;
+  --eq-accent-200: #d2f1de;
+  --eq-accent-300: #a7e5c2;
+  --eq-accent-400: #56d396;
+  --eq-accent-500: #3ecf8e;
+  --eq-accent-600: #05915e;
+  --eq-accent-700: #007047;
+  --eq-accent-800: #045032;
+  --eq-accent-900: #093421;
+  --eq-accent-tint-8: color-mix(in srgb, var(--eq-accent) 8%, transparent);
+  --eq-accent-tint-9: color-mix(in srgb, var(--eq-accent) 9%, transparent);
+  --eq-accent-tint-12: color-mix(in srgb, var(--eq-accent) 12%, transparent);
+  --eq-accent-tint-16: color-mix(in srgb, var(--eq-accent) 16%, transparent);
+  --eq-bezel: #0d0f18;
+  --eq-shadow-sm: 0 0 0 1px #3f424d;
+  --eq-shadow-md: 0 0 0 1px #595d6c, 0 6px 18px rgba(0, 0, 0, 0.55);
+
+  /* Inter for everything in the marketing tree (README "Typography"). The
+     layout loads it via next/font as --font-inter. The .font-sans/.font-heading
+     utilities are inlined to Geist by @theme inline above, so re-point them
+     here (an unlayered rule outranks the utilities layer). DM Sans is applied
+     only to the wordmark span by the Logo component. */
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: normal;
+  text-wrap: pretty;
+}
+.theme-nocturne :is(.font-sans, .font-heading) {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Page root ground: the accent-900 glow top-right and a soft darkening bottom-left
+   over the Nocturne bg (README "Backgrounds"). */
+.eq-page-ground {
+  background:
+    radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%),
+    radial-gradient(1100px 800px at -10% 100%, rgba(0, 0, 0, 0.3), transparent 55%),
+    var(--eq-bg);
+}
+/* Keep overscroll and the area behind the marketing root the same dark ground. */
+html:has(.theme-nocturne) {
+  background-color: #161826;
+}
+
+/* Section divider: a 1px rule that fades out at both ends, never a solid
+   full-width hairline (README "Spacing and layout"). */
+.eq-rule {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--eq-divider) 48px,
+    var(--eq-divider) calc(100% - 48px),
+    transparent
+  );
+}
+
+/* Scroll reveal (BRIEF D6). The client component only ever adds
+   data-reveal="hidden" after mount and only below the fold, so server HTML is
+   always visible; both rules are inert under reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.theme-nocturne) {
+    scroll-behavior: smooth;
+  }
+  [data-reveal] {
+    transition:
+      opacity 0.7s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  [data-reveal="hidden"] {
+    opacity: 0;
+    transform: translateY(14px);
+  }
 }
 
 @layer base {
