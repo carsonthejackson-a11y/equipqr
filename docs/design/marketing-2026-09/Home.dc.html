@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <script src="./image-slot.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    summary::-webkit-details-marker { display: none; }
+    details[open] [data-chev] { transform: rotate(180deg); }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-motion: no-preference) {
+      [data-motion] [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+      [data-motion] [data-reveal="in"] { opacity: 1; transform: none; }
+    }
+    @media (max-width: 560px) { [data-phone-2] { display: none !important; } }
+    @media (max-width: 1100px) { [data-benefits] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+    @media (max-width: 560px) { [data-benefits], [data-facts], [data-caps] { grid-template-columns: minmax(0, 1fr) !important; } }
+    @media (max-width: 820px) { [data-dash-side] { display: none !important; } [data-dash-grid] { grid-template-columns: minmax(0, 1fr) !important; } }
+    @media (max-width: 700px) { [data-col-opt] { display: none !important; } }
+    @media (max-width: 640px) { [data-compare] { grid-template-columns: minmax(0, 1fr) !important; } [data-compare-head] { display: none !important; } }
+  </style>
+</helmet>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="eq-mark" viewBox="0 0 100 100">
+    <path d="M14 36V14h22M56 14h22v22M14 56v22h22" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"></path>
+    <rect x="31" y="31" width="30" height="30" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"></rect>
+    <rect x="40" y="40" width="12" height="12" fill="currentColor"></rect>
+    <line x1="74" y1="74" x2="84" y2="84" stroke="currentColor" stroke-width="9" stroke-linecap="square"></line>
+    <path d="M72 88h16V72" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"></path>
+  </symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 9V4h5M15 4h5v5M4 15v5h5M15 20h5v-5"></path><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor" stroke="none"></rect></g></symbol>
+  <symbol id="i-guide" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M9 6h11M9 12h11M9 18h11"></path><path d="M3.5 6.5l1.5 1.5 2.5-3"></path><rect x="3.5" y="10.75" width="2.5" height="2.5" fill="currentColor" stroke="none"></rect><rect x="3.5" y="16.75" width="2.5" height="2.5" fill="currentColor" stroke="none"></rect></g></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 7.5h4.5l1.5-3h6l1.5 3H21V20H3z"></path><circle cx="12" cy="13.5" r="3.5"></circle></g></symbol>
+  <symbol id="i-truck" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M2 5.5h12v11H2zM14 9.5h4.5l3 4v3H14"></path><circle cx="6" cy="18.5" r="2"></circle><circle cx="17.5" cy="18.5" r="2"></circle></g></symbol>
+  <symbol id="i-route" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 12h7"></path><path d="M10 12c3 0 4-1.5 4-4V5.5M14 5.5l-2.5 2.5M14 5.5l2.5 2.5"></path><path d="M10 12c3 0 4 1.5 4 4v2.5M14 18.5l-2.5-2.5M14 18.5l2.5-2.5"></path><path d="M18 12h3"></path></g></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12h4"></path></g></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3l8 3v6c0 4.8-3.4 8-8 9-4.6-1-8-4.2-8-9V6z"></path><path d="M8.5 12l2.5 2.5 4.5-5"></path></g></symbol>
+  <symbol id="i-printer" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M7 7V3.5h10V7M4 7h16v8h-3M7 12h10v8.5H7z"></path></g></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><rect x="3.5" y="5" width="17" height="15"></rect><path d="M3.5 10h17M8 3v4M16 3v4"></path></g></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6M15.5 5.2a3 3 0 010 5.6M17 14c2.6.4 4 2.5 4 5"></path></g></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M13.5 4l-3 16"></path></g></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"></path><circle cx="12" cy="10" r="2.5"></circle></g></symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><rect x="5" y="4.5" width="14" height="17"></rect><path d="M9 4.5V3h6v1.5M8.5 11h7M8.5 15h5"></path></g></symbol>
+  <symbol id="i-building" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3.5 20.5h17M6 20.5V4h8v16.5M14 9h4v11.5M8.5 7.5h2M8.5 11h2M8.5 14.5h2"></path></g></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><rect x="3" y="5" width="18" height="14"></rect><path d="M3 7l9 6 9-6"></path></g></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l4.5 4.5L19.5 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"></path></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="qr-fake" viewBox="0 0 29 29">
+    <g fill="currentColor">
+      <path d="M0 0h7v7H0zM1 1v5h5V1zM2 2h3v3H2zM22 0h7v7h-7zM23 1v5h5V1zM24 2h3v3h-3zM0 22h7v7H0zM1 23v5h5v-5zM2 24h3v3H2z" fill-rule="evenodd"></path>
+      <path d="M9 0h1v1H9zM11 0h2v1h-2zM15 0h1v2h-1zM18 0h1v1h-1zM9 2h1v1H9zM12 2h1v2h-1zM14 3h2v1h-2zM17 2h2v1h-2zM10 4h1v1h-1zM13 5h1v1h-1zM16 4h1v2h-1zM19 4h1v1h-1zM9 6h1v1H9zM11 6h1v1h-1zM14 6h1v1h-1zM18 6h1v1h-1zM0 9h1v1H0zM2 9h1v1H2zM4 9h2v1H4zM6 10h1v1H6zM1 11h1v1H1zM3 11h1v1H3zM5 12h1v1H5zM0 13h2v1H0zM3 13h1v1H3zM6 13h1v1H6zM1 15h1v1H1zM4 15h2v1H4zM0 17h1v1H0zM2 17h1v1H2zM5 17h2v1H5zM1 19h1v1H1zM3 19h1v1H3zM6 19h1v1H6zM9 9h1v1H9zM11 9h1v1h-1zM13 9h2v1h-2zM16 9h1v1h-1zM18 9h2v1h-2zM10 10h1v1h-1zM12 10h1v1h-1zM15 10h1v1h-1zM19 10h1v1h-1zM9 11h1v1H9zM11 11h1v1h-1zM14 11h1v1h-1zM17 11h1v1h-1zM10 12h1v1h-1zM13 12h1v1h-1zM15 12h2v1h-2zM19 12h1v1h-1zM9 13h1v1H9zM11 13h1v1h-1zM14 13h1v1h-1zM18 13h1v1h-1zM10 14h1v1h-1zM12 14h2v1h-2zM16 14h1v1h-1zM19 14h1v1h-1zM9 15h1v1H9zM11 15h1v1h-1zM15 15h1v1h-1zM17 15h1v1h-1zM10 16h1v1h-1zM13 16h1v1h-1zM16 16h1v1h-1zM18 16h2v1h-2zM9 17h1v1H9zM12 17h1v1h-1zM14 17h1v1h-1zM17 17h1v1h-1zM10 18h1v1h-1zM13 18h1v1h-1zM15 18h1v1h-1zM19 18h1v1h-1zM9 19h1v1H9zM11 19h1v1h-1zM14 19h1v1h-1zM16 19h2v1h-2zM22 9h1v1h-1zM24 9h1v1h-1zM26 9h2v1h-2zM23 10h1v1h-1zM28 10h1v1h-1zM22 11h1v1h-1zM25 11h1v1h-1zM27 11h1v1h-1zM24 12h1v1h-1zM26 12h1v1h-1zM22 13h2v1h-2zM25 13h1v1h-1zM28 13h1v1h-1zM23 14h1v1h-1zM27 14h1v1h-1zM22 15h1v1h-1zM24 15h1v1h-1zM26 15h1v1h-1zM28 15h1v1h-1zM23 16h1v1h-1zM25 16h1v1h-1zM22 17h1v1h-1zM24 17h2v1h-2zM27 17h1v1h-1zM23 18h1v1h-1zM26 18h1v1h-1zM28 18h1v1h-1zM22 19h1v1h-1zM25 19h1v1h-1zM27 19h1v1h-1zM9 22h1v1H9zM11 22h2v1h-2zM14 22h1v1h-1zM16 22h1v1h-1zM18 22h1v1h-1zM10 23h1v1h-1zM13 23h1v1h-1zM15 23h1v1h-1zM19 23h1v1h-1zM9 24h1v1H9zM12 24h1v1h-1zM14 24h1v1h-1zM17 24h1v1h-1zM10 25h1v1h-1zM13 25h1v1h-1zM16 25h1v1h-1zM18 25h1v1h-1zM9 26h1v1H9zM11 26h1v1h-1zM14 26h2v1h-2zM19 26h1v1h-1zM10 27h1v1h-1zM12 27h1v1h-1zM15 27h1v1h-1zM17 27h2v1h-2zM9 28h1v1H9zM11 28h1v1h-1zM13 28h1v1h-1zM16 28h1v1h-1zM18 28h1v1h-1zM20 20h5v5h-5zM21 21v3h3v-3zM22 22h1v1h-1zM26 21h1v1h-1zM28 21h1v1h-1zM27 22h1v1h-1zM26 23h1v1h-1zM28 23h1v1h-1zM27 24h1v1h-1zM20 26h1v1h-1zM22 26h1v1h-1zM24 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM21 27h1v1h-1zM23 27h1v1h-1zM25 27h1v1h-1zM27 27h1v1h-1zM20 28h1v1h-1zM22 28h1v1h-1zM24 28h1v1h-1zM26 28h1v1h-1zM28 28h1v1h-1z"></path>
+    </g>
+  </symbol>
+</svg>
+
+<div ref="{{ rootRef }}" data-screen-label="Home" style="--color-accent:#3ecf8e; --color-accent-100:#ecf9f1; --color-accent-200:#d2f1de; --color-accent-300:#a7e5c2; --color-accent-400:#56d396; --color-accent-500:#3ecf8e; --color-accent-600:#05915e; --color-accent-700:#007047; --color-accent-800:#045032; --color-accent-900:#093421; --color-accent-2:#3ecf8e; --color-accent-2-100:#ecf9f1; --color-accent-2-800:#045032; min-height:100vh; background: radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%), radial-gradient(1100px 800px at -10% 100%, rgba(0,0,0,0.3), transparent 55%), var(--color-bg); color: var(--color-text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-wrap: pretty">
+
+  <dc-import style="position:sticky; top:0; z-index:50" name="SiteHeader" active="home" hint-size="100%,64px"></dc-import>
+
+  <section aria-labelledby="hero-title" style="max-width:1200px; margin:0 auto; padding: clamp(56px, 7vw, 104px) clamp(20px, 5vw, 72px) clamp(40px, 5vw, 72px); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr)); gap: 48px clamp(32px, 5vw, 80px); align-items:center">
+    <div data-reveal="">
+      <div style="display:inline-flex; align-items:center; gap:8px; padding: 5px 12px 5px 8px; border-radius: 999px; border: 1px solid var(--color-neutral-800); background: color-mix(in srgb, var(--color-surface) 70%, transparent); font-size:12.5px; color: var(--color-neutral-300); margin-bottom: 22px">
+        <svg width="16" height="16" style="color: var(--color-accent)" aria-hidden="true"><use href="#i-scan"></use></svg>
+        <span>Purpose-built for commercial kitchen equipment</span>
+      </div>
+      <h1 id="hero-title" style="margin:0; font-size: clamp(38px, 4.8vw, 62px); line-height:1.04; letter-spacing:-0.025em; font-weight:500">
+        <span style="display:block">Scan the tag.</span>
+        <span style="display:block">Fix it, or file the request.</span>
+      </h1>
+      <p style="margin: 26px 0 0; font-size: clamp(16px, 1.3vw, 18px); line-height:1.6; color: var(--color-neutral-300); max-width: 50ch">EquipQR puts a QR tag on every piece of commercial kitchen equipment. Whoever scans it gets a troubleshooting guide for that exact machine. If that doesn't fix it, one tap sends a service request with photos to whoever services the unit. No app, no login.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; margin-top: 32px">
+        <a class="btn btn-primary" href="#" style="height:46px; padding:0 20px; font-size:15px">Start free trial <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+        <a class="btn btn-secondary" href="#how-it-works" style="height:46px; padding:0 20px; font-size:15px">See how it works</a>
+      </div>
+      <ul style="margin: 28px 0 0; padding:0; list-style:none; display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 24px; max-width: 520px">
+        <li style="display:flex; align-items:center; gap:9px; font-size:13.5px; color: var(--color-neutral-400)"><svg width="16" height="16" style="flex:none; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>No app to install, any phone camera</li>
+        <li style="display:flex; align-items:center; gap:9px; font-size:13.5px; color: var(--color-neutral-400)"><svg width="16" height="16" style="flex:none; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>14-day trial with full Pro, no card</li>
+        <li style="display:flex; align-items:center; gap:9px; font-size:13.5px; color: var(--color-neutral-400)"><svg width="16" height="16" style="flex:none; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Restaurants: free for one location</li>
+        <li style="display:flex; align-items:center; gap:9px; font-size:13.5px; color: var(--color-neutral-400)"><svg width="16" height="16" style="flex:none; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Built by a working repair tech</li>
+      </ul>
+    </div>
+
+    <div data-reveal="" style="display:flex; justify-content:center; align-items:flex-start; gap:18px; padding: 16px 0; transition-delay: 120ms">
+      <div aria-hidden="true" style="width:236px; flex:none; border-radius:38px; background:#0d0f18; border:1px solid var(--color-neutral-800); padding:8px; box-shadow: var(--shadow-md); transform: rotate(-4deg) translateY(22px)">
+        <div style="position:relative; height:452px; border-radius:30px; background: var(--color-surface); overflow:hidden; padding: 46px 14px 16px; display:flex; flex-direction:column; gap:10px; box-shadow: inset 0 0 0 1px var(--color-neutral-900)">
+          <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:72px; height:20px; border-radius:10px; background:#0d0f18"></div>
+          <div style="font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">Metro Refrigeration</div>
+          <div>
+            <div style="font-size:14px; font-weight:500; line-height:1.25">Dish machine · Unit 3</div>
+            <div style="font-size:11.5px; color: var(--color-neutral-500); margin-top:2px">Back kitchen · Sunrise Diner</div>
+          </div>
+          <div style="padding:11px 12px; border-radius:10px; background: var(--color-bg); font-size:12.5px; line-height:1.4">Is water draining at the end of the cycle?</div>
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <div style="padding:9px 11px; border-radius:8px; border:1px solid var(--color-neutral-800); font-size:12px">Yes, but slowly</div>
+            <div style="padding:9px 11px; border-radius:8px; border:1px solid var(--color-accent); background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent-200); font-size:12px; font-weight:500">No, standing water</div>
+            <div style="padding:9px 11px; border-radius:8px; border:1px solid var(--color-neutral-800); font-size:12px">It's draining now</div>
+          </div>
+          <div style="margin-top:auto; display:flex; align-items:center; gap:8px; padding:9px 11px; border-radius:8px; background: var(--color-bg); font-size:11.5px; color: var(--color-neutral-500)"><span style="width:6px; height:6px; border-radius:50%; background: var(--color-accent); flex:none"></span>Ask a question about this machine…</div>
+        </div>
+      </div>
+      <div data-phone-2="" aria-hidden="true" style="width:236px; flex:none; border-radius:38px; background:#0d0f18; border:1px solid var(--color-neutral-800); padding:8px; box-shadow: var(--shadow-md); transform: rotate(4deg)">
+        <div style="position:relative; height:452px; border-radius:30px; background: var(--color-surface); overflow:hidden; padding: 46px 14px 16px; display:flex; flex-direction:column; gap:10px; box-shadow: inset 0 0 0 1px var(--color-neutral-900)">
+          <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:72px; height:20px; border-radius:10px; background:#0d0f18"></div>
+          <div style="width:36px; height:36px; border-radius:50%; background: color-mix(in srgb, var(--color-accent) 16%, transparent); display:grid; place-items:center; color: var(--color-accent)"><svg width="18" height="18"><use href="#i-check"></use></svg></div>
+          <div style="font-size:15px; font-weight:500; line-height:1.25">Request sent</div>
+          <div style="font-size:12px; line-height:1.45; color: var(--color-neutral-400)">Metro Refrigeration has your photos and what you already tried. Sunrise Diner was copied.</div>
+          <div style="padding:10px 12px; border-radius:10px; background: var(--color-bg); display:flex; flex-direction:column; gap:5px">
+            <div style="font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">Already tried</div>
+            <div style="font-size:12px; line-height:1.4">Drain screen cleared · Float switch checked · Cycle re-run</div>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px">
+            <div style="aspect-ratio:1; border-radius:8px; background: var(--color-neutral-900); display:grid; place-items:center; color: var(--color-neutral-500)"><svg width="16" height="16"><use href="#i-camera"></use></svg></div>
+            <div style="aspect-ratio:1; border-radius:8px; background: var(--color-neutral-900)"></div>
+            <div style="aspect-ratio:1; border-radius:8px; background: var(--color-neutral-900)"></div>
+          </div>
+          <div style="margin-top:auto; padding:10px; border-radius:8px; border:1px solid var(--color-accent); color: var(--color-accent); text-align:center; font-size:12px; font-weight:500">Call Metro Refrigeration</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <sc-if value="{{ showProof }}" hint-placeholder-val="{{ true }}">
+    <section aria-label="Customers" style="max-width:1200px; margin:0 auto; padding: 0 clamp(20px, 5vw, 72px) clamp(40px, 5vw, 72px)">
+      <div data-reveal="" style="display:flex; flex-wrap:wrap; align-items:center; gap: 20px 40px; padding: 24px 0; border-top: 1px solid var(--color-divider); border-bottom: 1px solid var(--color-divider)">
+        <p style="margin:0; font-size:13px; line-height:1.4; color: var(--color-neutral-500); flex: 0 1 200px">Service companies and kitchens running on EquipQR</p>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px 24px; flex: 1 1 500px; justify-items:center">
+          <image-slot id="home-logo-1" shape="rounded" radius="8" fit="contain" placeholder="Customer logo" style="width:140px; height:44px"></image-slot>
+          <image-slot id="home-logo-2" shape="rounded" radius="8" fit="contain" placeholder="Customer logo" style="width:140px; height:44px"></image-slot>
+          <image-slot id="home-logo-3" shape="rounded" radius="8" fit="contain" placeholder="Customer logo" style="width:140px; height:44px"></image-slot>
+          <image-slot id="home-logo-4" shape="rounded" radius="8" fit="contain" placeholder="Customer logo" style="width:140px; height:44px"></image-slot>
+          <image-slot id="home-logo-5" shape="rounded" radius="8" fit="contain" placeholder="Customer logo" style="width:140px; height:44px"></image-slot>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <section aria-label="Facts" style="max-width:1200px; margin:0 auto; padding: 0 clamp(20px, 5vw, 72px) clamp(48px, 6vw, 96px)">
+    <div data-facts="" data-reveal="" style="display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px 32px">
+      <div style="display:flex; flex-direction:column; gap:8px; padding-left:16px; border-left: 2px solid var(--color-accent)">
+        <span style="font-size: clamp(32px, 3vw, 44px); line-height:1; letter-spacing:-0.02em; font-weight:500; font-feature-settings: 'tnum' 1">3 taps</span>
+        <span style="font-size:13.5px; line-height:1.45; color: var(--color-neutral-400)">from a scan to a sent request: scan, tap what's wrong, send</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; padding-left:16px; border-left: 2px solid var(--color-accent)">
+        <span style="font-size: clamp(32px, 3vw, 44px); line-height:1; letter-spacing:-0.02em; font-weight:500; font-feature-settings: 'tnum' 1">0 apps</span>
+        <span style="font-size:13.5px; line-height:1.45; color: var(--color-neutral-400)">to install, for customers, kitchen staff, or your own techs</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; padding-left:16px; border-left: 2px solid var(--color-accent)">
+        <span style="font-size: clamp(32px, 3vw, 44px); line-height:1; letter-spacing:-0.02em; font-weight:500; font-feature-settings: 'tnum' 1">14 days</span>
+        <span style="font-size:13.5px; line-height:1.45; color: var(--color-neutral-400)">of full Pro features on every service-company trial, no card</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px; padding-left:16px; border-left: 2px solid var(--color-accent)">
+        <span style="font-size: clamp(32px, 3vw, 44px); line-height:1; letter-spacing:-0.02em; font-weight:500; font-feature-settings: 'tnum' 1">10 units</span>
+        <span style="font-size:13.5px; line-height:1.45; color: var(--color-neutral-400)">tracked free, forever, for a single-location restaurant</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="how-it-works" aria-labelledby="how-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 5vw, 72px); scroll-margin-top: 72px">
+    <div data-reveal="" style="max-width: 640px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">How it works</p>
+      <h2 id="how-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">From the machine to resolved, in three steps.</h2>
+      <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">The same flow whether the person scanning is your customer, a line cook at 7:40 on a Friday, or a technician on your own crew.</p>
+    </div>
+    <div style="margin-top: 24px; display:flex; flex-direction:column">
+      <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-neutral-700) 48px, var(--color-neutral-700) calc(100% - 48px), transparent)"></div>
+      <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px clamp(24px, 4vw, 64px); padding: 36px 0; align-items:center">
+        <div style="display:grid; grid-template-columns: 48px minmax(0, 1fr); gap: 0 clamp(12px, 2vw, 24px)">
+          <div style="font-size:15px; color: var(--color-accent); font-feature-settings: 'tnum' 1; line-height:1.3; padding-top:5px">01</div>
+          <div>
+            <h3 style="margin:0; font-size: clamp(22px, 2vw, 26px); line-height:1.2; letter-spacing:-0.015em; font-weight:500">Scan the tag</h3>
+            <p style="margin: 12px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width:48ch">A durable QR sticker goes on the unit when you set it up. Scanning it opens a page for that exact machine, on any phone: make, model, location, who services it, and what to do next. No app to install, no account to make.</p>
+            <p style="margin: 12px 0 0; font-size:14px; line-height:1.55; color: var(--color-neutral-500); max-width:48ch">Print codes per unit as SVG or PNG, or order pre-printed batches and claim each sticker on-site by photographing the nameplate.</p>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:center">
+          <div aria-hidden="true" style="width: 208px; aspect-ratio: 1; border-radius: 14px; background: var(--color-accent); color: #0a2a1d; padding: 16px; display:flex; flex-direction:column; justify-content:space-between; box-shadow: var(--shadow-md); transform: rotate(-2deg)">
+            <div style="display:flex; align-items:center; justify-content:space-between">
+              <span style="font-size:11px; font-weight:500; letter-spacing:0.02em">Metro Refrigeration</span>
+              <svg width="18" height="18" viewBox="0 0 100 100"><use href="#eq-mark"></use></svg>
+            </div>
+            <svg viewBox="0 0 29 29" width="96" height="96" style="align-self:center; display:block; shape-rendering: crispEdges"><use href="#qr-fake"></use></svg>
+            <div>
+              <div style="font-size:12px; font-weight:500; line-height:1.25">Scan for help with this machine</div>
+              <div style="font-size:10.5px; line-height:1.3; opacity:0.85; margin-top:3px">Dish machine · Unit 3 · Back kitchen</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-neutral-700) 48px, var(--color-neutral-700) calc(100% - 48px), transparent)"></div>
+      <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px clamp(24px, 4vw, 64px); padding: 36px 0; align-items:center">
+        <div style="display:grid; grid-template-columns: 48px minmax(0, 1fr); gap: 0 clamp(12px, 2vw, 24px)">
+          <div style="font-size:15px; color: var(--color-accent); font-feature-settings: 'tnum' 1; line-height:1.3; padding-top:5px">02</div>
+          <div>
+            <h3 style="margin:0; font-size: clamp(22px, 2vw, 26px); line-height:1.2; letter-spacing:-0.015em; font-weight:500">Work the guide</h3>
+            <p style="margin: 12px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width:48ch">A short branching guide covers the usual causes first: breaker, water supply, drain screen, filter. Each step is a question, with a photo where it helps. A chat assistant answers anything the steps didn't cover.</p>
+            <p style="margin: 12px 0 0; font-size:14px; line-height:1.55; color: var(--color-neutral-500); max-width:48ch">You describe the equipment type once; EquipQR drafts the guide in minutes. Review it, edit any step, publish, and every unit of that type uses it.</p>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:center">
+          <div aria-hidden="true" style="width: 100%; max-width: 320px; border-radius: 14px; background: var(--color-surface); border: 1px solid var(--color-neutral-800); padding: 16px; display:flex; flex-direction:column; gap:10px; box-shadow: var(--shadow-md)">
+            <div style="display:flex; align-items:center; justify-content:space-between; font-size:11px; color: var(--color-neutral-500)"><span style="letter-spacing:0.06em; text-transform:uppercase">Step 3 of 6</span><span>Dish machine guide</span></div>
+            <div style="height:3px; border-radius:2px; background: var(--color-neutral-900); overflow:hidden"><div style="width:50%; height:100%; background: var(--color-accent)"></div></div>
+            <div style="font-size:14px; line-height:1.4; font-weight:500; margin-top:4px">Pull the drain screen. Is it clear of debris?</div>
+            <div style="display:flex; gap:8px">
+              <div style="flex:1; aspect-ratio: 4/3; border-radius:8px; background: var(--color-neutral-900); display:grid; place-items:center; color: var(--color-neutral-500); font-size:11px">Photo: drain screen</div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:6px">
+                <div style="padding:8px 10px; border-radius:8px; border:1px solid var(--color-neutral-800); font-size:12px">Yes, it's clear</div>
+                <div style="padding:8px 10px; border-radius:8px; border:1px solid var(--color-neutral-800); font-size:12px">No, clogged</div>
+                <div style="padding:8px 10px; border-radius:8px; border:1px solid var(--color-neutral-800); font-size:12px">Can't reach it</div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 11px; border-radius:8px; background: var(--color-bg); font-size:11.5px; color: var(--color-neutral-500)"><span style="width:6px; height:6px; border-radius:50%; background: var(--color-accent); flex:none"></span>Where is the drain screen on this model?</div>
+          </div>
+        </div>
+      </div>
+      <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-neutral-700) 48px, var(--color-neutral-700) calc(100% - 48px), transparent)"></div>
+      <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px clamp(24px, 4vw, 64px); padding: 36px 0; align-items:center">
+        <div style="display:grid; grid-template-columns: 48px minmax(0, 1fr); gap: 0 clamp(12px, 2vw, 24px)">
+          <div style="font-size:15px; color: var(--color-accent); font-feature-settings: 'tnum' 1; line-height:1.3; padding-top:5px">03</div>
+          <div>
+            <h3 style="margin:0; font-size: clamp(22px, 2vw, 26px); line-height:1.2; letter-spacing:-0.015em; font-weight:500">Resolved, or requested</h3>
+            <p style="margin: 12px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width:48ch">When the guide fixes it, that's the end. When it doesn't, one tap files a service request with photos or a short video and an urgency level. Whoever services that unit gets an email with a summary of what was already tried.</p>
+            <p style="margin: 12px 0 0; font-size:14px; line-height:1.55; color: var(--color-neutral-500); max-width:48ch">The vendor acknowledges, gives an ETA, and marks it done from the email. Every status change shows on the request, so nobody calls to check.</p>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:center">
+          <div aria-hidden="true" style="width: 100%; max-width: 340px; border-radius: 14px; background: var(--color-surface); border: 1px solid var(--color-neutral-800); padding: 16px; display:flex; flex-direction:column; gap:10px; box-shadow: var(--shadow-md)">
+            <div style="display:flex; align-items:center; gap:10px">
+              <div style="width:30px; height:30px; border-radius:8px; background: color-mix(in srgb, var(--color-accent) 16%, transparent); display:grid; place-items:center; color: var(--color-accent); flex:none"><svg width="16" height="16"><use href="#i-mail"></use></svg></div>
+              <div style="min-width:0">
+                <div style="font-size:13px; font-weight:500; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">New request: Dish machine, Unit 3 · Sunrise Diner</div>
+                <div style="font-size:11px; color: var(--color-neutral-500); margin-top:2px">requests@equipqr.co · 4 min ago</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap">
+              <span style="font-size:11px; padding:3px 9px; border-radius:6px; background: var(--color-neutral-800); color: var(--color-neutral-100)">Can't operate without it</span>
+              <span style="font-size:11px; padding:3px 9px; border-radius:6px; background: var(--color-neutral-800); color: var(--color-neutral-100)">Not draining</span>
+            </div>
+            <div style="padding:10px 12px; border-radius:10px; background: var(--color-bg); display:flex; flex-direction:column; gap:5px">
+              <div style="font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">AI summary</div>
+              <div style="font-size:12px; line-height:1.45; color: var(--color-neutral-300)">Standing water after the cycle. Staff cleared the drain screen and checked the float switch; no change. Likely drain pump or solenoid. Bring both.</div>
+            </div>
+            <div style="display:flex; gap:8px">
+              <div style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--color-accent); color: var(--color-accent); text-align:center; font-size:12px; font-weight:500">Acknowledge</div>
+              <div style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--color-neutral-700); text-align:center; font-size:12px; font-weight:500">Give an ETA</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-neutral-700) 48px, var(--color-neutral-700) calc(100% - 48px), transparent)"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="dash-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 5vw, 72px)">
+    <div data-reveal="" style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap: 16px 40px">
+      <div style="max-width: 640px">
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">The dashboard</p>
+        <h2 id="dash-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">One place for the tags, the guides, and everything that comes in after.</h2>
+      </div>
+      <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 38ch">Requests, equipment, locations, vendors, schedules. Owners run billing and settings; technicians work the queue.</p>
+    </div>
+    <div data-reveal="" aria-hidden="true" style="margin-top: 36px; border-radius: 16px; border: 1px solid var(--color-neutral-800); background: #0d0f18; box-shadow: var(--shadow-md); overflow:hidden; transition-delay: 100ms">
+      <div style="display:flex; align-items:center; gap:8px; padding: 12px 16px; border-bottom: 1px solid var(--color-neutral-900)">
+        <span style="width:10px; height:10px; border-radius:50%; background: var(--color-neutral-800)"></span><span style="width:10px; height:10px; border-radius:50%; background: var(--color-neutral-800)"></span><span style="width:10px; height:10px; border-radius:50%; background: var(--color-neutral-800)"></span>
+        <span style="margin-left:12px; font-size:12px; color: var(--color-neutral-500); padding: 4px 12px; border-radius: 6px; background: var(--color-bg)">app.equipqr.co/dashboard/requests</span>
+      </div>
+      <div data-dash-grid="" style="display:grid; grid-template-columns: 208px minmax(0, 1fr)">
+        <aside data-dash-side="" style="border-right: 1px solid var(--color-neutral-900); padding: 16px 12px; display:flex; flex-direction:column; gap:2px; font-size:13px">
+          <div style="display:flex; align-items:center; gap:8px; padding: 6px 10px 14px"><svg width="18" height="18" viewBox="0 0 100 100" style="color: var(--color-accent)"><use href="#eq-mark"></use></svg><span style="font-family: 'DM Sans', sans-serif; font-weight:500; letter-spacing:-0.02em; font-size:14px">EquipQR</span></div>
+          <div style="padding: 7px 10px; border-radius: 6px; color: var(--color-neutral-400)">Overview</div>
+          <div style="padding: 7px 10px; border-radius: 6px; color: var(--color-neutral-400); display:flex; justify-content:space-between"><span>Equipment</span><span style="color: var(--color-neutral-600); font-feature-settings: 'tnum' 1">412</span></div>
+          <div style="padding: 7px 10px; border-radius: 6px; background: color-mix(in srgb, var(--color-text) 6%, transparent); color: var(--color-text); display:flex; justify-content:space-between"><span>Requests</span><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">7</span></div>
+          <div style="padding: 7px 10px; border-radius: 6px; color: var(--color-neutral-400)">Schedule</div>
+          <div style="padding: 7px 10px; border-radius: 6px; color: var(--color-neutral-400)">Customers</div>
+          <div style="padding: 7px 10px; border-radius: 6px; color: var(--color-neutral-400)">Vendors</div>
+          <div style="padding: 7px 10px; border-radius: 6px; color: var(--color-neutral-400)">Checklists</div>
+          <div style="padding: 7px 10px; border-radius: 6px; color: var(--color-neutral-400)">Maintenance</div>
+          <div style="padding: 7px 10px; border-radius: 6px; color: var(--color-neutral-400)">Settings</div>
+          <div style="margin-top:auto; padding: 14px 10px 4px; font-size:12px; color: var(--color-neutral-500); border-top: 1px solid var(--color-neutral-900)">Metro Refrigeration · Owner</div>
+        </aside>
+        <div style="padding: clamp(14px, 2vw, 22px); display:flex; flex-direction:column; gap:16px; min-width:0">
+          <div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px">
+            <div style="font-size:17px; font-weight:500">Requests</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px; font-size:12px">
+              <span style="padding:5px 10px; border-radius:6px; box-shadow: inset 0 0 0 1px var(--color-accent); color: var(--color-accent)">All · 7</span>
+              <span style="padding:5px 10px; border-radius:6px; box-shadow: inset 0 0 0 1px var(--color-neutral-800); color: var(--color-neutral-400)">New</span>
+              <span style="padding:5px 10px; border-radius:6px; box-shadow: inset 0 0 0 1px var(--color-neutral-800); color: var(--color-neutral-400)">Acknowledged</span>
+              <span style="padding:5px 10px; border-radius:6px; box-shadow: inset 0 0 0 1px var(--color-neutral-800); color: var(--color-neutral-400)">Scheduled</span>
+              <span style="padding:5px 10px; border-radius:6px; box-shadow: inset 0 0 0 1px var(--color-neutral-800); color: var(--color-neutral-400)">Done</span>
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap:10px">
+            <div style="padding: 12px 14px; border-radius:10px; background: var(--color-surface); display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; color: var(--color-neutral-500)">Open</span><span style="font-size:22px; font-weight:500; letter-spacing:-0.02em; font-feature-settings: 'tnum' 1">7</span></div>
+            <div style="padding: 12px 14px; border-radius:10px; background: var(--color-surface); display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; color: var(--color-neutral-500)">Awaiting ETA</span><span style="font-size:22px; font-weight:500; letter-spacing:-0.02em; font-feature-settings: 'tnum' 1">3</span></div>
+            <div style="padding: 12px 14px; border-radius:10px; background: var(--color-surface); display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; color: var(--color-neutral-500)">Scheduled today</span><span style="font-size:22px; font-weight:500; letter-spacing:-0.02em; font-feature-settings: 'tnum' 1">2</span></div>
+            <div style="padding: 12px 14px; border-radius:10px; background: var(--color-surface); display:flex; flex-direction:column; gap:4px"><span style="font-size:11px; color: var(--color-neutral-500)">Resolved by guide, 30 days</span><span style="font-size:22px; font-weight:500; letter-spacing:-0.02em; font-feature-settings: 'tnum' 1">41</span></div>
+          </div>
+          <div style="border-radius:10px; border: 1px solid var(--color-neutral-900); overflow:hidden; font-size:13px">
+            <div style="display:grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(128px, 1.1fr) 56px; gap: 12px; padding: 10px 14px; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500); border-bottom: 1px solid var(--color-neutral-900)">
+              <span>Equipment</span><span data-col-opt="">Reported</span><span data-col-opt="">Urgency</span><span>Status</span><span style="text-align:right">Age</span>
+            </div>
+            <div style="display:grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(128px, 1.1fr) 56px; gap: 12px; padding: 12px 14px; align-items:center; border-bottom: 1px solid var(--color-neutral-900); transition: background-color .15s ease" style-hover="background: color-mix(in srgb, var(--color-text) 4%, transparent)">
+              <div style="min-width:0"><div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Dish machine · Unit 3</div><div style="font-size:11.5px; color: var(--color-neutral-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Sunrise Diner · Back kitchen</div></div>
+              <div data-col-opt="" style="color: var(--color-neutral-300); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Not draining, standing water</div>
+              <div data-col-opt="" style="color: var(--color-neutral-400)">Can't operate</div>
+              <div><span class="tag tag-accent" style="white-space:nowrap">New</span></div>
+              <div style="text-align:right; color: var(--color-neutral-500); font-feature-settings: 'tnum' 1">4 min</div>
+            </div>
+            <div style="display:grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(128px, 1.1fr) 56px; gap: 12px; padding: 12px 14px; align-items:center; border-bottom: 1px solid var(--color-neutral-900); transition: background-color .15s ease" style-hover="background: color-mix(in srgb, var(--color-text) 4%, transparent)">
+              <div style="min-width:0"><div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Walk-in cooler</div><div style="font-size:11.5px; color: var(--color-neutral-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Sunrise Diner · Dry storage</div></div>
+              <div data-col-opt="" style="color: var(--color-neutral-300); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Reading 46°F, compressor running</div>
+              <div data-col-opt="" style="color: var(--color-neutral-400)">Urgent</div>
+              <div><span class="tag tag-neutral" style="white-space:nowrap">Acknowledged</span></div>
+              <div style="text-align:right; color: var(--color-neutral-500); font-feature-settings: 'tnum' 1">22 min</div>
+            </div>
+            <div style="display:grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(128px, 1.1fr) 56px; gap: 12px; padding: 12px 14px; align-items:center; border-bottom: 1px solid var(--color-neutral-900); transition: background-color .15s ease" style-hover="background: color-mix(in srgb, var(--color-text) 4%, transparent)">
+              <div style="min-width:0"><div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Espresso machine · Bar 1</div><div style="font-size:11.5px; color: var(--color-neutral-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Ninth Street Coffee</div></div>
+              <div data-col-opt="" style="color: var(--color-neutral-300); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Powers on, no water flow</div>
+              <div data-col-opt="" style="color: var(--color-neutral-400)">Next nearby</div>
+              <div><span class="tag tag-outline" style="white-space:nowrap">ETA 2:30 pm</span></div>
+              <div style="text-align:right; color: var(--color-neutral-500); font-feature-settings: 'tnum' 1">1 h</div>
+            </div>
+            <div style="display:grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(128px, 1.1fr) 56px; gap: 12px; padding: 12px 14px; align-items:center; border-bottom: 1px solid var(--color-neutral-900); transition: background-color .15s ease" style-hover="background: color-mix(in srgb, var(--color-text) 4%, transparent)">
+              <div style="min-width:0"><div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Fryer 2</div><div style="font-size:11.5px; color: var(--color-neutral-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Lakeside Grill · Line</div></div>
+              <div data-col-opt="" style="color: var(--color-neutral-300); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Won't hold temperature</div>
+              <div data-col-opt="" style="color: var(--color-neutral-400)">Next visit</div>
+              <div><span class="tag tag-neutral" style="white-space:nowrap">Scheduled Thu</span></div>
+              <div style="text-align:right; color: var(--color-neutral-500); font-feature-settings: 'tnum' 1">3 h</div>
+            </div>
+            <div style="display:grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(128px, 1.1fr) 56px; gap: 12px; padding: 12px 14px; align-items:center; transition: background-color .15s ease" style-hover="background: color-mix(in srgb, var(--color-text) 4%, transparent)">
+              <div style="min-width:0"><div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Ice machine</div><div style="font-size:11.5px; color: var(--color-neutral-500); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Lakeside Grill · Bar</div></div>
+              <div data-col-opt="" style="color: var(--color-neutral-300); white-space:nowrap; overflow:hidden; text-overflow:ellipsis">Not making ice</div>
+              <div data-col-opt="" style="color: var(--color-neutral-400)">Urgent</div>
+              <div><span style="font-size:12px; color: var(--color-neutral-500); white-space:nowrap">Done · 41 min</span></div>
+              <div style="text-align:right; color: var(--color-neutral-500); font-feature-settings: 'tnum' 1">1 d</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="benefits-title" style="max-width:1200px; margin:0 auto; padding: clamp(48px, 6vw, 96px) clamp(20px, 5vw, 72px)">
+    <div data-reveal="" style="max-width: 640px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">What changes</p>
+      <h2 id="benefits-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Fewer trips, faster fixes, and a record on every unit.</h2>
+    </div>
+    <div data-benefits="" style="margin-top: 40px; display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:16px">
+      <div data-reveal="">
+        <div style="height:100%; display:flex; flex-direction:column; gap:14px; padding:24px; border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease, transform .2s ease" style-hover="border-color: var(--color-neutral-700); transform: translateY(-2px)">
+          <svg width="24" height="24" style="color: var(--color-accent)" aria-hidden="true"><use href="#i-truck"></use></svg>
+          <h3 style="margin:0; font-size:18px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Fewer wasted trips</h3>
+          <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">Customers try the two or three things that fix most calls before anyone drives out. When a truck does roll, the tech already knows what was tried and what to bring.</p>
+        </div>
+      </div>
+      <div data-reveal="" style="transition-delay: 70ms">
+        <div style="height:100%; display:flex; flex-direction:column; gap:14px; padding:24px; border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease, transform .2s ease" style-hover="border-color: var(--color-neutral-700); transform: translateY(-2px)">
+          <svg width="24" height="24" style="color: var(--color-accent)" aria-hidden="true"><use href="#i-route"></use></svg>
+          <h3 style="margin:0; font-size:18px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">No dispatcher required</h3>
+          <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">Kitchen staff route their own requests. The tag knows which vendor services that unit, the work order goes straight there, and the manager is copied.</p>
+        </div>
+      </div>
+      <div data-reveal="" style="transition-delay: 140ms">
+        <div style="height:100%; display:flex; flex-direction:column; gap:14px; padding:24px; border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease, transform .2s ease" style-hover="border-color: var(--color-neutral-700); transform: translateY(-2px)">
+          <svg width="24" height="24" style="color: var(--color-accent)" aria-hidden="true"><use href="#i-scan"></use></svg>
+          <h3 style="margin:0; font-size:18px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Tag before you know the unit</h3>
+          <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">Print a batch of blank codes ahead of a route. On-site, scan one, photograph the nameplate, and the unit is created with make, model, and serial filled in.</p>
+        </div>
+      </div>
+      <div data-reveal="" style="transition-delay: 0ms">
+        <div style="height:100%; display:flex; flex-direction:column; gap:14px; padding:24px; border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease, transform .2s ease" style-hover="border-color: var(--color-neutral-700); transform: translateY(-2px)">
+          <svg width="24" height="24" style="color: var(--color-accent)" aria-hidden="true"><use href="#i-history"></use></svg>
+          <h3 style="margin:0; font-size:18px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">A history on every unit</h3>
+          <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">Every scan, guide, request, inspection, and scheduled visit is tied to the equipment, its location, and the customer. Searchable from the dashboard; exportable on Business.</p>
+        </div>
+      </div>
+      <div data-reveal="" style="transition-delay: 70ms">
+        <div style="height:100%; display:flex; flex-direction:column; gap:14px; padding:24px; border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease, transform .2s ease" style-hover="border-color: var(--color-neutral-700); transform: translateY(-2px)">
+          <svg width="24" height="24" style="color: var(--color-accent)" aria-hidden="true"><use href="#i-calendar"></use></svg>
+          <h3 style="margin:0; font-size:18px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Maintenance on a schedule</h3>
+          <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">Recurring service and inspection checklists live on the unit. A tech walks the checklist from the tag; the results stay with the equipment.</p>
+        </div>
+      </div>
+      <div data-reveal="" style="transition-delay: 140ms">
+        <div style="height:100%; display:flex; flex-direction:column; gap:14px; padding:24px; border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease, transform .2s ease" style-hover="border-color: var(--color-neutral-700); transform: translateY(-2px)">
+          <svg width="24" height="24" style="color: var(--color-accent)" aria-hidden="true"><use href="#i-badge"></use></svg>
+          <h3 style="margin:0; font-size:18px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Your name on the machine</h3>
+          <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">On Pro and above, tags and customer pages carry your logo and colors. The sticker on the fryer says who to call, and the page it opens looks like you.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="who-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 5vw, 72px)">
+    <div data-reveal="" style="max-width: 640px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Who it's for</p>
+      <h2 id="who-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Built for both sides of the service call.</h2>
+    </div>
+    <div style="margin-top: 40px; display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap:16px">
+      <div data-reveal="" style="display:flex; flex-direction:column; gap:20px; padding: clamp(24px, 3vw, 36px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900)">
+        <p style="margin:0; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">For service &amp; repair companies</p>
+        <h3 style="margin:0; font-size: clamp(22px, 2vw, 26px); line-height:1.2; letter-spacing:-0.015em; font-weight:500">Tag every unit you service, across every client site.</h3>
+        <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px">
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.55; color: var(--color-neutral-300)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Pre-printed sticker batches: tag first, then claim the unit on-site by photographing the nameplate.</span></li>
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.55; color: var(--color-neutral-300)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Requests arrive with photos, video, urgency, and an AI summary of what the customer already tried.</span></li>
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.55; color: var(--color-neutral-300)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Customer and equipment records per site, with custom fields, bulk import, and label printing.</span></li>
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.55; color: var(--color-neutral-300)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Owners run billing and settings; technicians work equipment and requests. Data never crosses between companies.</span></li>
+        </ul>
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:auto; padding-top:8px">
+          <a class="btn btn-primary" href="#" style="height:42px; padding:0 18px; font-size:14px">Start free trial</a>
+          <a class="btn btn-ghost" href="Features.dc.html" style="height:42px; padding:0 12px; font-size:14px">See features <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+          <span style="font-size:13px; color: var(--color-neutral-500); margin-left:auto">From $29/mo</span>
+        </div>
+      </div>
+      <div data-reveal="" style="display:flex; flex-direction:column; gap:20px; padding: clamp(24px, 3vw, 36px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition-delay: 90ms">
+        <p style="margin:0; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">For restaurants &amp; kitchens</p>
+        <h3 style="margin:0; font-size: clamp(22px, 2vw, 26px); line-height:1.2; letter-spacing:-0.015em; font-weight:500">Tag your own equipment. Any cook can send the right vendor a work order.</h3>
+        <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:12px">
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.55; color: var(--color-neutral-300)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Save each vendor once, with email, phone, and response window. Set a default per category, like refrigeration.</span></li>
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.55; color: var(--color-neutral-300)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Staff tap what's wrong: Not draining, Not heating, Error code. Add a photo and how urgent it is, and it's sent.</span></li>
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.55; color: var(--color-neutral-300)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>See when the vendor opened it, acknowledged it, gave an ETA, or finished, without calling to check.</span></li>
+          <li style="display:flex; gap:12px; font-size:15px; line-height:1.55; color: var(--color-neutral-300)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>No vendor on file yet? The report is still filed and you're emailed, so nothing is silently dropped.</span></li>
+        </ul>
+        <div style="display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-top:auto; padding-top:8px">
+          <a class="btn btn-primary" href="#" style="height:42px; padding:0 18px; font-size:14px">Start free</a>
+          <a class="btn btn-ghost" href="Restaurants.dc.html" style="height:42px; padding:0 12px; font-size:14px">For restaurants <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+          <span style="font-size:13px; color: var(--color-neutral-500); margin-left:auto">Free, then from $24/mo</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="caps-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 5vw, 72px)">
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:start">
+      <div style="max-width: 440px">
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Everything in the box</p>
+        <h2 id="caps-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Small enough to set up in an afternoon. Complete enough to run the whole route on.</h2>
+        <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">Every plan includes the tags, the guides, and service requests with photos. Higher tiers add the chat assistant, sticker batches, branding, and the API.</p>
+        <a class="btn btn-ghost" href="Features.dc.html" style="margin-top: 20px; height:42px; padding:0 12px; font-size:14px">All features <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+      </div>
+      <div data-caps="" style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 28px">
+        <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-clipboard"></use></svg><div><div style="font-size:15px; font-weight:500; line-height:1.35">Equipment records</div><div style="font-size:14px; line-height:1.55; color: var(--color-neutral-400); margin-top:4px">Make, model, serial, photos, and the custom fields you define. Bulk import from a spreadsheet.</div></div></div>
+        <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-building"></use></svg><div><div style="font-size:15px; font-weight:500; line-height:1.35">Locations &amp; customers</div><div style="font-size:14px; line-height:1.55; color: var(--color-neutral-400); margin-top:4px">Every site, the equipment in it, and the contact on-site. One kitchen or fifty.</div></div></div>
+        <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-route"></use></svg><div><div style="font-size:15px; font-weight:500; line-height:1.35">Vendor cards &amp; routing</div><div style="font-size:14px; line-height:1.55; color: var(--color-neutral-400); margin-top:4px">Email, phone, response window. A default vendor per category so every unit routes itself.</div></div></div>
+        <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-mail"></use></svg><div><div style="font-size:15px; font-weight:500; line-height:1.35">Work orders with status</div><div style="font-size:14px; line-height:1.55; color: var(--color-neutral-400); margin-top:4px">Opened, acknowledged, ETA given, finished. Vendors act from the email; you see it on the request.</div></div></div>
+        <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-calendar"></use></svg><div><div style="font-size:15px; font-weight:500; line-height:1.35">Schedules &amp; checklists</div><div style="font-size:14px; line-height:1.55; color: var(--color-neutral-400); margin-top:4px">Recurring maintenance on a calendar. Inspection checklists walked from the tag.</div></div></div>
+        <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-printer"></use></svg><div><div style="font-size:15px; font-weight:500; line-height:1.35">Labels &amp; sticker batches</div><div style="font-size:14px; line-height:1.55; color: var(--color-neutral-400); margin-top:4px">Print-ready SVG or PNG per unit, or blank batches on a standard label sheet.</div></div></div>
+        <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-users"></use></svg><div><div style="font-size:15px; font-weight:500; line-height:1.35">Team roles</div><div style="font-size:14px; line-height:1.55; color: var(--color-neutral-400); margin-top:4px">Owners handle billing and settings. Technicians handle equipment and requests. Unlimited staff on restaurant plans.</div></div></div>
+        <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-code"></use></svg><div><div style="font-size:15px; font-weight:500; line-height:1.35">Branding, export &amp; API</div><div style="font-size:14px; line-height:1.55; color: var(--color-neutral-400); margin-top:4px">Your logo and colors on customer pages from Pro. Data export and API access on Business.</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="kitchen-title" style="max-width:1200px; margin:0 auto; padding: clamp(32px, 4vw, 64px) clamp(20px, 5vw, 72px)">
+    <div data-reveal="" style="padding: clamp(28px, 4vw, 48px); border-radius: 16px; border: 1px solid var(--color-neutral-900); background: var(--color-surface); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px clamp(32px, 5vw, 72px); align-items:center">
+      <div>
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Kitchen first</p>
+        <h2 id="kitchen-title" style="margin:0; font-size: clamp(24px, 2.6vw, 32px); line-height:1.15; letter-spacing:-0.02em; font-weight:500">Made for the machines in a commercial kitchen, not adapted from a warehouse tool.</h2>
+        <p style="margin: 14px 0 0; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 46ch">Symptom chips, guide templates, and vendor categories start from the equipment a kitchen actually runs. Add your own types in minutes.</p>
+      </div>
+      <ul style="margin:0; padding:0; list-style:none; display:flex; flex-wrap:wrap; gap:8px">
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Dish machines</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Walk-ins &amp; reach-ins</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Ice machines</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Fryers</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Ranges &amp; flat-tops</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Combi &amp; convection ovens</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Espresso machines</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Hood &amp; exhaust</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">Water filtration</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:14px; color: var(--color-neutral-200)">POS &amp; printers</li>
+        <li style="padding: 8px 14px; border-radius: 999px; border: 1px dashed var(--color-neutral-700); font-size:14px; color: var(--color-neutral-500)">+ your own types</li>
+      </ul>
+    </div>
+  </section>
+
+  <section aria-labelledby="compare-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 5vw, 72px)">
+    <div data-reveal="" style="max-width: 640px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Versus a general CMMS</p>
+      <h2 id="compare-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Dead simple to start. That's the point.</h2>
+      <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">General asset and maintenance tools can do a lot, once someone configures them and trains everyone. EquipQR starts from the sticker.</p>
+    </div>
+    <div data-reveal="" style="margin-top: 36px; border-radius: 14px; border: 1px solid var(--color-neutral-900); overflow:hidden">
+      <div data-compare-head="" data-compare="" style="display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1.3fr); gap: 0 24px; padding: 14px clamp(16px, 2.5vw, 28px); font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500); background: var(--color-surface); border-bottom: 1px solid var(--color-neutral-900)">
+        <span></span><span>General CMMS / asset tools</span><span style="color: var(--color-accent)">EquipQR</span>
+      </div>
+      <div data-compare="" style="display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1.3fr); gap: 8px 24px; padding: 20px clamp(16px, 2.5vw, 28px); border-bottom: 1px solid var(--color-neutral-900); font-size:15px; line-height:1.55">
+        <div style="font-weight:500">Time to first tag</div>
+        <div style="color: var(--color-neutral-500)">Weeks of configuration, asset hierarchies, and training before anyone scans anything.</div>
+        <div style="display:flex; gap:10px; color: var(--color-neutral-200)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Add an equipment type, print a code, stick it on. Minutes.</span></div>
+      </div>
+      <div data-compare="" style="display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1.3fr); gap: 8px 24px; padding: 20px clamp(16px, 2.5vw, 28px); border-bottom: 1px solid var(--color-neutral-900); font-size:15px; line-height:1.55">
+        <div style="font-weight:500">Who can report a problem</div>
+        <div style="color: var(--color-neutral-500)">Staff with a login, an app, and training on the form.</div>
+        <div style="display:flex; gap:10px; color: var(--color-neutral-200)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Anyone with a phone camera. No app, no account, no email address required.</span></div>
+      </div>
+      <div data-compare="" style="display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1.3fr); gap: 8px 24px; padding: 20px clamp(16px, 2.5vw, 28px); border-bottom: 1px solid var(--color-neutral-900); font-size:15px; line-height:1.55">
+        <div style="font-weight:500">Troubleshooting</div>
+        <div style="color: var(--color-neutral-500)">A ticket goes in. Someone drives out.</div>
+        <div style="display:flex; gap:10px; color: var(--color-neutral-200)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>An AI-drafted guide per equipment type, edited by you, with a chat assistant for the rest. Requests carry what was already tried.</span></div>
+      </div>
+      <div data-compare="" style="display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1.3fr); gap: 8px 24px; padding: 20px clamp(16px, 2.5vw, 28px); border-bottom: 1px solid var(--color-neutral-900); font-size:15px; line-height:1.55">
+        <div style="font-weight:500">Routing</div>
+        <div style="color: var(--color-neutral-500)">A dispatcher or manager reads the queue and assigns it.</div>
+        <div style="display:flex; gap:10px; color: var(--color-neutral-200)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>The tag knows who services the unit. The request goes there, with the manager copied.</span></div>
+      </div>
+      <div data-compare="" style="display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 1.3fr); gap: 8px 24px; padding: 20px clamp(16px, 2.5vw, 28px); font-size:15px; line-height:1.55">
+        <div style="font-weight:500">Pricing</div>
+        <div style="color: var(--color-neutral-500)">Per seat, so every extra person on the account costs money.</div>
+        <div style="display:flex; gap:10px; color: var(--color-neutral-200)"><svg width="18" height="18" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg><span>Priced by equipment tier. Unlimited staff and vendor contacts on every restaurant plan. No overage charges.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <sc-if value="{{ showProof }}" hint-placeholder-val="{{ true }}">
+    <section aria-label="Customer quote" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 5vw, 72px)">
+      <figure data-reveal="" style="margin:0; max-width: 46ch; display:flex; flex-direction:column; gap:22px">
+        <blockquote style="margin:0; font-size: clamp(22px, 2.4vw, 32px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-neutral-200); text-indent: -0.474em">“[Customer quote: one or two sentences about a specific result, in their own words.]”</blockquote>
+        <figcaption style="display:flex; align-items:center; gap:14px; font-size:14px; color: var(--color-neutral-500)">
+          <image-slot id="home-quote-avatar" shape="circle" placeholder="Photo" style="width:44px; height:44px"></image-slot>
+          <span>— [Name, role, company]</span>
+        </figcaption>
+      </figure>
+    </section>
+  </sc-if>
+
+  <section aria-labelledby="faq-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 80px) clamp(20px, 5vw, 72px)">
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:start">
+      <div style="max-width: 400px">
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Questions</p>
+        <h2 id="faq-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">The things people ask before their first sticker.</h2>
+        <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">More on the <a href="FAQ.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">full FAQ</a>, including billing and restaurant-specific answers.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; grid-column: span 1">
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Do customers or staff need an app or an account?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">No. Scanning the sticker opens a mobile web page: no app store, no login, no account to create, no email address required. If the guide doesn't fix it, they submit the request from that same page.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>How do I build the troubleshooting guides?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Describe the equipment type and its common failure modes once, and EquipQR drafts a full branching guide in minutes. Review it, edit any step, and publish. Every unit of that type uses it from then on.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What if a sticker hasn't been assigned to a unit yet?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Customers see a plain "this isn't set up yet, contact the service company" message, with no dead links. A signed-in technician who scans it can claim it to a piece of equipment on the spot, photographing the nameplate to fill in the details.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What happens if a vendor doesn't respond?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">You get an email as soon as the vendor's typical response window passes, with their phone number in it. EquipQR sends the work order and shows every status change, but a phone call is the reliable check when it's urgent.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800); border-bottom: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Can I control what my team can see and do?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes. Owners manage billing, the team, and company settings. Technicians manage equipment, customers, and requests but can't touch billing or remove the company. Every account belongs to exactly one company, and data never crosses between companies.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="story-title" style="max-width:1200px; margin:0 auto; padding: clamp(32px, 4vw, 64px) clamp(20px, 5vw, 72px)">
+    <div data-reveal="" style="display:grid; grid-template-columns: 48px minmax(0, 1fr); gap: 0 clamp(16px, 3vw, 32px); padding-top: 32px; border-top: 1px solid var(--color-divider)">
+      <svg width="40" height="40" viewBox="0 0 100 100" style="color: var(--color-accent)" aria-hidden="true"><use href="#eq-mark"></use></svg>
+      <div style="max-width: 64ch">
+        <h2 id="story-title" style="margin:0; font-size: clamp(22px, 2.2vw, 28px); line-height:1.2; letter-spacing:-0.015em; font-weight:500">Built on a real route, not a whiteboard.</h2>
+        <p style="margin: 14px 0 0; font-size:16px; line-height:1.65; color: var(--color-neutral-400)">EquipQR is built by a working repair technician who services commercial coffee and espresso machines across Dallas–Fort Worth. Most of the calls that filled his day were the same handful of things: a tripped breaker, an empty water line, a clogged group head. None of it needed a truck. So he put a QR sticker on every machine on his route. This is that tool, made for any team tired of driving out for a reset button.</p>
+        <a class="btn btn-ghost" href="About.dc.html" style="margin-top: 16px; height:40px; padding:0 12px; font-size:14px">About EquipQR <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="cta-title" style="max-width:1200px; margin:0 auto; padding: clamp(32px, 4vw, 64px) clamp(20px, 5vw, 72px) clamp(72px, 9vw, 128px)">
+    <div data-reveal="" style="position:relative; overflow:hidden; border-radius:20px; border:1px solid var(--color-neutral-900); background: radial-gradient(760px 380px at 85% 115%, color-mix(in srgb, var(--color-accent-900) 85%, transparent), transparent 62%), var(--color-surface); padding: clamp(36px, 5vw, 64px) clamp(24px, 5vw, 64px); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 28px 40px; align-items:center">
+      <div>
+        <h2 id="cta-title" style="margin:0; font-size: clamp(26px, 3vw, 38px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Put a tag on your first machine today.</h2>
+        <p style="margin: 14px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">Set up an equipment type and print the first QR code in minutes. 14 days of full Pro features, no credit card. Restaurants: free for one location, forever.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px; align-items:flex-start">
+        <div style="display:flex; flex-wrap:wrap; gap:12px">
+          <a class="btn btn-primary" href="#" style="height:46px; padding:0 20px; font-size:15px">Start free trial <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+          <a class="btn btn-secondary" href="Contact.dc.html" style="height:46px; padding:0 20px; font-size:15px">Talk to us first</a>
+        </div>
+        <p style="margin:0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">Cancel anytime from Settings → Billing with nothing owed. Payments by Stripe; we never see your card.</p>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="SiteFooter" hint-size="100%,360px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showSocialProof&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Sections&quot;},&quot;scrollReveal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  renderVals() {
+    return { rootRef: this.rootRef, showProof: this.props.showSocialProof ?? true };
+  }
+  componentDidMount() { this.setupMotion(); }
+  componentDidUpdate() {
+    const on = this.props.scrollReveal ?? true;
+    const root = this.rootRef.current;
+    if (!root) return;
+    if (!on && root.hasAttribute('data-motion')) { root.removeAttribute('data-motion'); this._io?.disconnect(); }
+    if (on && !root.hasAttribute('data-motion')) this.setupMotion();
+  }
+  componentWillUnmount() { this._io?.disconnect(); }
+  setupMotion() {
+    if ((this.props.scrollReveal ?? true) === false) return;
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const root = this.rootRef.current;
+    if (!root) return;
+    const els = [...root.querySelectorAll('[data-reveal]')];
+    const vh = window.innerHeight;
+    els.forEach(el => { if (el.getBoundingClientRect().top < vh * 0.92) el.setAttribute('data-reveal', 'in'); });
+    root.setAttribute('data-motion', '');
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) { e.target.setAttribute('data-reveal', 'in'); io.unobserve(e.target); } });
+    }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    els.forEach(el => { if (el.getAttribute('data-reveal') !== 'in') io.observe(el); });
+    this._io = io;
+  }
+}
+</script>
+</body>
+</html>

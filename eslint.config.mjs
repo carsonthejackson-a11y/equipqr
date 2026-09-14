@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Agent worktrees (see docs/NOW-ROADMAP-BRIEF.md) — never lint those.
     ".claude/**",
+    // Design handoff bundles (docs/design/*/BRIEF.md D8): the .dc.html pages
+    // ship their own plain-JS runtime, which is reference material, not code.
+    "docs/design/**",
   ]),
 ]);
 

@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <script src="./image-slot.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-motion: no-preference) {
+      [data-motion] [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+      [data-motion] [data-reveal="in"] { opacity: 1; transform: none; }
+    }
+    @media (min-width: 761px) { [data-sticky-aside] { position: sticky; top: 88px; } }
+  </style>
+</helmet>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.5 3.5a5 5 0 006 6L9.5 20.5a2.1 2.1 0 01-3-3L17.5 6.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path><path d="M14.5 3.5l-1 4 4 1 3-3" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-coffee" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 8h12v6a5 5 0 01-5 5H9a5 5 0 01-5-5z"></path><path d="M16 10h2a2.5 2.5 0 010 5h-2M3 21h16M8 3v2.5M12 3v2.5"></path></g></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 21.5s-6.5-6-6.5-11.5a6.5 6.5 0 0113 0c0 5.5-6.5 11.5-6.5 11.5z"></path><circle cx="12" cy="10" r="2.5"></circle></g></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+</svg>
+
+<div ref="{{ rootRef }}" data-screen-label="About" style="--color-accent:#3ecf8e; --color-accent-100:#ecf9f1; --color-accent-200:#d2f1de; --color-accent-300:#a7e5c2; --color-accent-400:#56d396; --color-accent-500:#3ecf8e; --color-accent-600:#05915e; --color-accent-700:#007047; --color-accent-800:#045032; --color-accent-900:#093421; --color-accent-2:#3ecf8e; --color-accent-2-100:#ecf9f1; --color-accent-2-800:#045032; min-height:100vh; background: radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%), radial-gradient(1100px 800px at -10% 100%, rgba(0,0,0,0.3), transparent 55%), var(--color-bg); color: var(--color-text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-wrap: pretty">
+
+  <dc-import style="position:sticky; top:0; z-index:50" name="SiteHeader" active="about" hint-size="100%,64px"></dc-import>
+
+  <section aria-labelledby="page-title" style="max-width:1200px; margin:0 auto; padding: clamp(56px, 7vw, 104px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 40px)">
+    <div data-reveal="" style="max-width: 800px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">About</p>
+      <h1 id="page-title" style="margin:0; font-size: clamp(36px, 4.4vw, 58px); line-height:1.06; letter-spacing:-0.025em; font-weight:500">Built on a route, not in a boardroom.</h1>
+      <p style="margin: 22px 0 0; font-size: clamp(16px, 1.3vw, 18px); line-height:1.6; color: var(--color-neutral-300); max-width: 56ch">EquipQR started as one technician's fix for his own dispatch problem.</p>
+    </div>
+  </section>
+
+  <section aria-label="The story" style="max-width:1200px; margin:0 auto; padding: clamp(24px, 3vw, 48px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px)">
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 40px clamp(32px, 5vw, 80px); align-items:start">
+      <div style="max-width: 62ch; display:flex; flex-direction:column; gap:20px; font-size: clamp(16.5px, 1.25vw, 18px); line-height:1.7; color: var(--color-neutral-300)">
+        <p style="margin:0">EquipQR is built and run by a working repair technician who services commercial coffee and espresso machines across the Dallas–Fort Worth area. Every weekday he drives a route of cafes, offices, and restaurants, and for a long time a big chunk of that route was truck rolls that didn't need to happen.</p>
+        <p style="margin:0">A machine would go down, someone would call the shop, and the details would get lost somewhere between "it's not working" and an actual dispatch. More often than not, the fix was something the customer could have done themselves in thirty seconds: reset a tripped breaker, open a shut-off valve, clear a jammed portafilter. But there was no good way to hand that information to a customer standing in front of a broken machine, and no good way to know what they'd already tried before he got there.</p>
+        <p style="margin:0">So he put a QR code sticker on every machine on his route. Scan it, and a customer gets a short troubleshooting guide built for that exact model. No app, no account, just the questions a technician would ask them over the phone, answered in order. Most of the time, that's the whole interaction. When it isn't, the same page lets them file a service request with a photo, and the request lands in his inbox with a summary of exactly what they already tried.</p>
+        <p style="margin: 12px 0; font-size: clamp(24px, 2.4vw, 32px); line-height:1.25; letter-spacing:-0.02em; font-weight:500; color: var(--color-text); padding-left: 20px; border-left: 2px solid var(--color-accent)">The truck rolls that are left are the ones that actually need a truck.</p>
+        <p style="margin:0">That's the entire premise EquipQR is built on, and it's why the guides, the stickers, and the dispatch summaries are built the way a technician, not a product team, would want them: fast to set up, obvious to use, and aimed squarely at cutting down the number of times the phone rings for something a sticker could have answered.</p>
+      </div>
+      <div data-sticky-aside="" style="display:flex; flex-direction:column; gap:14px; max-width: 420px">
+        <div class="lighten" style="border-radius:14px; overflow:hidden; border:1px solid var(--color-neutral-900); background: var(--color-surface); aspect-ratio: 4 / 5">
+          <image-slot id="about-route-photo" shape="rect" fit="cover" placeholder="Photo from the route: the van, a machine on the bench, or the sticker on an espresso machine" style="width:100%; height:100%"></image-slot>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:8px">
+          <div style="display:flex; align-items:center; gap:12px; padding: 12px 14px; border-radius:10px; background: var(--color-surface); border:1px solid var(--color-neutral-900); font-size:14.5px"><svg width="18" height="18" style="flex:none; color: var(--color-accent)" aria-hidden="true"><use href="#i-wrench"></use></svg>Working repair technician</div>
+          <div style="display:flex; align-items:center; gap:12px; padding: 12px 14px; border-radius:10px; background: var(--color-surface); border:1px solid var(--color-neutral-900); font-size:14.5px"><svg width="18" height="18" style="flex:none; color: var(--color-accent)" aria-hidden="true"><use href="#i-coffee"></use></svg>Commercial coffee &amp; espresso</div>
+          <div style="display:flex; align-items:center; gap:12px; padding: 12px 14px; border-radius:10px; background: var(--color-surface); border:1px solid var(--color-neutral-900); font-size:14.5px"><svg width="18" height="18" style="flex:none; color: var(--color-accent)" aria-hidden="true"><use href="#i-pin"></use></svg>Dallas–Fort Worth, TX</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="cta-title" style="max-width:1200px; margin:0 auto; padding: clamp(32px, 4vw, 64px) clamp(20px, 5vw, 72px) clamp(72px, 9vw, 128px)">
+    <div data-reveal="" style="position:relative; overflow:hidden; border-radius:20px; border:1px solid var(--color-neutral-900); background: radial-gradient(760px 380px at 85% 115%, color-mix(in srgb, var(--color-accent-900) 85%, transparent), transparent 62%), var(--color-surface); padding: clamp(36px, 5vw, 64px) clamp(24px, 5vw, 64px); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 28px 40px; align-items:center">
+      <div>
+        <h2 id="cta-title" style="margin:0; font-size: clamp(26px, 3vw, 38px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Running a route of your own?</h2>
+        <p style="margin: 14px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">Try EquipQR free for 14 days and see how much of your call volume a sticker can answer.</p>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px">
+        <a class="btn btn-primary" href="#" style="height:46px; padding:0 20px; font-size:15px">Start free trial <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+        <a class="btn btn-secondary" href="Contact.dc.html" style="height:46px; padding:0 20px; font-size:15px">Get in touch</a>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="SiteFooter" hint-size="100%,360px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;scrollReveal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  renderVals() { return { rootRef: this.rootRef }; }
+  componentDidMount() { this.setupMotion(); }
+  componentDidUpdate() {
+    const on = this.props.scrollReveal ?? true;
+    const root = this.rootRef.current;
+    if (!root) return;
+    if (!on && root.hasAttribute('data-motion')) { root.removeAttribute('data-motion'); this._io?.disconnect(); this._io = null; }
+    if (on) this.setupMotion();
+  }
+  componentWillUnmount() { this._io?.disconnect(); }
+  setupMotion() {
+    if ((this.props.scrollReveal ?? true) === false) return;
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const root = this.rootRef.current;
+    if (!root) return;
+    root.setAttribute('data-motion', '');
+    if (!this._io) {
+      this._io = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.setAttribute('data-reveal', 'in'); this._io.unobserve(e.target); } });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    }
+    const vh = window.innerHeight;
+    root.querySelectorAll('[data-reveal]:not([data-reveal="in"])').forEach(el => {
+      if (el.getBoundingClientRect().top < vh * 0.92) el.setAttribute('data-reveal', 'in'); else this._io.observe(el);
+    });
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    @media (max-width: 880px) { [data-nav-desktop] { display: none !important; } }
+    @media (min-width: 881px) { [data-nav-mobile] { display: none !important; } }
+  </style>
+</helmet>
+<header style="position:sticky; top:0; z-index:50; background: color-mix(in srgb, var(--color-bg) 84%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom: 1px solid var(--color-divider); font-family: var(--font-body); color: var(--color-text)">
+  <div style="max-width:1200px; margin:0 auto; padding: 0 clamp(20px, 5vw, 72px); height:64px; display:flex; align-items:center; gap:28px">
+    <a href="Home.dc.html" aria-label="EquipQR home" style="display:flex; align-items:center; gap:10px; color:inherit; text-decoration:none; flex:none">
+      <svg width="26" height="26" viewBox="0 0 100 100" aria-hidden="true" style="display:block; color: var(--color-accent)">
+        <path d="M14 36V14h22M56 14h22v22M14 56v22h22" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"></path>
+        <rect x="31" y="31" width="30" height="30" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="square" stroke-linejoin="miter"></rect>
+        <rect x="40" y="40" width="12" height="12" fill="currentColor"></rect>
+        <line x1="74" y1="74" x2="84" y2="84" stroke="currentColor" stroke-width="9" stroke-linecap="square"></line>
+        <path d="M72 88h16V72" fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"></path>
+      </svg>
+      <span style="font-family: 'DM Sans', sans-serif; font-size:19px; font-weight:500; letter-spacing:-0.02em; line-height:1">EquipQR</span>
+    </a>
+    <nav data-nav-desktop="" aria-label="Primary" style="display:flex; align-items:center; gap:2px; margin-left:auto">
+      <sc-for list="{{ links }}" as="l" hint-placeholder-count="4">
+        <a href="{{ l.href }}" aria-current="{{ l.current }}" style="display:inline-flex; align-items:center; height:36px; padding:0 12px; border-radius:8px; font-size:14px; text-decoration:none; color: {{ l.color }}; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-text) 6%, transparent)">{{ l.label }}</a>
+      </sc-for>
+    </nav>
+    <div data-nav-desktop="" style="display:flex; align-items:center; gap:8px">
+      <a class="btn btn-secondary" href="#" style="height:36px; padding:0 14px; font-size:14px">Log in</a>
+      <a class="btn btn-primary" href="#" style="height:36px; padding:0 14px; font-size:14px">Start free trial</a>
+    </div>
+    <button data-nav-mobile="" type="button" class="btn btn-secondary btn-icon" aria-label="{{ burgerLabel }}" aria-expanded="{{ open }}" onClick="{{ toggle }}" style="margin-left:auto; width:44px; height:44px">
+      <sc-if value="{{ notOpen }}" hint-placeholder-val="{{ true }}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+      </sc-if>
+      <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </sc-if>
+    </button>
+  </div>
+  <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+    <div data-nav-mobile="" style="border-top:1px solid var(--color-divider); background: var(--color-bg); padding: 8px clamp(20px, 5vw, 72px) 20px; display:flex; flex-direction:column; gap:4px">
+      <sc-for list="{{ links }}" as="l" hint-placeholder-count="4">
+        <a href="{{ l.href }}" aria-current="{{ l.current }}" onClick="{{ close }}" style="display:flex; align-items:center; min-height:44px; padding:0 12px; border-radius:8px; font-size:16px; text-decoration:none; color: {{ l.color }}; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-text) 6%, transparent)">{{ l.label }}</a>
+      </sc-for>
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px">
+        <a class="btn btn-secondary" href="#" style="min-height:44px; font-size:15px">Log in</a>
+        <a class="btn btn-primary" href="#" style="min-height:44px; font-size:15px">Start free trial</a>
+      </div>
+    </div>
+  </sc-if>
+</header>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:64},&quot;active&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;features&quot;,&quot;pricing&quot;,&quot;restaurants&quot;,&quot;faq&quot;,&quot;about&quot;,&quot;contact&quot;,&quot;security&quot;,&quot;legal&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  state = { open: false };
+  renderVals() {
+    const active = this.props.active ?? '';
+    const mk = (id, label, href) => ({ id, label, href, current: active === id ? 'page' : undefined, color: active === id ? 'var(--color-accent)' : 'var(--color-neutral-400)' });
+    const links = [
+      mk('features', 'Features', 'Features.dc.html'),
+      mk('pricing', 'Pricing', 'Pricing.dc.html'),
+      mk('restaurants', 'Restaurants', 'Restaurants.dc.html'),
+      mk('faq', 'FAQ', 'FAQ.dc.html'),
+    ];
+    const open = this.state.open;
+    return {
+      links, open, notOpen: !open,
+      burgerLabel: open ? 'Close menu' : 'Open menu',
+      toggle: () => this.setState(s => ({ open: !s.open })),
+      close: () => this.setState({ open: false }),
+    };
+  }
+}
+</script>
+</body>
+</html>

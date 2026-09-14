@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (min-width: 761px) { [data-sticky-aside] { position: sticky; top: 88px; } }
+  </style>
+</helmet>
+<div data-screen-label="Privacy" style="--color-accent:#3ecf8e; --color-accent-100:#ecf9f1; --color-accent-200:#d2f1de; --color-accent-300:#a7e5c2; --color-accent-400:#56d396; --color-accent-500:#3ecf8e; --color-accent-600:#05915e; --color-accent-700:#007047; --color-accent-800:#045032; --color-accent-900:#093421; --color-accent-2:#3ecf8e; --color-accent-2-100:#ecf9f1; --color-accent-2-800:#045032; min-height:100vh; background: radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%), radial-gradient(1100px 800px at -10% 100%, rgba(0,0,0,0.3), transparent 55%), var(--color-bg); color: var(--color-text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-wrap: pretty">
+
+  <dc-import style="position:sticky; top:0; z-index:50" name="SiteHeader" active="privacy" hint-size="100%,64px"></dc-import>
+
+  <section aria-labelledby="page-title" style="max-width:1200px; margin:0 auto; padding: clamp(56px, 7vw, 104px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 40px)">
+    <div style="max-width: 760px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Legal</p>
+      <h1 id="page-title" style="margin:0; font-size: clamp(36px, 4.4vw, 58px); line-height:1.06; letter-spacing:-0.025em; font-weight:500">Privacy Policy</h1>
+      <p style="margin: 22px 0 0; font-size: clamp(16px, 1.3vw, 18px); line-height:1.6; color: var(--color-neutral-300); max-width: 56ch">How we collect, use, and protect data across EquipQR — for the companies that use it and the customers who scan a sticker.</p>
+      <p style="margin: 18px 0 0; font-size:14px; color: var(--color-neutral-500); font-feature-settings: 'tnum' 1">Last updated {{ lastUpdated }}</p>
+    </div>
+  </section>
+
+  <section aria-label="Privacy policy" style="max-width:1200px; margin:0 auto; padding: clamp(24px, 3vw, 48px) clamp(20px, 5vw, 72px) clamp(72px, 9vw, 128px)">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 40px clamp(32px, 5vw, 80px); align-items:start">
+      <nav data-sticky-aside="" aria-label="Sections" style="max-width: 360px">
+        <p style="margin:0 0 12px; font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">Contents</p>
+        <ol style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:2px">
+          <li><a href="#scope" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">1</span>Scope</a></li>
+          <li><a href="#collect" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">2</span>Information we collect</a></li>
+          <li><a href="#use" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">3</span>How we use information</a></li>
+          <li><a href="#subprocessors" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">4</span>Subprocessors</a></li>
+          <li><a href="#retention" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">5</span>Data retention</a></li>
+          <li><a href="#security" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">6</span>Security</a></li>
+          <li><a href="#rights" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">7</span>Your choices and rights</a></li>
+          <li><a href="#children" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">8</span>Children's privacy</a></li>
+          <li><a href="#international" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">9</span>International data</a></li>
+          <li><a href="#changes" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">10</span>Changes to this policy</a></li>
+          <li><a href="#contact" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">11</span>Contact</a></li>
+        </ol>
+        <p style="margin: 20px 0 0; font-size:13.5px; line-height:1.6; color: var(--color-neutral-500)">See also the <a href="Terms.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Terms of Service</a> and <a href="Security.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Security</a>.</p>
+      </nav>
+
+      <div style="max-width: 68ch; display:flex; flex-direction:column; gap: clamp(28px, 3vw, 40px); font-size:16px; line-height:1.7; color: var(--color-neutral-300)">
+        <section id="scope" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">1.</span>Scope</h2>
+          <p style="margin:0">This policy covers the EquipQR dashboard and the public equipment pages served at links beginning with <code style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; padding: 1px 6px; border-radius: 5px; background: var(--color-surface); border: 1px solid var(--color-neutral-900); color: var(--color-text)">/e/</code>. It applies both to the companies ("Customers") that use EquipQR to manage their equipment and to the end-users ("End Users") who scan a QR code and interact with a Customer's equipment page.</p>
+        </section>
+
+        <section id="collect" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">2.</span>Information we collect</h2>
+          <p style="margin:0 0 10px">From Customers and their team members, we collect:</p>
+          <ul style="margin:0 0 14px; padding-left: 22px; display:flex; flex-direction:column; gap:6px">
+            <li>Account information: name, email address, and authentication credentials;</li>
+            <li>Company data you enter: company name, notification email, customer records, equipment records, and troubleshooting guides;</li>
+            <li>Billing information, handled directly by our payment processor (Stripe) — we receive a subscription status and reference token, not your full card number; and</li>
+            <li>Usage data such as pages visited and actions taken in the dashboard, used to operate and improve the Service.</li>
+          </ul>
+          <p style="margin:0 0 10px">From End Users who scan a QR code or submit a service request, we collect:</p>
+          <ul style="margin:0 0 14px; padding-left: 22px; display:flex; flex-direction:column; gap:6px">
+            <li>Troubleshooting responses: the answers selected while working through a guide, and any question typed into the chat-style assistant;</li>
+            <li>Service request details: a description of the issue, contact name, email and/or phone number, and any photos or video attached; and</li>
+            <li>Basic technical data such as IP address and browser type, for security and abuse prevention.</li>
+          </ul>
+          <p style="margin:0">We do not require End Users to create an account, and we do not knowingly collect more information from them than is needed to route a service request to the Customer they're contacting.</p>
+        </section>
+
+        <section id="use" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">3.</span>How we use information</h2>
+          <ul style="margin:0; padding-left: 22px; display:flex; flex-direction:column; gap:6px">
+            <li>To provide the Service: operate accounts, guides, equipment pages, and service requests;</li>
+            <li>To power AI features: drafting troubleshooting guides, answering questions in the chat assistant, and summarizing service requests for the Customer that receives them;</li>
+            <li>To send transactional email, such as new service request notifications and account emails;</li>
+            <li>To process payments and manage subscriptions;</li>
+            <li>To secure the Service, prevent abuse, and enforce our Terms of Service; and</li>
+            <li>To comply with legal obligations.</li>
+          </ul>
+        </section>
+
+        <section id="subprocessors" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">4.</span>Subprocessors</h2>
+          <p style="margin:0 0 10px">We use a small number of subprocessors to run EquipQR, each bound by contract to protect data they process on our behalf and to use it only to provide their service to us:</p>
+          <ul style="margin:0 0 14px; padding-left: 22px; display:flex; flex-direction:column; gap:6px">
+            <li><strong style="font-weight:500; color: var(--color-text)">Supabase</strong> — database, authentication, and file storage (including service request photos and video);</li>
+            <li><strong style="font-weight:500; color: var(--color-text)">Stripe</strong> — payment processing and subscription billing;</li>
+            <li><strong style="font-weight:500; color: var(--color-text)">Resend</strong> — transactional email delivery (e.g. service request and account notifications); and</li>
+            <li><strong style="font-weight:500; color: var(--color-text)">Anthropic</strong> — AI model provider used to draft troubleshooting guides, power the chat assistant, and summarize service requests.</li>
+          </ul>
+          <p style="margin:0">We don't sell personal information, and we don't share Customer Content with third parties except the subprocessors above, at a Customer's direction, or where required by law.</p>
+        </section>
+
+        <section id="retention" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">5.</span>Data retention</h2>
+          <p style="margin:0">We retain account and Customer Content for as long as the account is active, plus a limited period after cancellation to allow data export, unless a shorter period is requested or a longer period is required by law. End User data submitted through a service request is retained as part of that Customer's records and is subject to that Customer's own retention practices.</p>
+        </section>
+
+        <section id="security" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">6.</span>Security</h2>
+          <p style="margin:0">Data is encrypted in transit (TLS) and at rest, and access to Customer data within our database is enforced by row-level security scoped to each company — one Customer's data is not queryable by another. More detail is on our <a href="Security.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Security page</a>.</p>
+        </section>
+
+        <section id="rights" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">7.</span>Your choices and rights</h2>
+          <p style="margin:0">Customers can access, correct, export, or delete data they've entered from within the dashboard, or by contacting us. End Users who want to access, correct, or delete information they submitted through a service request should contact the Customer they submitted it to, since that Customer controls the record; we'll assist Customers with such requests. Depending on where you live, you may have additional rights under applicable law (for example, the right to request a copy of your data or to object to certain processing) — contact us and we'll respond.</p>
+        </section>
+
+        <section id="children" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">8.</span>Children's privacy</h2>
+          <p style="margin:0">EquipQR is a business tool and is not directed at children. We do not knowingly collect personal information from children under 13.</p>
+        </section>
+
+        <section id="international" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">9.</span>International data</h2>
+          <p style="margin:0">Our infrastructure and subprocessors may store and process data in the United States. By using the Service, you consent to this transfer and processing.</p>
+        </section>
+
+        <section id="changes" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">10.</span>Changes to this policy</h2>
+          <p style="margin:0">We may update this policy from time to time. Material changes will be announced, for example by email or an in-app notice, before they take effect.</p>
+        </section>
+
+        <section id="contact" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">11.</span>Contact</h2>
+          <p style="margin:0">Questions about this policy or a privacy request can be sent to <a href="mailto:support@equipqr.co" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">support@equipqr.co</a>.</p>
+        </section>
+
+        <sc-if value="{{ showNotice }}" hint-placeholder-val="{{ true }}">
+          <p style="margin: 8px 0 0; padding: 16px 18px; border-radius:12px; border:1px solid var(--color-neutral-900); background: var(--color-surface); font-size:14px; line-height:1.6; color: var(--color-neutral-400)"><strong style="font-weight:500; color: var(--color-text)">Note:</strong> this page is a general template provided for convenience and does not constitute legal advice. Have a qualified attorney review it before relying on it for your business.</p>
+        </sc-if>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="SiteFooter" hint-size="100%,360px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;lastUpdated&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;September 3, 2026&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;showNotice&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { lastUpdated: this.props.lastUpdated ?? 'September 3, 2026', showNotice: this.props.showNotice ?? true };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-motion: no-preference) {
+      [data-motion] [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+      [data-motion] [data-reveal="in"] { opacity: 1; transform: none; }
+    }
+    @media (max-width: 560px) { [data-two] { grid-template-columns: minmax(0, 1fr) !important; } }
+    @media (min-width: 761px) { [data-sticky-aside] { position: sticky; top: 88px; } }
+  </style>
+</helmet>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-mail" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><rect x="3" y="5" width="18" height="14"></rect><path d="M3 7l9 6 9-6"></path></g></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12h4"></path></g></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l4.5 4.5L19.5 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3.5l9.5 17H2.5z"></path><path d="M12 10v4.5"></path><rect x="11" y="16.5" width="2" height="2" fill="currentColor" stroke="none"></rect></g></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+</svg>
+
+<div ref="{{ rootRef }}" data-screen-label="Contact" style="--color-accent:#3ecf8e; --color-accent-100:#ecf9f1; --color-accent-200:#d2f1de; --color-accent-300:#a7e5c2; --color-accent-400:#56d396; --color-accent-500:#3ecf8e; --color-accent-600:#05915e; --color-accent-700:#007047; --color-accent-800:#045032; --color-accent-900:#093421; --color-accent-2:#3ecf8e; --color-accent-2-100:#ecf9f1; --color-accent-2-800:#045032; min-height:100vh; background: radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%), radial-gradient(1100px 800px at -10% 100%, rgba(0,0,0,0.3), transparent 55%), var(--color-bg); color: var(--color-text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-wrap: pretty; display:flex; flex-direction:column">
+
+  <dc-import style="position:sticky; top:0; z-index:50" name="SiteHeader" active="contact" hint-size="100%,64px"></dc-import>
+
+  <section aria-labelledby="page-title" style="max-width:1200px; width:100%; box-sizing:border-box; margin:0 auto; padding: clamp(56px, 7vw, 104px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 40px)">
+    <div data-reveal="" style="max-width: 760px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Contact</p>
+      <h1 id="page-title" style="margin:0; font-size: clamp(36px, 4.4vw, 58px); line-height:1.06; letter-spacing:-0.025em; font-weight:500">Get in touch.</h1>
+      <p style="margin: 22px 0 0; font-size: clamp(16px, 1.3vw, 18px); line-height:1.6; color: var(--color-neutral-300); max-width: 56ch">Questions about pricing, setting up your first guide, or ordering sticker batches. We read every message.</p>
+    </div>
+  </section>
+
+  <section aria-label="Ways to reach us" style="max-width:1200px; width:100%; box-sizing:border-box; margin:0 auto; padding: clamp(24px, 3vw, 48px) clamp(20px, 5vw, 72px) clamp(72px, 9vw, 128px); flex:1">
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:start">
+      <div data-sticky-aside="" style="display:flex; flex-direction:column; gap:12px; max-width: 420px">
+        <a href="mailto:support@equipqr.co" style="display:flex; gap:14px; padding: 18px 20px; border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); color:inherit; text-decoration:none; transition: border-color .2s ease" style-hover="border-color: var(--color-accent)">
+          <svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:1px" aria-hidden="true"><use href="#i-mail"></use></svg>
+          <div><div style="font-size:16px; font-weight:500; line-height:1.4">Email us directly</div><div style="margin-top:3px; font-size:14.5px; color: var(--color-neutral-400)">support@equipqr.co</div></div>
+        </a>
+        <div style="display:flex; gap:14px; padding: 18px 20px; border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900)">
+          <svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:1px" aria-hidden="true"><use href="#i-clock"></use></svg>
+          <div><div style="font-size:16px; font-weight:500; line-height:1.4">Response time</div><div style="margin-top:3px; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">Usually within one business day. Pro and Business plans get priority support.</div></div>
+        </div>
+        <p style="margin: 8px 0 0; font-size:14px; line-height:1.6; color: var(--color-neutral-500)">Looking for an answer right now? Most questions about setup and billing are on the <a href="FAQ.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">FAQ page</a>.</p>
+      </div>
+
+      <div style="border-radius:16px; border:1px solid var(--color-neutral-900); background: var(--color-surface); padding: clamp(22px, 3vw, 32px); box-shadow: var(--shadow-sm)">
+        <sc-if value="{{ notSent }}" hint-placeholder-val="{{ true }}">
+          <form onSubmit="{{ submit }}" noValidate="{{ true }}" style="display:flex; flex-direction:column; gap:18px">
+            <div data-two="" style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:16px">
+              <div class="field" style="display:flex; flex-direction:column; gap:6px">
+                <label for="contact-name" style="font-size:13.5px; color: var(--color-neutral-300)">Name</label>
+                <input class="input" id="contact-name" name="name" type="text" autoComplete="name" required="{{ true }}" value="{{ form.name }}" onChange="{{ onName }}" style="height:44px; font-size:15px">
+              </div>
+              <div class="field" style="display:flex; flex-direction:column; gap:6px">
+                <label for="contact-email" style="font-size:13.5px; color: var(--color-neutral-300)">Email</label>
+                <input class="input" id="contact-email" name="email" type="email" autoComplete="email" required="{{ true }}" value="{{ form.email }}" onChange="{{ onEmail }}" style="height:44px; font-size:15px">
+              </div>
+            </div>
+            <div class="field" style="display:flex; flex-direction:column; gap:6px">
+              <label for="contact-company" style="font-size:13.5px; color: var(--color-neutral-300)">Company <span style="color: var(--color-neutral-500)">(optional)</span></label>
+              <input class="input" id="contact-company" name="company" type="text" autoComplete="organization" value="{{ form.company }}" onChange="{{ onCompany }}" style="height:44px; font-size:15px">
+            </div>
+            <div class="field" style="display:flex; flex-direction:column; gap:6px">
+              <label for="contact-message" style="font-size:13.5px; color: var(--color-neutral-300)">How can we help?</label>
+              <textarea class="input" id="contact-message" name="message" rows="{{ rows }}" required="{{ true }}" value="{{ form.message }}" onChange="{{ onMessage }}" style="font-size:15px; line-height:1.55; min-height: 150px"></textarea>
+            </div>
+            <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+              <div role="alert" style="display:flex; gap:10px; align-items:flex-start; padding: 12px 14px; border-radius:10px; border:1px solid var(--color-neutral-700); background: var(--color-bg); font-size:14px; line-height:1.5; color: var(--color-neutral-200)"><svg width="16" height="16" style="flex:none; margin-top:2px; color: var(--color-accent)" aria-hidden="true"><use href="#i-alert"></use></svg><span>{{ error }}</span></div>
+            </sc-if>
+            <div style="display:flex; flex-wrap:wrap; align-items:center; gap: 12px 20px; margin-top: 4px">
+              <button class="btn btn-primary" type="submit" disabled="{{ pending }}" style="height:46px; padding:0 22px; font-size:15px">{{ submitLabel }}</button>
+              <span style="font-size:13px; color: var(--color-neutral-500)">Goes to support@equipqr.co. We reply from there.</span>
+            </div>
+          </form>
+        </sc-if>
+        <sc-if value="{{ sent }}" hint-placeholder-val="{{ false }}">
+          <div role="status" style="display:flex; flex-direction:column; gap:16px; min-height: 260px; justify-content:center">
+            <div style="width:44px; height:44px; border-radius:50%; background: color-mix(in srgb, var(--color-accent) 16%, transparent); display:grid; place-items:center; color: var(--color-accent)"><svg width="22" height="22" aria-hidden="true"><use href="#i-check"></use></svg></div>
+            <h2 style="margin:0; font-size: clamp(22px, 2vw, 26px); line-height:1.2; letter-spacing:-0.015em; font-weight:500">Thanks, we'll get back to you shortly.</h2>
+            <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">Usually within one business day. If it's urgent, email <a href="mailto:support@equipqr.co" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">support@equipqr.co</a> and mention you already sent a message.</p>
+            <div><button class="btn btn-secondary" type="button" onClick="{{ reset }}" style="height:42px; padding:0 16px; font-size:14px">Send another</button></div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="SiteFooter" hint-size="100%,360px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;simulateDelayMs&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:900,&quot;min&quot;:0,&quot;max&quot;:3000,&quot;step&quot;:100,&quot;unit&quot;:&quot;ms&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Prototype&quot;},&quot;scrollReveal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  state = { form: { name: '', email: '', company: '', message: '' }, status: 'idle', error: '' };
+  renderVals() {
+    const { form, status, error } = this.state;
+    const set = key => e => this.setState(s => ({ form: { ...s.form, [key]: e.target.value }, error: '' }));
+    return {
+      rootRef: this.rootRef,
+      form, rows: 5,
+      onName: set('name'), onEmail: set('email'), onCompany: set('company'), onMessage: set('message'),
+      notSent: status !== 'success', sent: status === 'success',
+      pending: status === 'pending',
+      submitLabel: status === 'pending' ? 'Sending…' : 'Send message',
+      hasError: !!error, error,
+      submit: e => {
+        e.preventDefault();
+        const f = this.state.form;
+        if (!f.name.trim() || !f.email.trim() || !f.message.trim()) { this.setState({ error: 'Please fill in your name, email, and a message.' }); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) { this.setState({ error: 'That email address doesn\u2019t look right.' }); return; }
+        this.setState({ status: 'pending', error: '' });
+        const delay = this.props.simulateDelayMs ?? 900;
+        this._t = setTimeout(() => this.setState({ status: 'success' }), delay);
+      },
+      reset: () => this.setState({ form: { name: '', email: '', company: '', message: '' }, status: 'idle', error: '' }),
+    };
+  }
+  componentDidMount() { this.setupMotion(); }
+  componentDidUpdate() {
+    const on = this.props.scrollReveal ?? true;
+    const root = this.rootRef.current;
+    if (!root) return;
+    if (!on && root.hasAttribute('data-motion')) { root.removeAttribute('data-motion'); this._io?.disconnect(); this._io = null; }
+    if (on) this.setupMotion();
+  }
+  componentWillUnmount() { this._io?.disconnect(); clearTimeout(this._t); }
+  setupMotion() {
+    if ((this.props.scrollReveal ?? true) === false) return;
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const root = this.rootRef.current;
+    if (!root) return;
+    root.setAttribute('data-motion', '');
+    if (!this._io) {
+      this._io = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.setAttribute('data-reveal', 'in'); this._io.unobserve(e.target); } });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    }
+    const vh = window.innerHeight;
+    root.querySelectorAll('[data-reveal]:not([data-reveal="in"])').forEach(el => {
+      if (el.getBoundingClientRect().top < vh * 0.92) el.setAttribute('data-reveal', 'in'); else this._io.observe(el);
+    });
+  }
+}
+</script>
+</body>
+</html>
