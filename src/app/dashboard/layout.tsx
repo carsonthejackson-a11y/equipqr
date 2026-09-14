@@ -146,7 +146,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <aside className="hidden w-60 shrink-0 border-r bg-muted/20 p-4 md:flex md:flex-col md:justify-between print:hidden">
         <div>
           <div className="mb-6 flex items-center gap-2 px-3">
-            <LogoMark className="size-7" />
+            <LogoMark className="size-7 text-primary" />
             <div className="min-w-0">
               <p className="truncate font-semibold leading-tight">{company?.name ?? "EquipQR"}</p>
               <p className="truncate text-xs text-muted-foreground">{profile.full_name}</p>
@@ -159,7 +159,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <div className="min-w-0 flex-1">
         <header className="flex items-center justify-between border-b p-4 md:hidden print:hidden">
           <div className="flex items-center gap-2">
-            <LogoMark className="size-7" />
+            <LogoMark className="size-7 text-primary" />
             <p className="font-semibold">{company?.name ?? "EquipQR"}</p>
           </div>
           <SignOutButton />

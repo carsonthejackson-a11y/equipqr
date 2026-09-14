@@ -23,6 +23,17 @@ bottom.
 
 ## WS2 — Brand: mark, favicon, OG image
 
+- Details in `notes/ws2.md`. `logo.tsx` keeps `Logo`/`LogoMark` and adds
+  `MarkSvg`, `MARK_PATHS`, `MARK_PATHS_SMALL`, `LogoMarkSmall`, `WORDMARK_CLASS`
+  and `Logo`'s `markClassName`/`wordmarkClassName` props.
+- Ownership-table addition: `src/app/dashboard/layout.tsx` (WS2, orchestrator-applied)
+  — the two `LogoMark` uses gained `text-primary` because the mark no longer
+  carries a colour of its own.
+- Favicon strokes run 11/9 heavier than the spec so the mark survives 16px.
+- OG fonts (DM Sans 500, Inter 400/500) are fetched from Google Fonts at build
+  time with an offline fallback to Satori's bundled sans.
+- Header/footer lockup changes requested by WS2 are carried into WS4.
+
 ## WS3 — Shared marketing primitives
 
 ## WS4 — Header + footer
