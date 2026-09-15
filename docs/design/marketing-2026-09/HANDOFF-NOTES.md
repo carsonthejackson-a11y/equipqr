@@ -64,6 +64,14 @@ bottom.
 
 ## WS9 — FAQ
 
+- Details in `notes/ws9.md`. Groups product/billing/restaurants with sticky
+  headings, jump nav, first answer open per group.
+- Decided divergence: the design's FAQ answers differ in places from
+  `faq-data.ts` (dashes vs commas, "Every plan" vs "Every owner plan", a
+  "Get in touch" link in the last billing answer). BRIEF §4 WS7 limits the shared
+  FAQ data to the D4 rename, so the code strings stay; revisit if the design
+  answers should win site-wide.
+
 ## WS10 — About
 
 - Details in `notes/ws10.md`. Story paragraphs are the existing page's text
