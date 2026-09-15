@@ -2,13 +2,11 @@
 
 import { Resend } from "resend";
 import { SUPPORT_EMAIL } from "@/lib/site";
+import { validateContactForm, type ContactState } from "./validation";
 
-export type ContactState = {
-  status: "idle" | "success" | "error";
-  message?: string;
-};
-
-export const initialContactState: ContactState = { status: "idle" };
+// `ContactState` / `initialContactState` live in validation.ts: a "use server"
+// module may only export async functions, and this file is imported by the
+// client form.
 
 export async function submitContactForm(
   _prevState: ContactState,
@@ -19,8 +17,10 @@ export async function submitContactForm(
   const company = String(formData.get("company") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();
 
-  if (!name || !email || !message) {
-    return { status: "error", message: "Please fill in your name, email, and a message." };
+  // Same check as the client pre-check (validation.ts); this one is authoritative.
+  const invalid = validateContactForm({ name, email, company, message });
+  if (invalid) {
+    return { status: "error", message: invalid };
   }
 
   const apiKey = process.env.RESEND_API_KEY;
@@ -60,5 +60,6 @@ export async function submitContactForm(
     };
   }
 
-  return { status: "success", message: "Thanks — we'll get back to you shortly." };
+  // BRIEF §3.5: the design's H2 (comma) is rendered from this string.
+  return { status: "success", message: "Thanks, we'll get back to you shortly." };
 }

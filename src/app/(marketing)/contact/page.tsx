@@ -1,71 +1,95 @@
 import type { Metadata } from "next";
-import { Mail, Clock } from "lucide-react";
-import { ContactForm } from "./contact-form";
+import Link from "next/link";
+import { Clock, Mail } from "lucide-react";
 import { SUPPORT_EMAIL } from "@/lib/site";
+import { Icon } from "../_components/icon";
+import { SectionHeader } from "../_components/kicker";
+import { Panel } from "../_components/panel";
+import { Reveal } from "../_components/reveal";
+import { Section } from "../_components/section";
+import { ContactForm } from "./contact-form";
+
+// docs/design/marketing-2026-09/Contact.dc.html → README "Screens → 7. Contact".
 
 export const metadata: Metadata = {
   title: "Contact",
-  description: "Get in touch with the EquipQR team.",
+  description:
+    "Questions about pricing, setting up your first guide, or ordering sticker batches. We read every message.",
 };
 
-// Whether the form (vs. the mailto fallback) renders depends on server env
-// vars — evaluate that per-request rather than baking one build's env into
-// a statically prerendered page.
-export const dynamic = "force-dynamic";
+const inlineLinkClass =
+  "text-primary underline underline-offset-[3px] transition-colors duration-150 hover:text-eq-accent-300";
+
+// README "Contact": info cards are surface panels with a 22px accent icon,
+// `padding: 18px 20px`. The mail card's border goes to the accent on hover.
+const infoCardClass = "flex gap-[14px] px-5 py-[18px]";
 
 export default function ContactPage() {
-  const emailConfigured = Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
-
   return (
-    <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 sm:py-24">
-      <div className="mx-auto max-w-2xl text-center">
-        <h1 className="font-heading text-4xl font-semibold tracking-tight">Get in touch</h1>
-        <p className="mt-3 text-muted-foreground">
-          Questions about pricing, setting up your first guide, or ordering sticker batches — we
-          read every message.
-        </p>
-      </div>
+    <>
+      <Section variant="hero" className="pb-[clamp(24px,3vw,40px)]" aria-labelledby="page-title">
+        <Reveal>
+          <SectionHeader
+            kicker="Contact"
+            size="h1"
+            titleId="page-title"
+            title="Get in touch."
+            lead="Questions about pricing, setting up your first guide, or ordering sticker batches. We read every message."
+            className="max-w-[760px]"
+            leadClassName="max-w-[56ch]"
+          />
+        </Reveal>
+      </Section>
 
-      <div className="mt-14 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
-        <div className="space-y-4">
-          <a
-            href={`mailto:${SUPPORT_EMAIL}`}
-            className="flex items-start gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40"
+      {/* The design's last section carries the CTA-section bottom padding (no CTA panel). */}
+      <Section
+        className="pt-[clamp(24px,3vw,48px)] pb-[clamp(72px,9vw,128px)]"
+        aria-label="Ways to reach us"
+      >
+        <Reveal className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,300px),1fr))] items-start gap-x-[clamp(32px,5vw,80px)] gap-y-8">
+          <aside
+            className="flex max-w-[420px] flex-col gap-3 min-[761px]:sticky min-[761px]:top-[88px]"
+            aria-label="Other ways to reach us"
           >
-            <Mail className="mt-0.5 size-5 shrink-0 text-primary" />
-            <div>
-              <p className="text-sm font-medium text-foreground">Email us directly</p>
-              <p className="text-sm text-muted-foreground">{SUPPORT_EMAIL}</p>
-            </div>
-          </a>
-          <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
-            <Clock className="mt-0.5 size-5 shrink-0 text-primary" />
-            <div>
-              <p className="text-sm font-medium text-foreground">Response time</p>
-              <p className="text-sm text-muted-foreground">
-                Usually within one business day. Pro and Business plans get priority support.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6 sm:p-8">
-          {emailConfigured ? (
-            <ContactForm />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              The contact form isn’t wired up on this environment yet — email us directly at{" "}
-              <a
-                href={`mailto:${SUPPORT_EMAIL}`}
-                className="text-primary underline-offset-4 hover:underline"
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              className="group block rounded-xl outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <Panel
+                padding="none"
+                hover={false}
+                className={`${infoCardClass} transition-colors duration-200 group-hover:border-primary group-focus-visible:border-primary`}
               >
-                {SUPPORT_EMAIL}
-              </a>{" "}
-              and we’ll get back to you.
+                <Icon icon={Mail} size={22} className="mt-px text-primary" />
+                <div>
+                  <div className="text-[16px] leading-[1.4] font-medium">Email us directly</div>
+                  <div className="mt-[3px] text-[14.5px] text-eq-neutral-400">{SUPPORT_EMAIL}</div>
+                </div>
+              </Panel>
+            </a>
+            <Panel padding="none" hover={false} className={infoCardClass}>
+              <Icon icon={Clock} size={22} className="mt-px text-primary" />
+              <div>
+                <div className="text-[16px] leading-[1.4] font-medium">Response time</div>
+                <div className="mt-[3px] text-[14.5px] leading-[1.55] text-eq-neutral-400">
+                  Usually within one business day. Pro and Business plans get priority support.
+                </div>
+              </div>
+            </Panel>
+            <p className="mt-2 text-[14px] leading-[1.6] text-eq-neutral-500">
+              Looking for an answer right now? Most questions about setup and billing are on the{" "}
+              <Link href="/faq" className={inlineLinkClass}>
+                FAQ page
+              </Link>
+              .
             </p>
-          )}
-        </div>
-      </div>
-    </section>
+          </aside>
+
+          <div className="rounded-[16px] border border-eq-neutral-900 bg-eq-surface p-[clamp(22px,3vw,32px)] shadow-eq-sm">
+            <ContactForm />
+          </div>
+        </Reveal>
+      </Section>
+    </>
   );
 }
