@@ -36,6 +36,17 @@ bottom.
 
 ## WS3 — Shared marketing primitives
 
+- API reference for every primitive is in `notes/ws3.md`; page workstreams
+  build from it.
+- `button.tsx` gained `brand`/`neutral` variants and the `xl` size, additive only.
+- `phone-mock.tsx` keeps the old `PhoneFrame`/`ScanScreen`/`GuideScreen`/
+  `RequestScreen` names as deprecated shims until WS5/WS6 stop importing them;
+  remove the shims once both pages land.
+- Next treats `_dev` as a private folder, so the smoke page is viewed by copying
+  it to `%5Fdev` temporarily (see `notes/ws3.md`). It is git-excluded locally.
+- Home's "How it works" rows are not `StepCard`s (48px numbers with a mock per
+  step); WS5 composes them from `FeatureRow`/plain markup.
+
 ## WS4 — Header + footer
 
 ## WS5 — Home
