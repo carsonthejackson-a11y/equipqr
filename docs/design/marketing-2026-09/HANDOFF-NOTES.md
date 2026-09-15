@@ -66,6 +66,10 @@ bottom.
 
 ## WS10 — About
 
+- Details in `notes/ws10.md`. Story paragraphs are the existing page's text
+  (README: verbatim from `about/page.tsx`); the pull line moved out of paragraph 4
+  into its own accent-bordered line. Photo block omitted behind `showPhoto`.
+
 ## WS11 — Contact
 
 ## WS12 — Security
