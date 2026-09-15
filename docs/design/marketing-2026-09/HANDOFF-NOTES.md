@@ -49,6 +49,11 @@ bottom.
 
 ## WS4 — Header + footer
 
+- Details in `notes/ws4.md`. Nav is Features / Pricing / Restaurants / FAQ; active
+  link = pathname match (query ignored) with `aria-current="page"`; mobile panel
+  below 880px closes on link click and on route change.
+- Footer Product column gained "For restaurants" (§3.5, design wins).
+
 ## WS5 — Home
 
 ## WS6 — Features
