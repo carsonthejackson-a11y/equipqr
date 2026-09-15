@@ -144,7 +144,12 @@ export function PricingBody({ audience, onAudienceChange }: PricingBodyProps) {
   return (
     <>
       <Tabs.Root value={audience} onValueChange={(value) => onAudienceChange?.(value as Audience)}>
-        <Section id="plans" aria-label="Plans" className="pt-[clamp(16px,2vw,24px)]">
+        <Section id="plans" aria-labelledby="plans-title" className="pt-[clamp(16px,2vw,24px)]">
+          {/* Visually the controls row sits right under the hero; the heading keeps
+              the outline in order (h1 → h2 → the plan-name h3s). */}
+          <h2 id="plans-title" className="sr-only">
+            Plans
+          </h2>
           <Reveal className="flex flex-wrap items-center justify-between gap-x-6 gap-y-[14px]">
             <Tabs.List aria-label="Who the plans are for" className={segmentedListClass}>
               {AUDIENCE_TABS.map((tab) => (

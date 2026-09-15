@@ -118,6 +118,56 @@ bottom.
 
 ## WS14 — Tests, QA, PR
 
+- Ownership-table additions (orchestrator, post-fan-out): `phone-mock.tsx` (deprecated
+  shims removed), `reveal.tsx` + `globals.css` (reveal performance, below),
+  `pricing/audience-tabs.tsx` (screen-reader "Plans" h2 so the outline is h1 → h2 → h3),
+  `(marketing)/layout.tsx` (DM Sans `preload: false`), `docs/MARKETING.md`,
+  `docs/BILLING.md`, `docs/OWNER-ROADMAP-BRIEF.md` (display names), `qa/` screenshots.
+- Tests (§5): Home H1 assertion → "Scan the tag"; new e2e for `/pricing?for=owners`
+  (Free / Kitchen / Multi-kitchen) and the 375px header menu; `reveal.test.tsx`
+  (server render never hidden). `$79` / `$24` locators use `exact: true` because the
+  compare table now also renders "$79/mo".
+- Full CI sequence green locally: lint, `tsc --noEmit`, vitest 35 files / 459 tests,
+  `next build`, Playwright 9 passed / 1 CI-only skip.
+- Responsive pass: every marketing route at 380 / 560 / 760 / 880 / 1100 / 1440 —
+  all 200, no horizontal overflow, no console errors. Light pages (/login, /signup,
+  not-found, /e/<bad token>, /invite/<bad token>) unchanged apart from the mark.
+- Reduced motion: 18 of 20 reveal groups start hidden below the fold with motion on
+  and all reveal on scroll; with `prefers-reduced-motion: reduce` none are hidden and
+  `scroll-behavior` is `auto`.
+- Lighthouse (mobile, production build, this container; main = same worktree build):
+
+  | Route | Perf main → branch | A11y main → branch |
+  | --- | --- | --- |
+  | `/` | 97 → 92 | 92 → 100 |
+  | `/pricing` | 94 → 93 | 95 → 100 |
+  | `/restaurants` | 96 → 93 | 96 → 100 |
+
+  Contrast audit passes on all three. The first branch run scored 84 / 87 / 93: a trace
+  showed 22 style recalcs and 6 layouts at load, from (a) every `Reveal` reading its
+  rect then writing `data-reveal` (a forced layout each) and (b) the `[data-reveal]`
+  transition animating the below-fold groups *to* hidden for 0.7s. Fixed by batching
+  all reads before any write in one animation frame with a shared observer, and by
+  putting the transition on the visible state only. The remaining gap is the longer
+  pages (Home DOM 809 nodes vs 557) and font bytes: the root layout still preloads
+  Geist Sans + Mono (138KB) on marketing routes that never use them — see follow-ups.
+- `docs/design/marketing-2026-09/qa/`: before (main) and after screenshots at 1440,
+  plus after at 380 and the light login/signup pages, downscaled JPEGs.
+
+## Follow-ups found during the build
+
+- Root `layout.tsx` preloads Geist Sans + Mono for every route; marketing pages use
+  Inter and pay ~138KB of unused font bytes on first paint. Loading Geist only where
+  it is used (or dropping its preload) would recover most of the remaining mobile
+  performance gap. Root layout is outside this brief's ownership table.
+- `CtaPanel` actions could take an `external` flag so the Security page's `mailto:`
+  panel stops carrying a local copy of the panel markup (`notes/ws12.md`).
+- The design's FAQ answers differ from `faq-data.ts` in wording/punctuation
+  (`notes/ws9.md`); the brief limited that file to the D4 rename.
+- Small primitive requests from the page workstreams (`tag-mock.tsx` size prop,
+  `feature-list.tsx` check size, `phone-mock.tsx` padTop, `section.tsx` rule gap) are
+  worked around locally; see `notes/ws5.md`, `ws6.md`, `ws8.md`.
+
 ## Out of scope (BRIEF.md §8)
 
 - Promoting the Nocturne theme app-wide (dashboard, auth, admin).

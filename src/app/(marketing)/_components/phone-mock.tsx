@@ -1,4 +1,4 @@
-import { Camera, Phone } from "lucide-react";
+import { Camera } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CheckIcon, Icon } from "./icon";
@@ -190,46 +190,4 @@ export function PhoneTitle({ children }: { children: React.ReactNode }) {
 /** Secondary sentence under the headline. */
 export function PhoneNote({ children }: { children: React.ReactNode }) {
   return <div className="text-[12px] leading-[1.45] text-eq-neutral-400">{children}</div>;
-}
-
-// ---------------------------------------------------------------------------
-// Deprecated: the pre-redesign screens, kept only so the old Home and Features
-// pages compile until WS5/WS6 rewrite them. They render placeholder content in
-// the new frame. Do not use in new code; remove once no page imports them.
-// ---------------------------------------------------------------------------
-
-/** @deprecated Compose a screen from the Phone* blocks instead. */
-export function ScanScreen() {
-  return (
-    <>
-      <PhoneHeader kicker="Metro Refrigeration" title="Dish machine · Unit 3" subtitle="Back kitchen · Sunrise Diner" />
-      <PhonePrompt>Point your camera at the sticker.</PhonePrompt>
-      <PhoneNote>No app to install, no account to make.</PhoneNote>
-    </>
-  );
-}
-
-/** @deprecated Compose a screen from the Phone* blocks instead. */
-export function GuideScreen() {
-  return (
-    <>
-      <PhoneHeader kicker="Metro Refrigeration" title="Dish machine · Unit 3" subtitle="Back kitchen · Sunrise Diner" />
-      <PhonePrompt>Is water draining at the end of the cycle?</PhonePrompt>
-      <PhoneOptions items={["Yes, but slowly", "No, standing water", "It's draining now"]} selectedIndex={1} />
-      <PhoneInputRow placeholder="Ask a question about this machine…" />
-    </>
-  );
-}
-
-/** @deprecated Compose a screen from the Phone* blocks instead. */
-export function RequestScreen() {
-  return (
-    <>
-      <PhoneCheckCircle />
-      <PhoneTitle>Request sent</PhoneTitle>
-      <PhoneNote>Metro Refrigeration has your photos and what you already tried.</PhoneNote>
-      <PhonePhotoGrid />
-      <PhonePrimary label="Call Metro Refrigeration" icon={Phone} />
-    </>
-  );
 }

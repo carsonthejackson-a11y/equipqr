@@ -21,22 +21,32 @@ layout only gained a "← Back to site" link).
 | `/security`  | `src/app/(marketing)/security/page.tsx`                    | Inline in the page |
 | `/restaurants` | `src/app/(marketing)/restaurants/page.tsx`               | Inline in the page (owner roadmap — see below) |
 
-Shared pieces under `src/app/(marketing)/_components/`:
+Shared pieces under `src/app/(marketing)/_components/` (redesigned September 2026 —
+spec and design references in `docs/design/marketing-2026-09/`, primitive API reference in
+`docs/design/marketing-2026-09/notes/ws3.md`):
 
-- `site-header.tsx` / `site-footer.tsx` — sticky nav + footer, used by the route group layout.
-- `phone-mock.tsx` — pure Tailwind/SVG phone-frame mock of the `/e/[qrToken]` scan flow
-  (`ScanScreen`, `GuideScreen`, `RequestScreen`), used on `/` and `/features`. No screenshots
-  or image assets.
-- `pricing-cards.tsx` — the 3-card plan display, driven entirely by `src/lib/plans.ts`; used on
-  `/` (pricing teaser, fixed to monthly) and on `/pricing` (via `pricing-toggle.tsx`, a client
-  component that owns the monthly/yearly toggle state).
-- `faq-item.tsx` / `faq-data.ts` — `<details>/<summary>` accordion (no JS required to expand)
-  and the FAQ copy, split into `productFaqs`, `billingFaqs`, and (owner roadmap) `ownerFaqs`.
-- `legal.tsx` — shared header/prose wrapper/notice for the `/terms`, `/privacy` pages.
-- `owner-pricing-cards.tsx` — the owner-kind counterpart to `pricing-cards.tsx`, driven by
-  `ownerPlans`; owns its own monthly/yearly toggle (there's no free plan to special-case on the
-  provider side, so this couldn't just reuse `pricing-toggle.tsx`). Used on `/restaurants` and
-  in `/pricing`'s "For restaurants & small business" tab.
+- `site-header.tsx` / `site-footer.tsx` — sticky blurred header (Features / Pricing /
+  Restaurants / FAQ, mobile panel below 880px) and the footer, used by the route group layout.
+- Layout primitives: `container.tsx`, `section.tsx` (section rhythm + faded rule),
+  `kicker.tsx` (`Kicker`, `SectionHeader`, the heading class scale), `reveal.tsx`
+  (scroll reveal; server-rendered content is never hidden), `panel.tsx`, `tag.tsx`,
+  `icon.tsx` (Lucide wrapper with square caps), `ghost-link.tsx`, `jump-nav.tsx`,
+  `cta-panel.tsx`, `step-card.tsx`, `feature-list.tsx`, `icon-row.tsx`, `feature-row.tsx`,
+  `segmented.tsx`.
+- Plan display: `plan-card.tsx` (driven by `src/lib/plans.ts`; used on `/pricing` and the
+  `/restaurants` teaser) and `compare-table.tsx` (the provider/owner compare rows, used on
+  `/pricing` and the `/features` plans matrix; the batch-QR row follows `FEATURES.batchQr`).
+- Static mocks: `phone-mock.tsx` (frame + screen blocks), `dashboard-mock.tsx`,
+  `timeline-card.tsx`, `tag-mock.tsx`. No screenshots or image assets.
+- `faq-item.tsx` / `faq-data.ts` — `<details>/<summary>` accordion and the FAQ copy
+  (`productFaqs`, `billingFaqs`, `ownerFaqs`).
+- `legal.tsx` — `LegalLayout` for `/terms` and `/privacy` (sections passed as data).
+
+Theme: the marketing route group is the only part of the app on the dark "Nocturne" theme.
+`src/app/(marketing)/layout.tsx` puts `dark theme-nocturne` on its root and loads Inter and
+DM Sans (wordmark only) through `next/font/google`; the token block lives in
+`src/app/globals.css` under `.theme-nocturne` with `eq-*` Tailwind utilities. The dashboard,
+auth and public scan pages keep the light theme and Geist.
 
 ## Owner roadmap (Phase 1, Model A)
 

@@ -3,7 +3,7 @@
 EquipQR sells three plans for service-provider companies (Starter / Pro / Business, monthly or
 yearly) via Stripe Checkout + Customer Portal. As of the owner roadmap
 (`docs/OWNER-ROADMAP-BRIEF.md`), equipment_owner companies (restaurants, cafes, and other
-businesses that own the equipment they track) sell three more — Free / Site / Multi-site, see
+businesses that own the equipment they track) sell three more — Free / Kitchen / Multi-kitchen, see
 §6 below. Plan data (pricing, limits, feature flags) lives in `src/lib/plans.ts` — that
 file is the single source of truth; everything else (the DB's `plan_limits` reference table,
 the billing page, the Stripe products you create) should match it.
@@ -131,7 +131,7 @@ In the Stripe dashboard → Settings → Billing → Customer portal, enable it 
   trigger on `equipment` (`enforce_equipment_limit()`), reading from the `plan_limits` table as a
   backstop against any other insert path.
 
-## 6. Owner-kind plans (Free / Site / Multi-site)
+## 6. Owner-kind plans (Free / Kitchen / Multi-kitchen)
 
 Equipment_owner companies (`companies.kind = 'equipment_owner'`) subscribe to a separate plan
 set — `ownerPlans` in `src/lib/plans.ts` — instead of Starter/Pro/Business. The two plan sets
@@ -144,8 +144,8 @@ needs no checkout):
 
 | Plan       | Monthly | Yearly |
 |------------|---------|--------|
-| Site       | $24     | $240   |
-| Multi-site | $69     | $690   |
+| Kitchen    | $24     | $240   |
+| Multi-kitchen | $69     | $690   |
 
 ```
 STRIPE_PRICE_SITE_MONTHLY=price_...

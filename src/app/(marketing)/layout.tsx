@@ -15,10 +15,13 @@ const inter = Inter({
   variable: "--font-inter",
 });
 
+// Wordmark only (two short strings per page), so it is not worth a preload
+// hint competing with the CSS on slow connections.
 const dmSans = DM_Sans({
   subsets: ["latin"],
   weight: "500",
   display: "swap",
+  preload: false,
   variable: "--font-dm-sans",
 });
 
