@@ -82,6 +82,12 @@ bottom.
 
 ## WS12 — Security
 
+- Details in `notes/ws12.md`. Five rows keep the previous page's titles and text
+  verbatim; sticky jump list on the left; the "Report an issue" CTA is a
+  `mailto:` anchor, composed locally because `CtaPanel` only renders `Link`s.
+- Request (post-fan-out cleanup): give `CtaPanel` actions an `external` option so
+  the Security page can drop its local copy of the panel.
+
 ## WS13 — Legal
 
 ## WS14 — Tests, QA, PR
