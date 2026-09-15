@@ -56,11 +56,30 @@ bottom.
 
 ## WS5 — Home
 
+- Details in `notes/ws5.md`. Social proof and quote sections omitted (D7);
+  `showSocialProof = false` kept as a module const. Requests for `tag-mock.tsx`
+  (size prop) and `feature-list.tsx` (check size) are worked around locally.
+
 ## WS6 — Features
+
+- Details in `notes/ws6.md`. Mocks the primitives don't cover live in
+  `features/mocks.tsx`; the plans matrix in `features/plans-matrix.tsx` reads the
+  shared compare rows so the batch-QR gate and plan names flow through.
 
 ## WS7 — Pricing
 
+- Details in `notes/ws7.md`. D4 rename applied in `plans.ts` and the owner FAQ
+  wording. `pricing-toggle.tsx`, `pricing-cards.tsx` and `owner-pricing-cards.tsx`
+  are deleted; `PlanCard` replaces them everywhere.
+- PR note: rename the Stripe product display names for `site` / `multi_site` to
+  "Kitchen" / "Multi-kitchen" (test + live). `docs/BILLING.md` and
+  `docs/OWNER-ROADMAP-BRIEF.md` still use the old display names.
+
 ## WS8 — Restaurants
+
+- Details in `notes/ws8.md`. `showStat` and `showPricingTeaser` on. Tailwind's
+  `max-[N]` is exclusive, so the README's "≤ 1100px" hides the second phone
+  below 1100px; kept as the brief names `max-[1100px]:hidden`.
 
 ## WS9 — FAQ
 
@@ -80,6 +99,10 @@ bottom.
 
 ## WS11 — Contact
 
+- Details in `notes/ws11.md`. The agent building this page was cut off before
+  reporting; the orchestrator finished verification and moved
+  `initialContactState` out of the `"use server"` module (it broke every submit).
+
 ## WS12 — Security
 
 - Details in `notes/ws12.md`. Five rows keep the previous page's titles and text
@@ -89,6 +112,9 @@ bottom.
   the Security page can drop its local copy of the panel.
 
 ## WS13 — Legal
+
+- Details in `notes/ws13.md`. `legal.tsx` is now `LegalLayout` + `Code`; the two
+  pages pass their sections as data with the text unchanged.
 
 ## WS14 — Tests, QA, PR
 
