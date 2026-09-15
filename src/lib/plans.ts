@@ -135,6 +135,8 @@ export const plans: Plan[] = [
 
 // ----------------------------------------------------------------------------
 // Owner plans (equipment_owner companies) — docs/OWNER-ROADMAP-BRIEF.md §3.1.5.
+// Display names are "Free" / "Kitchen" / "Multi-kitchen" (marketing redesign
+// D4); the ids `site` / `multi_site` and their Stripe env vars never change.
 // Requester/staff seats are free and unlimited at every tier: memberLimit is
 // null everywhere.
 // ----------------------------------------------------------------------------
@@ -168,7 +170,7 @@ export const ownerPlans: Plan[] = [
   },
   {
     id: "site",
-    name: "Site",
+    name: "Kitchen",
     priceMonthly: 24,
     priceYearly: 240,
     equipmentLimit: 75,
@@ -180,7 +182,7 @@ export const ownerPlans: Plan[] = [
       exportApi: false,
     },
     supportLabel: "Priority email support",
-    blurb: "For one location that wants AI troubleshooting and pre-printed QR batches.",
+    blurb: "For one kitchen that wants AI troubleshooting and pre-printed QR batches.",
     highlights: [
       "Up to 75 pieces of equipment",
       "1 location",
@@ -195,7 +197,7 @@ export const ownerPlans: Plan[] = [
   },
   {
     id: "multi_site",
-    name: "Multi-site",
+    name: "Multi-kitchen",
     priceMonthly: 69,
     priceYearly: 690,
     equipmentLimit: 400,
@@ -207,12 +209,12 @@ export const ownerPlans: Plan[] = [
       exportApi: false,
     },
     supportLabel: "Priority support",
-    blurb: "For an owner running multiple sites who wants branding across all of them.",
+    blurb: "For an owner running several kitchens who wants branding across all of them.",
     highlights: [
       "Up to 400 pieces of equipment",
       "Up to 5 locations",
       "Your logo & colors on customer pages",
-      "Everything in Site",
+      "Everything in Kitchen",
       "Priority support",
     ],
     kind: "equipment_owner",

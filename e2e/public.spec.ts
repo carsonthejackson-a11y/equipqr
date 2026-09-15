@@ -8,7 +8,7 @@ test.describe("public marketing + auth pages", () => {
   test("/ renders the landing page", async ({ page }) => {
     const response = await page.goto("/");
     expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("truck roll");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Scan the tag");
     // Buttons rendered over <Link> get role="button", so match by href + text.
     await expect(page.locator('a[href="/signup"]', { hasText: /start free trial/i }).first()).toBeVisible();
     await expect(page.locator('a[href="/login"]', { hasText: /log in/i }).first()).toBeVisible();
@@ -20,7 +20,35 @@ test.describe("public marketing + auth pages", () => {
     for (const plan of ["Starter", "Pro", "Business"]) {
       await expect(page.getByRole("heading", { name: plan, exact: true }).first()).toBeVisible();
     }
-    await expect(page.getByText("$79")).toBeVisible();
+    // exact: the compare table also renders "$79/mo" as a sub-label.
+    await expect(page.getByText("$79", { exact: true })).toBeVisible();
+  });
+
+  test("/pricing?for=owners lists the three restaurant plans", async ({ page }) => {
+    // Locks in the plan rename (docs/design/marketing-2026-09/BRIEF.md D4):
+    // the `site` / `multi_site` plans display as Kitchen / Multi-kitchen.
+    const response = await page.goto("/pricing?for=owners");
+    expect(response?.status()).toBe(200);
+    for (const plan of ["Free", "Kitchen", "Multi-kitchen"]) {
+      await expect(page.getByRole("heading", { name: plan, exact: true }).first()).toBeVisible();
+    }
+    await expect(page.getByText("$24", { exact: true })).toBeVisible();
+  });
+
+  test("the header menu toggles on a phone-width viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 800 });
+    await page.goto("/");
+    const button = page.getByRole("button", { name: "Open menu" });
+    await expect(button).toBeVisible();
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await button.click();
+    await expect(page.getByRole("button", { name: "Close menu" })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
+    // exact: the footer's "For restaurants" link would otherwise match too.
+    await expect(page.getByRole("link", { name: "Restaurants", exact: true })).toBeVisible();
+    await expect(page.locator('a[href="/login"]', { hasText: /log in/i }).last()).toBeVisible();
   });
 
   test("/restaurants renders the owner landing page", async ({ page }) => {

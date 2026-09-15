@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    summary::-webkit-details-marker { display: none; }
+    details[open] [data-chev] { transform: rotate(180deg); }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-motion: no-preference) {
+      [data-motion] [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+      [data-motion] [data-reveal="in"] { opacity: 1; transform: none; }
+    }
+    @media (max-width: 720px) { [data-subnav-label] { display: none !important; } }
+    @media (min-width: 761px) { [data-sticky-aside] { position: sticky; top: 136px; } }
+  </style>
+</helmet>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+</svg>
+
+<div ref="{{ rootRef }}" data-screen-label="FAQ" style="--color-accent:#3ecf8e; --color-accent-100:#ecf9f1; --color-accent-200:#d2f1de; --color-accent-300:#a7e5c2; --color-accent-400:#56d396; --color-accent-500:#3ecf8e; --color-accent-600:#05915e; --color-accent-700:#007047; --color-accent-800:#045032; --color-accent-900:#093421; --color-accent-2:#3ecf8e; --color-accent-2-100:#ecf9f1; --color-accent-2-800:#045032; min-height:100vh; background: radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%), radial-gradient(1100px 800px at -10% 100%, rgba(0,0,0,0.3), transparent 55%), var(--color-bg); color: var(--color-text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-wrap: pretty">
+
+  <dc-import style="position:sticky; top:0; z-index:50" name="SiteHeader" active="faq" hint-size="100%,64px"></dc-import>
+
+  <section aria-labelledby="page-title" style="max-width:1200px; margin:0 auto; padding: clamp(56px, 7vw, 104px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 40px)">
+    <div data-reveal="" style="max-width: 760px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">FAQ</p>
+      <h1 id="page-title" style="margin:0; font-size: clamp(36px, 4.4vw, 58px); line-height:1.06; letter-spacing:-0.025em; font-weight:500">Frequently asked questions.</h1>
+      <p style="margin: 22px 0 0; font-size: clamp(16px, 1.3vw, 18px); line-height:1.6; color: var(--color-neutral-300); max-width: 56ch">Can't find what you're looking for? <a href="Contact.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Get in touch</a> and we'll get back to you.</p>
+    </div>
+  </section>
+
+  <nav aria-label="Question groups" style="position:sticky; top:64px; z-index:40; background: color-mix(in srgb, var(--color-bg) 84%, transparent); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-top: 1px solid var(--color-divider); border-bottom: 1px solid var(--color-divider)">
+    <div style="max-width:1200px; margin:0 auto; padding: 10px clamp(20px, 5vw, 72px); display:flex; flex-wrap:wrap; align-items:center; gap: 8px 6px">
+      <span data-subnav-label="" style="font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500); margin-right: 8px">Jump to</span>
+      <a href="#product" style="display:inline-flex; align-items:center; gap:8px; height:34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:13px; white-space:nowrap; color: var(--color-neutral-300); text-decoration:none; transition: border-color .15s ease, color .15s ease, background-color .15s ease" style-hover="border-color: var(--color-accent); color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">01</span>Product</a>
+      <a href="#billing" style="display:inline-flex; align-items:center; gap:8px; height:34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:13px; white-space:nowrap; color: var(--color-neutral-300); text-decoration:none; transition: border-color .15s ease, color .15s ease, background-color .15s ease" style-hover="border-color: var(--color-accent); color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">02</span>Billing</a>
+      <sc-if value="{{ showRestaurants }}" hint-placeholder-val="{{ true }}">
+        <a href="#restaurants" style="display:inline-flex; align-items:center; gap:8px; height:34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--color-neutral-800); font-size:13px; white-space:nowrap; color: var(--color-neutral-300); text-decoration:none; transition: border-color .15s ease, color .15s ease, background-color .15s ease" style-hover="border-color: var(--color-accent); color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">03</span>Restaurants &amp; kitchens</a>
+      </sc-if>
+    </div>
+  </nav>
+
+  <section id="product" aria-labelledby="product-title" style="max-width:1200px; margin:0 auto; padding: clamp(48px, 6vw, 88px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px); scroll-margin-top: 124px">
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:start">
+      <div data-sticky-aside="" style="max-width: 400px">
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">01 · Product</p>
+        <h2 id="product-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">How the sticker, the guide, and the request fit together.</h2>
+        <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">For the full tour, see <a href="Features.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Features</a>.</p>
+      </div>
+      <div style="display:flex; flex-direction:column">
+        <details open="{{ openFirst }}" style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Do my customers need to download an app or make an account?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">No. Scanning the sticker opens a mobile web page: no app store, no login, no account for your customer to create. If the guide doesn't fix it, they submit a service request right from that same page.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>How do I build the troubleshooting guides?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Describe the equipment type and its common failure modes once, and EquipQR drafts a full branching guide in minutes using AI. Review it, edit any step, and publish. Every unit of that equipment type uses it from then on.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What happens if the guide doesn't fix the problem?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">The customer submits a service request with photos or a short video straight from their phone. You get an email with an AI-written summary of what they already tried, so you can dispatch the right tech with the right parts on the first trip.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Can I print my own stickers, or do you print them for me?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Both. Download a print-ready SVG or PNG for any QR code from the dashboard the moment you add a piece of equipment, or print a batch of blank codes on a standard label sheet ahead of a route. Good for stocking a truck before you know which unit each sticker will land on.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What does a customer see if a sticker hasn't been assigned to a unit yet?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">A plain "this isn't set up yet, contact the service company" message. No dead links, no confusion. If one of your technicians scans it while signed in, they can claim it to a piece of equipment on the spot, including photographing the nameplate to fill in the details automatically.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800); border-bottom: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Can I control what my team can see and do?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes. Owners manage billing, the team, and company settings. Technicians can manage equipment, customers, and service requests but can't touch billing or remove the company. Every account belongs to exactly one company, and data never crosses between companies.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section id="billing" aria-labelledby="billing-title" style="max-width:1200px; margin:0 auto; padding: clamp(48px, 6vw, 88px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px); scroll-margin-top: 124px">
+    <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(48px, 6vw, 88px)"></div>
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:start">
+      <div data-sticky-aside="" style="max-width: 400px">
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">02 · Billing</p>
+        <h2 id="billing-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Trials, limits, and what happens at the card.</h2>
+        <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">Plans and limits are on the <a href="Pricing.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">pricing page</a>.</p>
+      </div>
+      <div style="display:flex; flex-direction:column">
+        <details open="{{ openFirst }}" style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Is there really a free trial, and is a card required?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Every plan starts with a 14-day free trial with full Pro features unlocked. No credit card required to start; you'll only be asked for billing details if you decide to keep going.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What happens if I hit my equipment limit?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">You won't be charged an overage or get cut off mid-job. When you're at your plan's unit limit, you'll see a prompt to upgrade the next time you try to add equipment. Your existing units and guides keep working normally.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Can I switch plans later?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes, upgrade or downgrade at any time from Settings → Billing. Changes are prorated against your current billing period, so you're never paying twice.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>How much do I save paying annually?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Annual billing is two months free compared to paying monthly. You pay for 10 months and get the full year.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>How is my card handled?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Payments are processed by Stripe. EquipQR never sees or stores your card number, only Stripe's tokenized reference to it.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800); border-bottom: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Can I cancel anytime?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes. Cancel from Settings → Billing whenever you like; you'll keep access through the end of the period you already paid for. Questions? <a href="Contact.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Get in touch</a>.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <sc-if value="{{ showRestaurants }}" hint-placeholder-val="{{ true }}">
+    <section id="restaurants" aria-labelledby="restaurants-title" style="max-width:1200px; margin:0 auto; padding: clamp(48px, 6vw, 88px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px); scroll-margin-top: 124px">
+      <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(48px, 6vw, 88px)"></div>
+      <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:start">
+        <div data-sticky-aside="" style="max-width: 400px">
+          <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">03 · Restaurants &amp; kitchens</p>
+          <h2 id="restaurants-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">For owners tagging their own equipment.</h2>
+          <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">How it works for a kitchen is on the <a href="Restaurants.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">restaurants page</a>.</p>
+        </div>
+        <div style="display:flex; flex-direction:column">
+          <details open="{{ openFirst }}" style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Is the Free plan actually free, forever?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes. One location and up to 10 pieces of equipment, no credit card, no trial to run out. If you outgrow it, Kitchen and Multi-kitchen add more equipment, AI troubleshooting, and pre-printed QR batches. You're never locked out of the free tier for not upgrading.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Do I pay per staff member?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">No. Every plan includes unlimited staff and unlimited vendor contacts. There's no seat count to manage and no reason to keep anyone off the account.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What happens if a vendor doesn't respond?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">You get an email as soon as the vendor's typical response window passes, with their phone number right in it. EquipQR sends the work order and can't confirm anyone picked it up, so calling is the reliable check when it's urgent.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Does my staff need to download an app or make an account?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">No. Scanning the tag opens a mobile page: no app store, no login, no account. They pick what's wrong, add a photo if it helps, and it's sent. No email address required either.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800); border-bottom: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What if I don't have a vendor for something yet?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">The report still gets filed and you're notified by email so you can call someone yourself. Nothing is silently dropped because a unit has no vendor on file.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </sc-if>
+
+  <section aria-labelledby="cta-title" style="max-width:1200px; margin:0 auto; padding: clamp(32px, 4vw, 64px) clamp(20px, 5vw, 72px) clamp(72px, 9vw, 128px)">
+    <div data-reveal="" style="position:relative; overflow:hidden; border-radius:20px; border:1px solid var(--color-neutral-900); background: radial-gradient(760px 380px at 85% 115%, color-mix(in srgb, var(--color-accent-900) 85%, transparent), transparent 62%), var(--color-surface); padding: clamp(36px, 5vw, 64px) clamp(24px, 5vw, 64px); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 28px 40px; align-items:center">
+      <div>
+        <h2 id="cta-title" style="margin:0; font-size: clamp(26px, 3vw, 38px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Still have questions?</h2>
+        <p style="margin: 14px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">Ask us directly, or start the trial and scan your first sticker yourself.</p>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px">
+        <a class="btn btn-primary" href="Contact.dc.html" style="height:46px; padding:0 20px; font-size:15px">Contact us</a>
+        <a class="btn btn-secondary" href="#" style="height:46px; padding:0 20px; font-size:15px">Start free trial <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="SiteFooter" hint-size="100%,360px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;openFirst&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;showRestaurants&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;scrollReveal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  renderVals() {
+    return {
+      rootRef: this.rootRef,
+      openFirst: this.props.openFirst ?? true,
+      showRestaurants: this.props.showRestaurants ?? true,
+    };
+  }
+  componentDidMount() { this.setupMotion(); }
+  componentDidUpdate() {
+    const on = this.props.scrollReveal ?? true;
+    const root = this.rootRef.current;
+    if (!root) return;
+    if (!on && root.hasAttribute('data-motion')) { root.removeAttribute('data-motion'); this._io?.disconnect(); this._io = null; }
+    if (on) this.setupMotion();
+  }
+  componentWillUnmount() { this._io?.disconnect(); }
+  setupMotion() {
+    if ((this.props.scrollReveal ?? true) === false) return;
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const root = this.rootRef.current;
+    if (!root) return;
+    root.setAttribute('data-motion', '');
+    if (!this._io) {
+      this._io = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.setAttribute('data-reveal', 'in'); this._io.unobserve(e.target); } });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    }
+    const vh = window.innerHeight;
+    root.querySelectorAll('[data-reveal]:not([data-reveal="in"])').forEach(el => {
+      if (el.getBoundingClientRect().top < vh * 0.92) el.setAttribute('data-reveal', 'in'); else this._io.observe(el);
+    });
+  }
+}
+</script>
+</body>
+</html>

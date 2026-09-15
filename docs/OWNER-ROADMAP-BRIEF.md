@@ -877,8 +877,8 @@ Owner plan values, exactly:
 | id | name | priceMonthly | priceYearly | equipmentLimit | memberLimit | locationLimit | historyDays | features |
 |---|---|---|---|---|---|---|---|---|
 | `free` | Free | 0 | 0 | 10 | `null` | 1 | 30 | aiChat `false`, batchQr `false`, branding `false`, exportApi `false` |
-| `site` | Site | 24 | 240 | 75 | `null` | 1 | `null` | aiChat `true`, batchQr `true`, branding `false`, exportApi `false` |
-| `multi_site` | Multi-site | 69 | 690 | 400 | `null` | 5 | `null` | aiChat `true`, batchQr `true`, branding `true`, exportApi `false` |
+| `site` | Kitchen | 24 | 240 | 75 | `null` | 1 | `null` | aiChat `true`, batchQr `true`, branding `false`, exportApi `false` |
+| `multi_site` | Multi-kitchen | 69 | 690 | 400 | `null` | 5 | `null` | aiChat `true`, batchQr `true`, branding `true`, exportApi `false` |
 
 `memberLimit: null` everywhere — **requester/staff seats are free and unlimited at every
 owner tier.** `site` is `popular: true`.

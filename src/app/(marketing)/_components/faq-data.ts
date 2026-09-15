@@ -74,7 +74,7 @@ export const ownerFaqs: FaqEntry[] = [
   {
     question: "Is the Free plan actually free, forever?",
     answer:
-      "Yes. One location and up to 10 pieces of equipment, no credit card, no trial to run out. If you outgrow it, Site and Multi-site add more equipment, AI troubleshooting, and pre-printed QR batches — but you're never locked out of the free tier for not upgrading.",
+      "Yes. One location and up to 10 pieces of equipment, no credit card, no trial to run out. If you outgrow it, Kitchen and Multi-kitchen add more equipment, AI troubleshooting, and pre-printed QR batches — but you're never locked out of the free tier for not upgrading.",
   },
   {
     question: "Do I pay per staff member?",

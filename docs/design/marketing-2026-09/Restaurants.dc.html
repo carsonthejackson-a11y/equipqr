@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    summary::-webkit-details-marker { display: none; }
+    details[open] [data-chev] { transform: rotate(180deg); }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-motion: no-preference) {
+      [data-motion] [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+      [data-motion] [data-reveal="in"] { opacity: 1; transform: none; }
+    }
+    @media (max-width: 1100px) { [data-phone-2] { display: none !important; } }
+    @media (max-width: 560px) { [data-two] { grid-template-columns: minmax(0, 1fr) !important; } }
+    @media (max-width: 760px) { [data-visual-left] { order: 2; } }
+  </style>
+</helmet>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-scan" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M4 9V4h5M15 4h5v5M4 15v5h5M15 20h5v-5"></path><rect x="9.5" y="9.5" width="5" height="5" fill="currentColor" stroke="none"></rect></g></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3 7.5h4.5l1.5-3h6l1.5 3H21V20H3z"></path><circle cx="12" cy="13.5" r="3.5"></circle></g></symbol>
+  <symbol id="i-truck" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M2 5.5h12v11H2zM14 9.5h4.5l3 4v3H14"></path><circle cx="6" cy="18.5" r="2"></circle><circle cx="17.5" cy="18.5" r="2"></circle></g></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M3.5 4.5h17v11h-9l-4.5 4v-4h-3.5z"></path><path d="M7.5 10h9"></path></g></symbol>
+  <symbol id="i-badge" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 3l8 3v6c0 4.8-3.4 8-8 9-4.6-1-8-4.2-8-9V6z"></path><path d="M8.5 12l2.5 2.5 4.5-5"></path></g></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><path d="M12 21.5s-6.5-6-6.5-11.5a6.5 6.5 0 0113 0c0 5.5-6.5 11.5-6.5 11.5z"></path><circle cx="12" cy="10" r="2.5"></circle></g></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M5 3.5h4.5l1.5 5-2.5 2a9.5 9.5 0 005 5l2-2.5 5 1.5v4.5l-1 1C10 20 4 14 4 4.5z" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"><rect x="3" y="5" width="18" height="14"></rect><path d="M3 7l9 6 9-6"></path></g></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l4.5 4.5L19.5 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+</svg>
+
+<div ref="{{ rootRef }}" data-screen-label="Restaurants" style="--color-accent:#3ecf8e; --color-accent-100:#ecf9f1; --color-accent-200:#d2f1de; --color-accent-300:#a7e5c2; --color-accent-400:#56d396; --color-accent-500:#3ecf8e; --color-accent-600:#05915e; --color-accent-700:#007047; --color-accent-800:#045032; --color-accent-900:#093421; --color-accent-2:#3ecf8e; --color-accent-2-100:#ecf9f1; --color-accent-2-800:#045032; min-height:100vh; background: radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%), radial-gradient(1100px 800px at -10% 100%, rgba(0,0,0,0.3), transparent 55%), var(--color-bg); color: var(--color-text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-wrap: pretty">
+
+  <dc-import style="position:sticky; top:0; z-index:50" name="SiteHeader" active="restaurants" hint-size="100%,64px"></dc-import>
+
+  <section aria-labelledby="page-title" style="max-width:1200px; margin:0 auto; padding: clamp(56px, 7vw, 104px) clamp(20px, 5vw, 72px) clamp(40px, 5vw, 72px); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 48px clamp(32px, 5vw, 80px); align-items:center">
+    <div data-reveal="">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">For restaurants &amp; kitchens</p>
+      <h1 id="page-title" style="margin:0; font-size: clamp(36px, 4.4vw, 58px); line-height:1.06; letter-spacing:-0.025em; font-weight:500">Tag the kitchen. Any cook can send the right vendor a work order.</h1>
+      <p style="margin: 22px 0 0; font-size: clamp(16px, 1.3vw, 18px); line-height:1.6; color: var(--color-neutral-300); max-width: 54ch">Put a QR sticker on every machine in the building. When something breaks, whoever's standing there scans it, taps what's wrong, and it goes straight to the vendor who services it. No app, no manager on shift, no guessing who to call.</p>
+      <div style="display:flex; flex-wrap:wrap; gap:12px; margin-top: 32px">
+        <a class="btn btn-primary" href="#" style="height:46px; padding:0 20px; font-size:15px">Start free <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+        <a class="btn btn-secondary" href="#how-it-works" style="height:46px; padding:0 20px; font-size:15px">See how it works</a>
+      </div>
+      <p style="margin: 16px 0 0; font-size:13.5px; color: var(--color-neutral-500)">Free forever for one location · no credit card</p>
+    </div>
+    <div data-reveal="" style="display:flex; justify-content:center; padding: 12px 0; transition-delay: 120ms">
+      <div aria-hidden="true" style="width:236px; flex:none; border-radius:38px; background:#0d0f18; border:1px solid var(--color-neutral-800); padding:8px; box-shadow: var(--shadow-md); transform: rotate(2deg)">
+        <div style="position:relative; height:452px; border-radius:30px; background: var(--color-surface); overflow:hidden; padding: 42px 14px 14px; display:flex; flex-direction:column; gap:9px; box-shadow: inset 0 0 0 1px var(--color-neutral-900)">
+          <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:72px; height:20px; border-radius:10px; background:#0d0f18"></div>
+          <div style="font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">Sunrise Diner</div>
+          <div>
+            <div style="font-size:14px; font-weight:500; line-height:1.25">Ice machine</div>
+            <div style="font-size:11.5px; color: var(--color-neutral-500); margin-top:2px">Back kitchen</div>
+          </div>
+          <div style="font-size:11px; color: var(--color-neutral-500)">What's happening?</div>
+          <div style="display:flex; flex-wrap:wrap; gap:6px">
+            <span style="padding:6px 10px; border-radius:999px; border:1px solid var(--color-accent); background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent-200); font-size:11.5px; font-weight:500">Not making ice</span>
+            <span style="padding:6px 10px; border-radius:999px; border:1px solid var(--color-neutral-800); font-size:11.5px">Ice tastes bad</span>
+            <span style="padding:6px 10px; border-radius:999px; border:1px solid var(--color-neutral-800); font-size:11.5px">Bin not filling</span>
+            <span style="padding:6px 10px; border-radius:999px; border:1px solid var(--color-neutral-800); font-size:11.5px">Won't start</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; padding:9px 11px; border-radius:8px; border:1px dashed var(--color-neutral-700); font-size:11.5px; color: var(--color-neutral-500)"><svg width="14" height="14" style="flex:none"><use href="#i-camera"></use></svg>Add a photo (optional)</div>
+          <div style="padding:10px 12px; border-radius:10px; background: var(--color-bg); display:flex; flex-direction:column; gap:4px">
+            <div style="font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">How urgent is this?</div>
+            <div style="font-size:12px; font-weight:500">We can't operate without this</div>
+          </div>
+          <div style="margin-top:auto; padding:10px; border-radius:8px; border:1px solid var(--color-accent); color: var(--color-accent); text-align:center; font-size:12px; font-weight:500">Send work order</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="story-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 72px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px)">
+    <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(40px, 5vw, 72px)"></div>
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:center">
+      <div>
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">The moment it's for</p>
+        <h2 id="story-title" style="margin:0; font-size: clamp(30px, 3.4vw, 44px); line-height:1.1; letter-spacing:-0.02em; font-weight:500">It's 7:40 pm on a Friday.</h2>
+        <p style="margin: 20px 0 0; font-size:16.5px; line-height:1.65; color: var(--color-neutral-400); max-width: 54ch">The dish machine stops draining mid-rush. The manager who knows which repair company handles it isn't on shift. Nobody can find the invoice with the vendor's number on it. Someone starts scrolling through old texts, or worse, calls around the industry hoping someone answers this late.</p>
+        <p style="margin: 14px 0 0; font-size:16.5px; line-height:1.65; color: var(--color-neutral-400); max-width: 54ch">With a QR tag on the machine, that same moment looks different: a dishwasher scans the sticker, taps "Not draining," and it's sent to the vendor on file for that unit, with the manager copied by email. No lookup, no group text, no waiting for someone with the right phone number to show up.</p>
+      </div>
+      <div aria-hidden="true" style="border-radius:14px; border:1px solid var(--color-neutral-800); background: var(--color-surface); padding: 18px; display:flex; flex-direction:column; gap:14px; box-shadow: var(--shadow-md); font-size:12.5px">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px"><div><div style="font-size:14px; font-weight:500">Dish machine · Back kitchen</div><div style="font-size:11.5px; color: var(--color-neutral-500); margin-top:2px">Sunrise Diner · Friday</div></div><span class="tag tag-accent" style="white-space:nowrap">Sent</span></div>
+        <div style="display:grid; grid-template-columns: 56px 12px minmax(0, 1fr); gap: 0 10px">
+          <div style="color: var(--color-neutral-500); padding: 6px 0; font-feature-settings: 'tnum' 1">7:40 pm</div><div style="display:flex; flex-direction:column; align-items:center"><span style="width:8px; height:8px; border-radius:50%; background: var(--color-neutral-500); margin-top:10px; flex:none"></span><span style="flex:1; width:1px; background: var(--color-neutral-800)"></span></div><div style="padding: 6px 0 14px"><div style="font-weight:500">Stops draining mid-rush</div><div style="color: var(--color-neutral-500); margin-top:2px">Manager who knows the vendor isn't on shift.</div></div>
+          <div style="color: var(--color-neutral-500); padding: 6px 0; font-feature-settings: 'tnum' 1">7:41 pm</div><div style="display:flex; flex-direction:column; align-items:center"><span style="width:8px; height:8px; border-radius:50%; background: var(--color-accent); margin-top:10px; flex:none"></span><span style="flex:1; width:1px; background: var(--color-neutral-800)"></span></div><div style="padding: 6px 0 14px"><div style="font-weight:500">Dishwasher scans the tag, taps "Not draining"</div><div style="color: var(--color-neutral-500); margin-top:2px">Photo attached · Can't operate without it</div></div>
+          <div style="color: var(--color-neutral-500); padding: 6px 0; font-feature-settings: 'tnum' 1">7:41 pm</div><div style="display:flex; flex-direction:column; align-items:center"><span style="width:8px; height:8px; border-radius:50%; background: var(--color-accent); margin-top:10px; flex:none"></span></div><div style="padding: 6px 0 0"><div style="font-weight:500">Sent to Metro Refrigeration</div><div style="color: var(--color-neutral-500); margin-top:2px">Vendor on file for this unit. Manager copied by email; vendor's number handed to the dishwasher.</div></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; padding: 9px 12px; border-radius:8px; border:1px dashed var(--color-neutral-700); color: var(--color-neutral-400)"><svg width="14" height="14" style="color: var(--color-accent); flex:none" aria-hidden="true"><use href="#i-mail"></use></svg>No lookup, no group text, no waiting for the right phone.</div>
+      </div>
+    </div>
+    <sc-if value="{{ showStat }}" hint-placeholder-val="{{ true }}">
+      <div data-reveal="" style="margin-top: clamp(40px, 5vw, 64px); display:flex; flex-wrap:wrap; align-items:center; gap: 12px 32px; padding: clamp(20px, 3vw, 28px) clamp(20px, 3vw, 32px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900)">
+        <span style="font-size: clamp(44px, 5vw, 64px); font-weight:500; letter-spacing:-0.035em; line-height:1; color: var(--color-accent); font-feature-settings: 'tnum' 1">49%</span>
+        <div style="flex: 1 1 320px">
+          <p style="margin:0; font-size:16px; line-height:1.55; color: var(--color-neutral-200); max-width: 60ch">In MachineQ's 2026 survey of restaurant operators, 49% said equipment failure or unplanned maintenance had caused downtime.</p>
+          <p style="margin: 6px 0 0; font-size:12.5px; color: var(--color-neutral-500)">MachineQ 2026 restaurant equipment report, via restaurantnews.com</p>
+        </div>
+      </div>
+    </sc-if>
+  </section>
+
+  <section id="how-it-works" aria-labelledby="how-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 72px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px); scroll-margin-top: 80px">
+    <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(40px, 5vw, 72px)"></div>
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px clamp(32px, 5vw, 80px); align-items:end">
+      <div>
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">How it works</p>
+        <h2 id="how-title" style="margin:0; font-size: clamp(30px, 3.4vw, 44px); line-height:1.1; letter-spacing:-0.02em; font-weight:500">Four steps, no phone tree.</h2>
+      </div>
+      <p style="margin:0; font-size:16.5px; line-height:1.6; color: var(--color-neutral-400); max-width: 48ch">Nobody on shift needs to know who the vendor is. The tag already does.</p>
+    </div>
+    <div data-reveal="" style="margin-top: clamp(32px, 4vw, 48px); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap:16px">
+      <div style="display:flex; flex-direction:column; gap:14px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+        <span style="font-size:13px; letter-spacing:0.06em; color: var(--color-accent); font-feature-settings: 'tnum' 1">01</span>
+        <h3 style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Tag it</h3>
+        <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">Put a QR sticker on every piece of equipment when you set it up: the dish machine, the walk-in, the fryer, the POS terminal.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+        <span style="font-size:13px; letter-spacing:0.06em; color: var(--color-accent); font-feature-settings: 'tnum' 1">02</span>
+        <h3 style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Staff scans it</h3>
+        <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">Something's wrong? Any cook, server, or dishwasher scans the tag with their phone camera. No app to install, no account to make.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+        <span style="font-size:13px; letter-spacing:0.06em; color: var(--color-accent); font-feature-settings: 'tnum' 1">03</span>
+        <h3 style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">They tap what's happening</h3>
+        <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">Symptom chips built for restaurant equipment ("Not draining," "Not heating," "Error code"), plus an optional photo and how urgent it is.</p>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:14px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+        <span style="font-size:13px; letter-spacing:0.06em; color: var(--color-accent); font-feature-settings: 'tnum' 1">04</span>
+        <h3 style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">It goes straight to your vendor</h3>
+        <p style="margin:0; font-size:15px; line-height:1.6; color: var(--color-neutral-400)">EquipQR emails the vendor on file for that unit, or you if none is set, with the phone number handed right back to whoever reported it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="staff-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 72px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px)">
+    <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(40px, 5vw, 72px)"></div>
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 40px clamp(32px, 5vw, 80px); align-items:center">
+      <div>
+        <div style="display:flex; align-items:center; gap:12px">
+          <svg width="24" height="24" style="color: var(--color-accent)" aria-hidden="true"><use href="#i-scan"></use></svg>
+          <h2 id="staff-title" style="margin:0; font-size: clamp(26px, 3vw, 36px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">What staff see</h2>
+        </div>
+        <p style="margin: 18px 0 0; font-size:16px; line-height:1.65; color: var(--color-neutral-400); max-width: 52ch">A phone camera and a few taps. Pick what's wrong from chips built for restaurant equipment, add a photo if it helps, and say how urgent it is, from "whenever they're next nearby" up to "we can't operate without this."</p>
+        <p style="margin: 12px 0 0; font-size:16px; line-height:1.65; color: var(--color-neutral-400); max-width: 52ch">The confirmation screen names the vendor and hands over their phone number right there, in case it can't wait for an email reply.</p>
+      </div>
+      <div style="display:flex; justify-content:center; align-items:flex-start; gap:18px; padding: 16px 0; min-width:0">
+        <div aria-hidden="true" style="width:236px; flex:none; border-radius:38px; background:#0d0f18; border:1px solid var(--color-neutral-800); padding:8px; box-shadow: var(--shadow-md); transform: rotate(-3deg) translateY(18px)">
+          <div style="position:relative; height:452px; border-radius:30px; background: var(--color-surface); overflow:hidden; padding: 46px 14px 16px; display:flex; flex-direction:column; gap:10px; box-shadow: inset 0 0 0 1px var(--color-neutral-900)">
+            <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:72px; height:20px; border-radius:10px; background:#0d0f18"></div>
+            <div style="font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">Sunrise Diner</div>
+            <div>
+              <div style="font-size:14px; font-weight:500; line-height:1.25">Walk-in cooler</div>
+              <div style="font-size:11.5px; color: var(--color-neutral-500); margin-top:2px">Dry storage</div>
+            </div>
+            <div style="font-size:11px; color: var(--color-neutral-500)">What's happening?</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px">
+              <span style="padding:6px 10px; border-radius:999px; border:1px solid var(--color-neutral-800); font-size:11.5px">Not cold enough</span>
+              <span style="padding:6px 10px; border-radius:999px; border:1px solid var(--color-neutral-800); font-size:11.5px">Door won't seal</span>
+              <span style="padding:6px 10px; border-radius:999px; border:1px solid var(--color-accent); background: color-mix(in srgb, var(--color-accent) 12%, transparent); color: var(--color-accent-200); font-size:11.5px; font-weight:500">Frost build-up</span>
+              <span style="padding:6px 10px; border-radius:999px; border:1px solid var(--color-neutral-800); font-size:11.5px">Loud noise</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 11px; border-radius:8px; border:1px dashed var(--color-neutral-700); font-size:11.5px; color: var(--color-neutral-500)"><svg width="14" height="14" style="flex:none"><use href="#i-camera"></use></svg>1 photo added</div>
+            <div style="padding:10px 12px; border-radius:10px; background: var(--color-bg); display:flex; flex-direction:column; gap:4px">
+              <div style="font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">How urgent is this?</div>
+              <div style="font-size:12px; font-weight:500">Whenever they're next nearby</div>
+            </div>
+            <div style="margin-top:auto; padding:10px; border-radius:8px; border:1px solid var(--color-accent); color: var(--color-accent); text-align:center; font-size:12px; font-weight:500">Send work order</div>
+          </div>
+        </div>
+        <div data-phone-2="" aria-hidden="true" style="width:236px; flex:none; border-radius:38px; background:#0d0f18; border:1px solid var(--color-neutral-800); padding:8px; box-shadow: var(--shadow-md); transform: rotate(3deg)">
+          <div style="position:relative; height:452px; border-radius:30px; background: var(--color-surface); overflow:hidden; padding: 46px 14px 16px; display:flex; flex-direction:column; gap:10px; box-shadow: inset 0 0 0 1px var(--color-neutral-900)">
+            <div style="position:absolute; top:12px; left:50%; transform:translateX(-50%); width:72px; height:20px; border-radius:10px; background:#0d0f18"></div>
+            <div style="width:36px; height:36px; border-radius:50%; background: color-mix(in srgb, var(--color-accent) 16%, transparent); display:grid; place-items:center; color: var(--color-accent)"><svg width="18" height="18"><use href="#i-check"></use></svg></div>
+            <div style="font-size:15px; font-weight:500; line-height:1.25">Sent to Metro Refrigeration</div>
+            <div style="font-size:12px; line-height:1.45; color: var(--color-neutral-400)">Sunrise Diner was notified too. Metro usually responds within 2 hours.</div>
+            <div style="padding:10px 12px; border-radius:10px; background: var(--color-bg); display:flex; flex-direction:column; gap:5px">
+              <div style="font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">Work order #1043</div>
+              <div style="font-size:12px; line-height:1.4">Walk-in cooler · Dry storage · Frost build-up · 1 photo · 7:41 pm</div>
+            </div>
+            <div style="margin-top:auto; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; border-radius:8px; border:1px solid var(--color-accent); color: var(--color-accent); font-size:12px; font-weight:500"><svg width="14" height="14" style="flex:none"><use href="#i-phone"></use></svg>Call Metro Refrigeration</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="owner-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 72px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px)">
+    <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(40px, 5vw, 72px)"></div>
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 40px clamp(32px, 5vw, 80px); align-items:center">
+      <div data-visual-left="" aria-hidden="true" style="border-radius:14px; border:1px solid var(--color-neutral-800); background: var(--color-surface); padding: 18px; display:flex; flex-direction:column; gap:16px; box-shadow: var(--shadow-md); font-size:12.5px">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px"><div><div style="font-size:14px; font-weight:500">Sunrise Diner</div><div style="font-size:11.5px; color: var(--color-neutral-500); margin-top:2px">2 locations · 23 units · 1 open work order</div></div><span class="tag tag-outline" style="white-space:nowrap">Multi-kitchen</span></div>
+        <div style="display:flex; flex-direction:column; gap:6px">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:8px; background: var(--color-bg)"><div style="display:flex; align-items:center; gap:8px; font-weight:500"><svg width="14" height="14" style="color: var(--color-accent); flex:none"><use href="#i-pin"></use></svg>Downtown</div><div style="color: var(--color-neutral-500); white-space:nowrap">14 units · <span style="color: var(--color-accent)">1 open</span></div></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-radius:8px; background: var(--color-bg)"><div style="display:flex; align-items:center; gap:8px; font-weight:500"><svg width="14" height="14" style="color: var(--color-accent); flex:none"><use href="#i-pin"></use></svg>Airport Rd</div><div style="color: var(--color-neutral-500); white-space:nowrap">9 units · All clear</div></div>
+        </div>
+        <div>
+          <div style="font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500); margin-bottom:8px">Vendors</div>
+          <div data-two="" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px">
+            <div style="padding:10px 12px; border-radius:8px; border:1px solid var(--color-neutral-900)"><div style="font-weight:500">Metro Refrigeration</div><div style="color: var(--color-neutral-500); margin-top:2px; line-height:1.4">Default for Refrigeration · responds within 2 h · (214) 555-0142</div></div>
+            <div style="padding:10px 12px; border-radius:8px; border:1px dashed var(--color-neutral-700)"><div style="font-weight:500">Cooking · no vendor yet</div><div style="color: var(--color-neutral-500); margin-top:2px; line-height:1.4">Reports come to you by email until one is set.</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px"><div style="font-size:10.5px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">Work order #1043 · Ice machine · Downtown</div><span class="tag tag-accent" style="white-space:nowrap">Acknowledged</span></div>
+          <div style="display:flex; align-items:center">
+            <span style="width:10px; height:10px; border-radius:50%; background: var(--color-accent); flex:none"></span><span style="flex:1; height:1px; background: var(--color-accent)"></span>
+            <span style="width:10px; height:10px; border-radius:50%; background: var(--color-accent); flex:none"></span><span style="flex:1; height:1px; background: var(--color-accent)"></span>
+            <span style="width:10px; height:10px; border-radius:50%; background: var(--color-accent); flex:none"></span><span style="flex:1; height:1px; background: var(--color-neutral-700)"></span>
+            <span style="width:10px; height:10px; border-radius:50%; border:1px solid var(--color-neutral-600); flex:none; box-sizing:border-box"></span><span style="flex:1; height:1px; background: var(--color-neutral-700)"></span>
+            <span style="width:10px; height:10px; border-radius:50%; border:1px solid var(--color-neutral-600); flex:none; box-sizing:border-box"></span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap:4px; margin-top:8px; font-size:10.5px; line-height:1.3; overflow-wrap:anywhere">
+            <div><div style="font-weight:500">Sent</div><div style="color: var(--color-neutral-500); white-space:nowrap">7:41 pm</div></div>
+            <div><div style="font-weight:500">Opened</div><div style="color: var(--color-neutral-500); white-space:nowrap">7:44 pm</div></div>
+            <div><div style="font-weight:500">Ack'd</div><div style="color: var(--color-neutral-500); white-space:nowrap">7:52 pm</div></div>
+            <div style="color: var(--color-neutral-500)"><div>ETA</div><div>—</div></div>
+            <div style="color: var(--color-neutral-500); text-align:right"><div>Finished</div><div>—</div></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">For the owner</p>
+        <h2 id="owner-title" style="margin:0; font-size: clamp(26px, 3vw, 36px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">What you see</h2>
+        <p style="margin: 14px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">Every location, every unit, and every work order, without living in a group text.</p>
+        <div style="margin-top: 28px; display:flex; flex-direction:column; gap:22px">
+          <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-pin"></use></svg><div><h3 style="margin:0; font-size:16px; font-weight:500; line-height:1.4">Every location, one dashboard</h3><p style="margin:4px 0 0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400); max-width: 50ch">Locations, the equipment at each one, and who's supposed to service it, whether you run one kitchen or five.</p></div></div>
+          <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-truck"></use></svg><div><h3 style="margin:0; font-size:16px; font-weight:500; line-height:1.4">Vendor contact cards</h3><p style="margin:4px 0 0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400); max-width: 50ch">Save each vendor once (email, phone, SLA) and set one as the default for a whole category, like refrigeration. Every unit picks a vendor without you doing it by hand.</p></div></div>
+          <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-chat"></use></svg><div><h3 style="margin:0; font-size:16px; font-weight:500; line-height:1.4">Work orders with dispatch status</h3><p style="margin:4px 0 0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400); max-width: 50ch">See when a vendor opened the email, acknowledged it, gave an ETA, or finished, right on the request, without calling to check.</p></div></div>
+          <div style="display:flex; gap:14px"><svg width="22" height="22" style="flex:none; color: var(--color-accent); margin-top:2px" aria-hidden="true"><use href="#i-badge"></use></svg><div><h3 style="margin:0; font-size:16px; font-weight:500; line-height:1.4">A free tier you're never locked out of</h3><p style="margin:4px 0 0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400); max-width: 50ch">Start on Free: one location, 10 units, no credit card. If you outgrow it, upgrade; if you don't, you keep working either way.</p></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <sc-if value="{{ showPricingTeaser }}" hint-placeholder-val="{{ true }}">
+    <section aria-labelledby="plans-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 72px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px)">
+      <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(40px, 5vw, 72px)"></div>
+      <div data-reveal="" style="display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap: 16px 40px">
+        <div style="max-width: 640px">
+          <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Plans</p>
+          <h2 id="plans-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Free to start, simple to grow into.</h2>
+          <p style="margin: 14px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">One location and 10 units, free, forever. Upgrade when you need more, never because your trial ran out.</p>
+        </div>
+        <a class="btn btn-ghost" href="Pricing.dc.html?for=owners" style="height:42px; padding:0 12px; font-size:14px">Compare all plan details <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+      </div>
+      <div data-reveal="" style="margin-top: 32px; display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap:16px">
+        <div style="display:flex; flex-direction:column; gap:14px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px"><h3 style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Free</h3><span style="font-size:22px; font-weight:500; letter-spacing:-0.02em; font-feature-settings: 'tnum' 1">$0</span></div>
+          <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For one site tracking equipment and taking service requests, at no cost.</p>
+          <p style="margin:auto 0 0; padding-top: 8px; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">Up to 10 pieces of equipment · 1 location · Unlimited staff</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:14px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: radial-gradient(420px 240px at 50% -80px, color-mix(in srgb, var(--color-accent-900) 70%, transparent), transparent 70%), var(--color-surface); border:1px solid var(--color-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 9%, transparent), var(--shadow-md)">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px"><div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap"><h3 style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Kitchen</h3><span class="tag tag-accent" style="white-space:nowrap">Most popular</span></div><span style="font-size:22px; font-weight:500; letter-spacing:-0.02em; font-feature-settings: 'tnum' 1; white-space:nowrap">$24<span style="font-size:13px; font-weight:400; color: var(--color-neutral-500)">/mo</span></span></div>
+          <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For one kitchen that wants AI troubleshooting and pre-printed QR batches.</p>
+          <p style="margin:auto 0 0; padding-top: 8px; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">Up to 75 pieces of equipment · 1 location · 14-day free trial</p>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:14px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px"><h3 style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Multi-kitchen</h3><span style="font-size:22px; font-weight:500; letter-spacing:-0.02em; font-feature-settings: 'tnum' 1; white-space:nowrap">$69<span style="font-size:13px; font-weight:400; color: var(--color-neutral-500)">/mo</span></span></div>
+          <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For an owner running several kitchens who wants branding across all of them.</p>
+          <p style="margin:auto 0 0; padding-top: 8px; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">Up to 400 pieces of equipment · Up to 5 locations · 14-day free trial</p>
+        </div>
+      </div>
+      <p style="margin: 14px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">Every plan includes unlimited staff and vendor contacts. Annual billing is two months free. No overage charges at any limit.</p>
+    </section>
+  </sc-if>
+
+  <section aria-labelledby="faq-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 72px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px)">
+    <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(40px, 5vw, 72px)"></div>
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:start">
+      <div style="max-width: 400px">
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Questions</p>
+        <h2 id="faq-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Questions from restaurants and kitchens.</h2>
+        <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">Billing questions are on the <a href="Pricing.dc.html?for=owners" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">pricing page</a>.</p>
+      </div>
+      <div style="display:flex; flex-direction:column">
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Is the Free plan actually free, forever?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes. One location and up to 10 pieces of equipment, no credit card, no trial to run out. If you outgrow it, Kitchen and Multi-kitchen add more equipment, AI troubleshooting, and pre-printed QR batches. You're never locked out of the free tier for not upgrading.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Do I pay per staff member?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">No. Every plan includes unlimited staff and unlimited vendor contacts. There's no seat count to manage and no reason to keep anyone off the account.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What happens if a vendor doesn't respond?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">You get an email as soon as the vendor's typical response window passes, with their phone number right in it. EquipQR sends the work order and can't confirm anyone picked it up, so calling is the reliable check when it's urgent.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Does my staff need to download an app or make an account?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">No. Scanning the tag opens a mobile page: no app store, no login, no account. They pick what's wrong, add a photo if it helps, and it's sent. No email address required either.</p>
+        </details>
+        <details style="border-top: 1px solid var(--color-neutral-800); border-bottom: 1px solid var(--color-neutral-800)">
+          <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What if I don't have a vendor for something yet?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+          <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">The report still gets filed and you're notified by email so you can call someone yourself. Nothing is silently dropped because a unit has no vendor on file.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="cta-title" style="max-width:1200px; margin:0 auto; padding: clamp(32px, 4vw, 64px) clamp(20px, 5vw, 72px) clamp(72px, 9vw, 128px)">
+    <div data-reveal="" style="position:relative; overflow:hidden; border-radius:20px; border:1px solid var(--color-neutral-900); background: radial-gradient(760px 380px at 85% 115%, color-mix(in srgb, var(--color-accent-900) 85%, transparent), transparent 62%), var(--color-surface); padding: clamp(36px, 5vw, 64px) clamp(24px, 5vw, 64px); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 28px 40px; align-items:center">
+      <div>
+        <h2 id="cta-title" style="margin:0; font-size: clamp(26px, 3vw, 38px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Put a tag on your first machine today.</h2>
+        <p style="margin: 14px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">Free for one location, no credit card. Add your equipment and vendors in minutes.</p>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:12px">
+        <a class="btn btn-primary" href="#" style="height:46px; padding:0 20px; font-size:15px">Start free <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+        <a class="btn btn-secondary" href="Contact.dc.html" style="height:46px; padding:0 20px; font-size:15px">Talk to us first</a>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="SiteFooter" hint-size="100%,360px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;showStat&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;showPricingTeaser&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;scrollReveal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  renderVals() {
+    return {
+      rootRef: this.rootRef,
+      showStat: this.props.showStat ?? true,
+      showPricingTeaser: this.props.showPricingTeaser ?? true,
+    };
+  }
+  componentDidMount() { this.setupMotion(); }
+  componentDidUpdate() {
+    const on = this.props.scrollReveal ?? true;
+    const root = this.rootRef.current;
+    if (!root) return;
+    if (!on && root.hasAttribute('data-motion')) { root.removeAttribute('data-motion'); this._io?.disconnect(); this._io = null; }
+    if (on) this.setupMotion();
+  }
+  componentWillUnmount() { this._io?.disconnect(); }
+  setupMotion() {
+    if ((this.props.scrollReveal ?? true) === false) return;
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const root = this.rootRef.current;
+    if (!root) return;
+    root.setAttribute('data-motion', '');
+    if (!this._io) {
+      this._io = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.setAttribute('data-reveal', 'in'); this._io.unobserve(e.target); } });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    }
+    const vh = window.innerHeight;
+    root.querySelectorAll('[data-reveal]:not([data-reveal="in"])').forEach(el => {
+      if (el.getBoundingClientRect().top < vh * 0.92) el.setAttribute('data-reveal', 'in'); else this._io.observe(el);
+    });
+  }
+}
+</script>
+</body>
+</html>

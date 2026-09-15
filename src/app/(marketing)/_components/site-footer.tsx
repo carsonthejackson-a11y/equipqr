@@ -1,6 +1,10 @@
 import Link from "next/link";
-import { LogoMark } from "@/components/logo";
+import { Logo } from "@/components/logo";
 import { SUPPORT_EMAIL } from "@/lib/site";
+import { Container } from "./container";
+
+// README "SiteFooter" / SiteFooter.dc.html. Server component: brand column,
+// three link columns, then the faded rule and the copyright row.
 
 const columns: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -8,6 +12,7 @@ const columns: { title: string; links: { href: string; label: string }[] }[] = [
     links: [
       { href: "/features", label: "Features" },
       { href: "/pricing", label: "Pricing" },
+      { href: "/restaurants", label: "For restaurants" },
       { href: "/faq", label: "FAQ" },
       { href: "/security", label: "Security" },
     ],
@@ -28,54 +33,58 @@ const columns: { title: string; links: { href: string; label: string }[] }[] = [
   },
 ];
 
+const footerLinkClass = "w-max text-sm text-eq-neutral-300 transition-colors duration-150 hover:text-eq-text";
+
 export function SiteFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-border/80">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(3,1fr)]">
-          <div className="space-y-3">
-            <Link href="/" className="flex items-center gap-2">
-              <LogoMark />
-              <span className="font-heading text-lg font-semibold leading-none">EquipQR</span>
+    <footer className="border-t border-eq-divider">
+      <Container className="pt-14 pb-10">
+        <div className="flex flex-wrap gap-[40px_56px]">
+          <div className="flex max-w-[340px] flex-[1_1_260px] flex-col gap-[14px]">
+            <Link href="/" aria-label="EquipQR home" className="w-max">
+              <Logo markClassName="size-6 text-eq-accent" wordmarkClassName="text-lg" />
             </Link>
-            <p className="max-w-xs text-sm text-muted-foreground">
-              QR stickers that turn every unit you service into a self-serve troubleshooting
-              guide — and a lead for the next truck roll.
+            <p className="text-sm leading-[1.6] text-eq-neutral-400">
+              QR tags for commercial kitchen equipment. Scan for the troubleshooting guide, or send a
+              service request to whoever handles that unit.
             </p>
             <a
               href={`mailto:${SUPPORT_EMAIL}`}
-              className="inline-block text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+              className="w-max text-sm text-eq-neutral-400 transition-colors duration-150 hover:text-eq-text"
             >
               {SUPPORT_EMAIL}
             </a>
           </div>
 
-          {columns.map((col) => (
-            <div key={col.title} className="space-y-3">
-              <p className="text-sm font-medium text-foreground">{col.title}</p>
-              <ul className="space-y-2">
-                {col.links.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div className="flex flex-[2_1_420px] flex-wrap gap-[32px_48px]">
+            {columns.map((col) => (
+              <div key={col.title} className="flex flex-[1_1_120px] flex-col gap-3">
+                <p className="text-xs font-medium tracking-[0.08em] text-eq-neutral-500 uppercase">
+                  {col.title}
+                </p>
+                <ul className="flex flex-col gap-3">
+                  {col.links.map((link) => (
+                    <li key={link.href} className="flex">
+                      <Link href={link.href} className={footerLinkClass}>
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-10 flex flex-col gap-2 border-t border-border/80 pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p>© {year} EquipQR. All rights reserved.</p>
-          <p>Built by a working repair technician in Dallas–Fort Worth.</p>
+        <hr className="eq-rule mt-9 mb-[22px]" />
+
+        <div className="flex flex-wrap justify-between gap-[8px_24px] text-[13px] text-eq-neutral-500">
+          <span>© {year} EquipQR. All rights reserved.</span>
+          <span>Built by a working repair technician in Dallas–Fort Worth.</span>
         </div>
-      </div>
+      </Container>
     </footer>
   );
 }

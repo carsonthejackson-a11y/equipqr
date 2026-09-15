@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    summary::-webkit-details-marker { display: none; }
+    details[open] [data-chev] { transform: rotate(180deg); }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-reduced-motion: no-preference) {
+      [data-motion] [data-reveal] { opacity: 0; transform: translateY(14px); transition: opacity .7s cubic-bezier(.2,.7,.2,1), transform .7s cubic-bezier(.2,.7,.2,1); }
+      [data-motion] [data-reveal="in"] { opacity: 1; transform: none; }
+    }
+  </style>
+</helmet>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M4.5 12.5l4.5 4.5L19.5 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"></path></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4.5 12h14M13 6.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="miter"></path></symbol>
+</svg>
+
+<div ref="{{ rootRef }}" data-screen-label="Pricing" style="--color-accent:#3ecf8e; --color-accent-100:#ecf9f1; --color-accent-200:#d2f1de; --color-accent-300:#a7e5c2; --color-accent-400:#56d396; --color-accent-500:#3ecf8e; --color-accent-600:#05915e; --color-accent-700:#007047; --color-accent-800:#045032; --color-accent-900:#093421; --color-accent-2:#3ecf8e; --color-accent-2-100:#ecf9f1; --color-accent-2-800:#045032; min-height:100vh; background: radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%), radial-gradient(1100px 800px at -10% 100%, rgba(0,0,0,0.3), transparent 55%), var(--color-bg); color: var(--color-text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-wrap: pretty">
+
+  <dc-import style="position:sticky; top:0; z-index:50" name="SiteHeader" active="pricing" hint-size="100%,64px"></dc-import>
+
+  <section aria-labelledby="page-title" style="max-width:1200px; margin:0 auto; padding: clamp(56px, 7vw, 104px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 40px)">
+    <div data-reveal="" style="max-width: 760px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Pricing</p>
+      <h1 id="page-title" style="margin:0; font-size: clamp(36px, 4.4vw, 58px); line-height:1.06; letter-spacing:-0.025em; font-weight:500">Pricing that scales with your route.</h1>
+      <p style="margin: 22px 0 0; font-size: clamp(16px, 1.3vw, 18px); line-height:1.6; color: var(--color-neutral-300); max-width: 56ch">Every service-company plan starts with a 14-day free trial with full Pro features unlocked. Restaurants and kitchens start on a free tier that never expires. Hit a limit and you get an upgrade prompt, not an overage fee.</p>
+    </div>
+  </section>
+
+  <section id="plans" aria-label="Plans" style="max-width:1200px; margin:0 auto; padding: clamp(16px, 2vw, 24px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px)">
+    <div data-reveal="" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap: 14px 24px">
+      <div class="seg" role="radiogroup" aria-label="Who the plans are for" style="border-radius:10px; background: var(--color-surface); flex-wrap:wrap">
+        <label class="seg-opt" style="height:40px; padding: 0 16px; font-size:14px; font-weight:500"><input type="radio" name="audience" value="providers" checked="{{ isProviders }}" onChange="{{ setProviders }}">For service companies</label>
+        <label class="seg-opt" style="height:40px; padding: 0 16px; font-size:14px; font-weight:500"><input type="radio" name="audience" value="owners" checked="{{ isOwners }}" onChange="{{ setOwners }}">For restaurants &amp; kitchens</label>
+      </div>
+      <div class="seg" role="radiogroup" aria-label="Billing interval" style="border-radius:10px; background: var(--color-surface)">
+        <label class="seg-opt" style="height:40px; padding: 0 16px; font-size:14px; font-weight:500"><input type="radio" name="interval" value="month" checked="{{ isMonth }}" onChange="{{ setMonth }}">Monthly</label>
+        <label class="seg-opt" style="height:40px; padding: 0 16px; font-size:14px; font-weight:500; gap:8px"><input type="radio" name="interval" value="year" checked="{{ isYear }}" onChange="{{ setYear }}">Yearly <span class="tag tag-accent" style="font-size:10.5px; padding: 2px 7px; white-space:nowrap">2 months free</span></label>
+      </div>
+    </div>
+
+    <div data-reveal="" style="margin-top: 28px">
+      <sc-if value="{{ isProviders }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap:16px; align-items:stretch">
+          <article aria-labelledby="plan-starter" style="display:flex; flex-direction:column; gap:20px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <h2 id="plan-starter" style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Starter</h2>
+              <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For a single truck getting off paper and text threads.</p>
+            </div>
+            <div>
+              <div style="display:flex; align-items:baseline; gap:4px; font-feature-settings: 'tnum' 1"><span style="font-size: clamp(38px, 3.4vw, 46px); font-weight:500; letter-spacing:-0.03em; line-height:1">{{ p.starter.price }}</span><span style="font-size:15px; color: var(--color-neutral-500)">{{ p.starter.per }}</span></div>
+              <p style="margin: 10px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">{{ p.starter.sub }}</p>
+            </div>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; flex:1">
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Up to 50 units of equipment</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>2 team members</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>AI-drafted troubleshooting guides</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Service requests with photo &amp; video</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Email support</li>
+            </ul>
+            <a class="btn btn-secondary btn-block" href="#" style="height:44px; font-size:15px">Start free trial</a>
+          </article>
+          <article aria-labelledby="plan-pro" style="display:flex; flex-direction:column; gap:20px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: radial-gradient(420px 240px at 50% -80px, color-mix(in srgb, var(--color-accent-900) 70%, transparent), transparent 70%), var(--color-surface); border:1px solid var(--color-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 9%, transparent), var(--shadow-md)">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+                <h2 id="plan-pro" style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Pro</h2>
+                <span class="tag tag-accent" style="white-space:nowrap">Most popular</span>
+              </div>
+              <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For a growing crew that wants fewer truck rolls, not more.</p>
+            </div>
+            <div>
+              <div style="display:flex; align-items:baseline; gap:4px; font-feature-settings: 'tnum' 1"><span style="font-size: clamp(38px, 3.4vw, 46px); font-weight:500; letter-spacing:-0.03em; line-height:1">{{ p.pro.price }}</span><span style="font-size:15px; color: var(--color-neutral-500)">{{ p.pro.per }}</span></div>
+              <p style="margin: 10px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">{{ p.pro.sub }}</p>
+            </div>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; flex:1">
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Up to 300 units of equipment</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>10 team members</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Chat-style AI troubleshooting assistant</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Your logo &amp; colors on customer pages</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Priority email support</li>
+            </ul>
+            <a class="btn btn-primary btn-block" href="#" style="height:44px; font-size:15px">Start free trial</a>
+          </article>
+          <article aria-labelledby="plan-business" style="display:flex; flex-direction:column; gap:20px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <h2 id="plan-business" style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Business</h2>
+              <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For multi-crew operations that need it all.</p>
+            </div>
+            <div>
+              <div style="display:flex; align-items:baseline; gap:4px; font-feature-settings: 'tnum' 1"><span style="font-size: clamp(38px, 3.4vw, 46px); font-weight:500; letter-spacing:-0.03em; line-height:1">{{ p.business.price }}</span><span style="font-size:15px; color: var(--color-neutral-500)">{{ p.business.per }}</span></div>
+              <p style="margin: 10px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">{{ p.business.sub }}</p>
+            </div>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; flex:1">
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Up to 1,500 units of equipment</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Unlimited team members</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Everything in Pro</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Data export &amp; API access</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Priority support</li>
+            </ul>
+            <a class="btn btn-secondary btn-block" href="#" style="height:44px; font-size:15px">Start free trial</a>
+          </article>
+        </div>
+        <p style="margin: 18px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">Every plan starts with a 14-day free trial with full Pro features unlocked. No credit card to start. Annual billing is two months free. No overage charges at any limit.</p>
+      </sc-if>
+      <sc-if value="{{ isOwners }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap:16px; align-items:stretch">
+          <article aria-labelledby="plan-free" style="display:flex; flex-direction:column; gap:20px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <h2 id="plan-free" style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Free</h2>
+              <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For one site tracking equipment and taking service requests, at no cost.</p>
+            </div>
+            <div>
+              <div style="display:flex; align-items:baseline; gap:4px; font-feature-settings: 'tnum' 1"><span style="font-size: clamp(38px, 3.4vw, 46px); font-weight:500; letter-spacing:-0.03em; line-height:1">$0</span></div>
+              <p style="margin: 10px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">Free forever. No credit card, no trial to run out.</p>
+            </div>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; flex:1">
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Up to 10 pieces of equipment</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>1 location</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Unlimited staff and vendor contacts</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Service requests with photo &amp; video</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Email support</li>
+            </ul>
+            <a class="btn btn-secondary btn-block" href="#" style="height:44px; font-size:15px">Get started free</a>
+          </article>
+          <article aria-labelledby="plan-site" style="display:flex; flex-direction:column; gap:20px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: radial-gradient(420px 240px at 50% -80px, color-mix(in srgb, var(--color-accent-900) 70%, transparent), transparent 70%), var(--color-surface); border:1px solid var(--color-accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 9%, transparent), var(--shadow-md)">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+                <h2 id="plan-site" style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Kitchen</h2>
+                <span class="tag tag-accent" style="white-space:nowrap">Most popular</span>
+              </div>
+              <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For one kitchen that wants AI troubleshooting and pre-printed QR batches.</p>
+            </div>
+            <div>
+              <div style="display:flex; align-items:baseline; gap:4px; font-feature-settings: 'tnum' 1"><span style="font-size: clamp(38px, 3.4vw, 46px); font-weight:500; letter-spacing:-0.03em; line-height:1">{{ p.site.price }}</span><span style="font-size:15px; color: var(--color-neutral-500)">{{ p.site.per }}</span></div>
+              <p style="margin: 10px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">{{ p.site.sub }}</p>
+            </div>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; flex:1">
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Up to 75 pieces of equipment</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>1 location</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>AI-drafted troubleshooting guides</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Pre-printed QR code batches</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Priority email support</li>
+            </ul>
+            <a class="btn btn-primary btn-block" href="#" style="height:44px; font-size:15px">Start free trial</a>
+          </article>
+          <article aria-labelledby="plan-multi" style="display:flex; flex-direction:column; gap:20px; padding: clamp(22px, 3vw, 28px); border-radius:14px; background: var(--color-surface); border:1px solid var(--color-neutral-900); transition: border-color .2s ease" style-hover="border-color: var(--color-neutral-700)">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <h2 id="plan-multi" style="margin:0; font-size:19px; line-height:1.3; letter-spacing:-0.01em; font-weight:500">Multi-kitchen</h2>
+              <p style="margin:0; font-size:14.5px; line-height:1.55; color: var(--color-neutral-400)">For an owner running several kitchens who wants branding across all of them.</p>
+            </div>
+            <div>
+              <div style="display:flex; align-items:baseline; gap:4px; font-feature-settings: 'tnum' 1"><span style="font-size: clamp(38px, 3.4vw, 46px); font-weight:500; letter-spacing:-0.03em; line-height:1">{{ p.multi.price }}</span><span style="font-size:15px; color: var(--color-neutral-500)">{{ p.multi.per }}</span></div>
+              <p style="margin: 10px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">{{ p.multi.sub }}</p>
+            </div>
+            <ul style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:10px; flex:1">
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Up to 400 pieces of equipment</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Up to 5 locations</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Your logo &amp; colors on customer pages</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Everything in Kitchen</li>
+              <li style="display:flex; gap:10px; font-size:14.5px; line-height:1.5; color: var(--color-neutral-300)"><svg width="16" height="16" style="flex:none; margin-top:3px; color: var(--color-accent)" aria-hidden="true"><use href="#i-check"></use></svg>Priority support</li>
+            </ul>
+            <a class="btn btn-secondary btn-block" href="#" style="height:44px; font-size:15px">Start free trial</a>
+          </article>
+        </div>
+        <p style="margin: 18px 0 0; font-size:13px; line-height:1.5; color: var(--color-neutral-500)">Every plan includes unlimited staff and vendor contacts. Free never expires; Kitchen and Multi-kitchen start with a 14-day free trial. Annual billing is two months free. No overage charges at any limit.</p>
+      </sc-if>
+    </div>
+  </section>
+
+  <section id="compare" aria-labelledby="compare-title" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 72px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px); scroll-margin-top: 80px">
+    <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(40px, 5vw, 72px)"></div>
+    <div data-reveal="" style="max-width: 640px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Compare</p>
+      <h2 id="compare-title" style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Every limit and feature, side by side.</h2>
+    </div>
+    <div data-reveal="" style="margin-top: 32px; border-radius:14px; border:1px solid var(--color-neutral-900); overflow-x:auto">
+      <sc-if value="{{ isProviders }}" hint-placeholder-val="{{ true }}">
+        <table class="table" style="min-width: 640px; font-size:14px">
+          <thead>
+            <tr>
+              <th style="padding: 14px 20px; width: 40%; text-transform:none; letter-spacing:0; font-size:12px; font-weight:400; color: var(--color-neutral-500)">{{ intervalHeading }}</th>
+              <th style="padding: 12px; text-align:center; text-transform:none; letter-spacing:0"><div style="font-size:14px; color: var(--color-text)">Starter</div><div style="font-size:12px; color: var(--color-neutral-500); margin-top:2px; font-feature-settings: 'tnum' 1">{{ p.starter.label }}</div></th>
+              <th style="padding: 12px; text-align:center; text-transform:none; letter-spacing:0"><div style="font-size:14px; color: var(--color-accent)">Pro</div><div style="font-size:12px; color: var(--color-neutral-500); margin-top:2px; font-feature-settings: 'tnum' 1">{{ p.pro.label }}</div></th>
+              <th style="padding: 12px; text-align:center; text-transform:none; letter-spacing:0"><div style="font-size:14px; color: var(--color-text)">Business</div><div style="font-size:12px; color: var(--color-neutral-500); margin-top:2px; font-feature-settings: 'tnum' 1">{{ p.business.label }}</div></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Equipment units</td>
+              <td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">50</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">300</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">1,500</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Team members</td>
+              <td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">2</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">10</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Unlimited</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">AI-drafted troubleshooting guides</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Service requests with photo &amp; video</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Chat-style AI troubleshooting assistant</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Pre-printed batch QR sticker orders</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Your logo &amp; colors on customer pages</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Data export &amp; API access</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Support</td>
+              <td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Email</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Priority email</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Priority</td>
+            </tr>
+          </tbody>
+        </table>
+      </sc-if>
+      <sc-if value="{{ isOwners }}" hint-placeholder-val="{{ false }}">
+        <table class="table" style="min-width: 640px; font-size:14px">
+          <thead>
+            <tr>
+              <th style="padding: 14px 20px; width: 40%; text-transform:none; letter-spacing:0; font-size:12px; font-weight:400; color: var(--color-neutral-500)">{{ intervalHeading }}</th>
+              <th style="padding: 12px; text-align:center; text-transform:none; letter-spacing:0"><div style="font-size:14px; color: var(--color-text)">Free</div><div style="font-size:12px; color: var(--color-neutral-500); margin-top:2px; font-feature-settings: 'tnum' 1">$0</div></th>
+              <th style="padding: 12px; text-align:center; text-transform:none; letter-spacing:0"><div style="font-size:14px; color: var(--color-accent)">Kitchen</div><div style="font-size:12px; color: var(--color-neutral-500); margin-top:2px; font-feature-settings: 'tnum' 1">{{ p.site.label }}</div></th>
+              <th style="padding: 12px; text-align:center; text-transform:none; letter-spacing:0"><div style="font-size:14px; color: var(--color-text)">Multi-kitchen</div><div style="font-size:12px; color: var(--color-neutral-500); margin-top:2px; font-feature-settings: 'tnum' 1">{{ p.multi.label }}</div></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Equipment units</td>
+              <td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">10</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">75</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">400</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Locations</td>
+              <td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">1</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">1</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300); font-feature-settings: 'tnum' 1">5</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Staff and vendor contacts</td>
+              <td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Unlimited</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Unlimited</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Unlimited</td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Service requests with photo &amp; video</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">AI-drafted troubleshooting guides</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Chat-style AI troubleshooting assistant</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Pre-printed batch QR sticker orders</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Your logo &amp; colors on customer pages</td>
+              <td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-neutral-700); display:inline-block; vertical-align:middle" aria-label="Not included"><use href="#i-x"></use></svg></td><td style="padding: 12px; text-align:center"><svg width="18" height="18" style="color: var(--color-accent); display:inline-block; vertical-align:middle" aria-label="Included"><use href="#i-check"></use></svg></td>
+            </tr>
+            <tr>
+              <td style="padding: 12px 20px; font-weight:500">Support</td>
+              <td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Email</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Priority email</td><td style="padding: 12px; text-align:center; color: var(--color-neutral-300)">Priority</td>
+            </tr>
+          </tbody>
+        </table>
+      </sc-if>
+    </div>
+  </section>
+
+  <section id="questions" aria-label="Questions" style="max-width:1200px; margin:0 auto; padding: clamp(40px, 5vw, 72px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 48px); scroll-margin-top: 80px">
+    <div style="height:1px; background: linear-gradient(to right, transparent, var(--color-divider) 48px, var(--color-divider) calc(100% - 48px), transparent); margin-bottom: clamp(40px, 5vw, 72px)"></div>
+    <div data-reveal="" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 32px clamp(32px, 5vw, 80px); align-items:start">
+      <div style="max-width: 400px">
+        <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Questions</p>
+        <sc-if value="{{ isProviders }}" hint-placeholder-val="{{ true }}">
+          <h2 style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Billing questions.</h2>
+        </sc-if>
+        <sc-if value="{{ isOwners }}" hint-placeholder-val="{{ false }}">
+          <h2 style="margin:0; font-size: clamp(28px, 3.2vw, 40px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Questions from restaurants and kitchens.</h2>
+        </sc-if>
+        <p style="margin: 16px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400)">More about the product itself on the <a href="FAQ.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">FAQ page</a>.</p>
+      </div>
+      <div style="display:flex; flex-direction:column">
+        <sc-if value="{{ isProviders }}" hint-placeholder-val="{{ true }}">
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Is there really a free trial, and is a card required?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Every plan starts with a 14-day free trial with full Pro features unlocked. No credit card required to start; you'll only be asked for billing details if you decide to keep going.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What happens if I hit my equipment limit?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">You won't be charged an overage or get cut off mid-job. When you're at your plan's unit limit, you'll see a prompt to upgrade the next time you try to add equipment. Your existing units and guides keep working normally.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Can I switch plans later?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes, upgrade or downgrade at any time from Settings → Billing. Changes are prorated against your current billing period, so you're never paying twice.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>How much do I save paying annually?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Annual billing is two months free compared to paying monthly. You pay for 10 months and get the full year.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>How is my card handled?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Payments are processed by Stripe. EquipQR never sees or stores your card number, only Stripe's tokenized reference to it.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800); border-bottom: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Can I cancel anytime?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes. Cancel from Settings → Billing whenever you like; you'll keep access through the end of the period you already paid for. Questions? <a href="Contact.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Get in touch</a>.</p>
+          </details>
+        </sc-if>
+        <sc-if value="{{ isOwners }}" hint-placeholder-val="{{ false }}">
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Is the Free plan actually free, forever?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">Yes. One location and up to 10 pieces of equipment, no credit card, no trial to run out. If you outgrow it, Kitchen and Multi-kitchen add more equipment, AI troubleshooting, and pre-printed QR batches. You're never locked out of the free tier for not upgrading.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Do I pay per staff member?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">No. Every plan includes unlimited staff and unlimited vendor contacts. There's no seat count to manage and no reason to keep anyone off the account.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What happens if a vendor doesn't respond?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">You get an email as soon as the vendor's typical response window passes, with their phone number right in it. EquipQR sends the work order and can't confirm anyone picked it up, so calling is the reliable check when it's urgent.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>Does my staff need to download an app or make an account?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">No. Scanning the tag opens a mobile page: no app store, no login, no account. They pick what's wrong, add a photo if it helps, and it's sent. No email address required either.</p>
+          </details>
+          <details style="border-top: 1px solid var(--color-neutral-800); border-bottom: 1px solid var(--color-neutral-800)">
+            <summary style="list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:16px; padding: 18px 0; font-size:16px; font-weight:500; line-height:1.4; color: var(--color-text); transition: color .15s ease" style-hover="color: var(--color-accent-300)"><span>What if I don't have a vendor for something yet?</span><svg data-chev="" width="18" height="18" style="flex:none; color: var(--color-neutral-500); transition: transform .2s ease" aria-hidden="true"><use href="#i-chev"></use></svg></summary>
+            <p style="margin: 0 0 18px; font-size:15px; line-height:1.6; color: var(--color-neutral-400); max-width: 60ch">The report still gets filed and you're notified by email so you can call someone yourself. Nothing is silently dropped because a unit has no vendor on file.</p>
+          </details>
+        </sc-if>
+      </div>
+    </div>
+  </section>
+
+  <section aria-label="Get started" style="max-width:1200px; margin:0 auto; padding: clamp(32px, 4vw, 64px) clamp(20px, 5vw, 72px) clamp(72px, 9vw, 128px)">
+    <div data-reveal="" style="position:relative; overflow:hidden; border-radius:20px; border:1px solid var(--color-neutral-900); background: radial-gradient(760px 380px at 85% 115%, color-mix(in srgb, var(--color-accent-900) 85%, transparent), transparent 62%), var(--color-surface); padding: clamp(36px, 5vw, 64px) clamp(24px, 5vw, 64px); display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 28px 40px; align-items:center">
+      <sc-if value="{{ isProviders }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <h2 style="margin:0; font-size: clamp(26px, 3vw, 38px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Start on the trial. Pick the plan after.</h2>
+          <p style="margin: 14px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">Fourteen days of Pro, no card. Land on Starter, Pro, or Business when you know how many units and people you're carrying.</p>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:12px">
+          <a class="btn btn-primary" href="#" style="height:46px; padding:0 20px; font-size:15px">Start free trial <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+          <a class="btn btn-secondary" href="Contact.dc.html" style="height:46px; padding:0 20px; font-size:15px">Talk to us</a>
+        </div>
+      </sc-if>
+      <sc-if value="{{ isOwners }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <h2 style="margin:0; font-size: clamp(26px, 3vw, 38px); line-height:1.12; letter-spacing:-0.02em; font-weight:500">Start on Free. It doesn't expire.</h2>
+          <p style="margin: 14px 0 0; font-size:16px; line-height:1.6; color: var(--color-neutral-400); max-width: 50ch">One location, ten pieces of equipment, unlimited staff. Move to Kitchen or Multi-kitchen when the walk-in count outgrows it.</p>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:12px">
+          <a class="btn btn-primary" href="#" style="height:46px; padding:0 20px; font-size:15px">Get started free <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"></use></svg></a>
+          <a class="btn btn-secondary" href="Restaurants.dc.html" style="height:46px; padding:0 20px; font-size:15px">How it works for kitchens</a>
+        </div>
+      </sc-if>
+    </div>
+  </section>
+
+  <dc-import name="SiteFooter" hint-size="100%,360px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;audience&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;providers&quot;,&quot;owners&quot;],&quot;default&quot;:&quot;providers&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;defaultInterval&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;month&quot;,&quot;year&quot;],&quot;default&quot;:&quot;month&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;scrollReveal&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;}}">
+class Component extends DCLogic {
+  rootRef = React.createRef();
+  state = { audience: null, interval: null, fromUrl: null };
+  renderVals() {
+    const audience = this.state.audience ?? this.state.fromUrl ?? this.props.audience ?? 'providers';
+    const year = (this.state.interval ?? this.props.defaultInterval ?? 'month') === 'year';
+    const fmt = n => '$' + n.toLocaleString('en-US');
+    const price = (m, y) => year
+      ? { price: fmt(y), per: '/yr', sub: `Works out to ${fmt(Math.round(y / 12))}/mo, billed annually`, label: fmt(y) + '/yr' }
+      : { price: fmt(m), per: '/mo', sub: 'Billed monthly, cancel anytime', label: fmt(m) + '/mo' };
+    return {
+      rootRef: this.rootRef,
+      isProviders: audience === 'providers', isOwners: audience === 'owners',
+      isMonth: !year, isYear: year,
+      setProviders: () => this.setState({ audience: 'providers' }),
+      setOwners: () => this.setState({ audience: 'owners' }),
+      setMonth: () => this.setState({ interval: 'month' }),
+      setYear: () => this.setState({ interval: 'year' }),
+      intervalHeading: year ? 'Yearly, billed annually' : 'Monthly, billed monthly',
+      p: { starter: price(29, 290), pro: price(79, 790), business: price(199, 1990), site: price(24, 240), multi: price(69, 690) },
+    };
+  }
+  componentDidMount() {
+    try { if (new URLSearchParams(location.search).get('for') === 'owners') this.setState({ fromUrl: 'owners' }); } catch (e) {}
+    this.setupMotion();
+  }
+  componentDidUpdate(prevProps) {
+    if (prevProps.audience !== this.props.audience) this.setState({ audience: null, fromUrl: null });
+    if (prevProps.defaultInterval !== this.props.defaultInterval) this.setState({ interval: null });
+    const on = this.props.scrollReveal ?? true;
+    const root = this.rootRef.current;
+    if (!root) return;
+    if (!on && root.hasAttribute('data-motion')) { root.removeAttribute('data-motion'); this._io?.disconnect(); this._io = null; }
+    if (on) this.setupMotion();
+  }
+  componentWillUnmount() { this._io?.disconnect(); }
+  setupMotion() {
+    if ((this.props.scrollReveal ?? true) === false) return;
+    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const root = this.rootRef.current;
+    if (!root) return;
+    root.setAttribute('data-motion', '');
+    if (!this._io) {
+      this._io = new IntersectionObserver(entries => {
+        entries.forEach(e => { if (e.isIntersecting) { e.target.setAttribute('data-reveal', 'in'); this._io.unobserve(e.target); } });
+      }, { threshold: 0.12, rootMargin: '0px 0px -6% 0px' });
+    }
+    const vh = window.innerHeight;
+    root.querySelectorAll('[data-reveal]:not([data-reveal="in"])').forEach(el => {
+      if (el.getBoundingClientRect().top < vh * 0.92) el.setAttribute('data-reveal', 'in'); else this._io.observe(el);
+    });
+  }
+}
+</script>
+</body>
+</html>

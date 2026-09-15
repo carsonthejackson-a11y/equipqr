@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/styles.css">
+  <script src="_ds/nocturne-1eadabea-8ad0-4e4b-9e2c-d77f58c193d0/_ds_bundle.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@500&display=swap">
+  <style>
+    html { scroll-behavior: smooth; }
+    body { margin: 0; background: #161826; }
+    a:hover { color: var(--color-accent-300); }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (min-width: 761px) { [data-sticky-aside] { position: sticky; top: 88px; } }
+  </style>
+</helmet>
+<div data-screen-label="Terms" style="--color-accent:#3ecf8e; --color-accent-100:#ecf9f1; --color-accent-200:#d2f1de; --color-accent-300:#a7e5c2; --color-accent-400:#56d396; --color-accent-500:#3ecf8e; --color-accent-600:#05915e; --color-accent-700:#007047; --color-accent-800:#045032; --color-accent-900:#093421; --color-accent-2:#3ecf8e; --color-accent-2-100:#ecf9f1; --color-accent-2-800:#045032; min-height:100vh; background: radial-gradient(1200px 720px at 82% -160px, color-mix(in srgb, #093421 72%, transparent), transparent 60%), radial-gradient(1100px 800px at -10% 100%, rgba(0,0,0,0.3), transparent 55%), var(--color-bg); color: var(--color-text); font-family: var(--font-body); -webkit-font-smoothing: antialiased; text-wrap: pretty">
+
+  <dc-import style="position:sticky; top:0; z-index:50" name="SiteHeader" active="terms" hint-size="100%,64px"></dc-import>
+
+  <section aria-labelledby="page-title" style="max-width:1200px; margin:0 auto; padding: clamp(56px, 7vw, 104px) clamp(20px, 5vw, 72px) clamp(24px, 3vw, 40px)">
+    <div style="max-width: 760px">
+      <p style="margin:0 0 14px; font-size:13px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-accent)">Legal</p>
+      <h1 id="page-title" style="margin:0; font-size: clamp(36px, 4.4vw, 58px); line-height:1.06; letter-spacing:-0.025em; font-weight:500">Terms of Service</h1>
+      <p style="margin: 22px 0 0; font-size: clamp(16px, 1.3vw, 18px); line-height:1.6; color: var(--color-neutral-300); max-width: 56ch">These terms govern your use of EquipQR. By creating an account or using the service, you agree to them.</p>
+      <p style="margin: 18px 0 0; font-size:14px; color: var(--color-neutral-500); font-feature-settings: 'tnum' 1">Last updated {{ lastUpdated }}</p>
+    </div>
+  </section>
+
+  <section aria-label="Terms" style="max-width:1200px; margin:0 auto; padding: clamp(24px, 3vw, 48px) clamp(20px, 5vw, 72px) clamp(72px, 9vw, 128px)">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 40px clamp(32px, 5vw, 80px); align-items:start">
+      <nav data-sticky-aside="" aria-label="Sections" style="max-width: 360px">
+        <p style="margin:0 0 12px; font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color: var(--color-neutral-500)">Contents</p>
+        <ol style="margin:0; padding:0; list-style:none; display:flex; flex-direction:column; gap:2px">
+          <li><a href="#scope" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">1</span>Who these terms apply to</a></li>
+          <li><a href="#accounts" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">2</span>Accounts</a></li>
+          <li><a href="#billing" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">3</span>Subscriptions, trials, and billing</a></li>
+          <li><a href="#content" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">4</span>Your content and data</a></li>
+          <li><a href="#acceptable-use" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">5</span>Acceptable use</a></li>
+          <li><a href="#ai" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">6</span>AI-generated content</a></li>
+          <li><a href="#availability" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">7</span>Availability and support</a></li>
+          <li><a href="#termination" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">8</span>Termination</a></li>
+          <li><a href="#disclaimers" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">9</span>Disclaimers</a></li>
+          <li><a href="#liability" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">10</span>Limitation of liability</a></li>
+          <li><a href="#indemnification" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">11</span>Indemnification</a></li>
+          <li><a href="#changes" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">12</span>Changes to these Terms</a></li>
+          <li><a href="#governing-law" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">13</span>Governing law</a></li>
+          <li><a href="#contact" style="display:flex; gap:10px; padding: 7px 10px; margin-left: -10px; border-radius:8px; font-size:14px; line-height:1.4; color: var(--color-neutral-300); text-decoration:none; transition: color .15s ease, background-color .15s ease" style-hover="color: var(--color-text); background: color-mix(in srgb, var(--color-accent) 8%, transparent)"><span style="color: var(--color-accent); font-size:12px; font-feature-settings: 'tnum' 1; flex:none; margin-top:2px; min-width:16px">14</span>Contact</a></li>
+        </ol>
+        <p style="margin: 20px 0 0; font-size:13.5px; line-height:1.6; color: var(--color-neutral-500)">See also the <a href="Privacy.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Privacy Policy</a> and <a href="Security.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Security</a>.</p>
+      </nav>
+
+      <div style="max-width: 68ch; display:flex; flex-direction:column; gap: clamp(28px, 3vw, 40px); font-size:16px; line-height:1.7; color: var(--color-neutral-300)">
+        <section id="scope" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">1.</span>Who these terms apply to</h2>
+          <p style="margin:0">These Terms of Service ("Terms") are an agreement between you, acting on behalf of a business ("Customer," "you"), and EquipQR ("EquipQR," "we," "us"). They cover the EquipQR dashboard, the public equipment pages served at links beginning with <code style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; padding: 1px 6px; border-radius: 5px; background: var(--color-surface); border: 1px solid var(--color-neutral-900); color: var(--color-text)">/e/</code>, and related services (together, the "Service"). They do not create any obligation between EquipQR and your customers who scan a QR code or submit a service request — that relationship is between you and them.</p>
+        </section>
+
+        <section id="accounts" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">2.</span>Accounts</h2>
+          <p style="margin:0">You must provide accurate information to create an account and are responsible for everything that happens under it, including actions taken by team members you invite. Notify us promptly at <a href="mailto:support@equipqr.co" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">support@equipqr.co</a> if you believe your account has been compromised.</p>
+        </section>
+
+        <section id="billing" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">3.</span>Subscriptions, trials, and billing</h2>
+          <p style="margin:0 0 12px">New accounts start with a free trial period stated at signup, with full features of our Pro plan unlocked and no payment method required. At the end of the trial, you choose a paid plan to continue; if you don't, your account and public equipment pages are paused until you subscribe.</p>
+          <p style="margin:0">Paid subscriptions are billed in advance on a monthly or annual basis and renew automatically until cancelled. You can cancel at any time from your account settings; cancellation takes effect at the end of the billing period you've already paid for, and we do not provide partial refunds for unused time except where required by law. Each plan has a stated limit on active equipment records; we do not charge overage fees, but you'll be prompted to upgrade before adding equipment beyond your plan's limit. Payment is processed by our payment processor (currently Stripe) — EquipQR does not receive or store your full card number.</p>
+        </section>
+
+        <section id="content" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">4.</span>Your content and data</h2>
+          <p style="margin:0">You retain ownership of the data you and your customers put into the Service, including equipment records, customer records, troubleshooting guides, service requests, and any photos or video submitted with them ("Customer Content"). You grant EquipQR a license to host, process, and display Customer Content solely to provide and support the Service, including using it with third-party subprocessors described in our <a href="Privacy.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">Privacy Policy</a>. You're responsible for having the rights and permissions needed to submit Customer Content, including any consents required to collect your customers' information and media.</p>
+        </section>
+
+        <section id="acceptable-use" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">5.</span>Acceptable use</h2>
+          <p style="margin:0 0 12px">You agree not to use the Service to:</p>
+          <ul style="margin:0; padding-left: 22px; display:flex; flex-direction:column; gap:6px">
+            <li>Violate any law or the rights of a third party;</li>
+            <li>Upload content that is unlawful, harassing, or that you don't have the right to share;</li>
+            <li>Attempt to access another company's data or bypass access controls;</li>
+            <li>Probe, scan, or interfere with the Service's infrastructure or availability; or</li>
+            <li>Resell or white-label the Service without a separate written agreement.</li>
+          </ul>
+        </section>
+
+        <section id="ai" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">6.</span>AI-generated content</h2>
+          <p style="margin:0">The Service uses AI models to help draft troubleshooting guides, power the chat-style assistant on public equipment pages, and summarize service requests. AI output can be inaccurate or incomplete. You're responsible for reviewing AI-drafted guides before publishing them, and neither guides nor AI summaries should be relied on for situations involving safety risk, electrical, gas, or refrigerant hazards, or regulated equipment without independent verification by a qualified technician.</p>
+        </section>
+
+        <section id="availability" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">7.</span>Availability and support</h2>
+          <p style="margin:0">We work to keep the Service available and will give notice of planned maintenance where practical, but we don't guarantee uninterrupted availability. Support response targets for your plan are described on our <a href="Pricing.dc.html" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">pricing page</a> and are targets, not guarantees.</p>
+        </section>
+
+        <section id="termination" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">8.</span>Termination</h2>
+          <p style="margin:0">You may stop using the Service and cancel your subscription at any time. We may suspend or terminate accounts that violate these Terms, that we reasonably believe put the Service or other customers at risk, or for non-payment, with notice where practical. Upon termination, we will make reasonable efforts to allow you to export your Customer Content for a limited period before deletion, except where prohibited by law or where the account was terminated for abuse.</p>
+        </section>
+
+        <section id="disclaimers" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">9.</span>Disclaimers</h2>
+          <p style="margin:0">The Service is provided "as is" and "as available." To the maximum extent permitted by law, EquipQR disclaims all warranties, express or implied, including merchantability, fitness for a particular purpose, and non-infringement. We do not warrant that troubleshooting guides or AI output will resolve any particular equipment issue.</p>
+        </section>
+
+        <section id="liability" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">10.</span>Limitation of liability</h2>
+          <p style="margin:0">To the maximum extent permitted by law, EquipQR and its officers, employees, and suppliers will not be liable for any indirect, incidental, special, consequential, or punitive damages, or for lost profits, revenue, or data, arising out of or related to the Service, even if advised of the possibility of such damages. Our total liability arising out of or related to these Terms or the Service will not exceed the amount you paid us in the twelve months before the claim arose.</p>
+        </section>
+
+        <section id="indemnification" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">11.</span>Indemnification</h2>
+          <p style="margin:0">You agree to indemnify and hold EquipQR harmless from claims, damages, and expenses (including reasonable attorneys' fees) arising from your Customer Content, your use of the Service in violation of these Terms, or your violation of any law or third-party right.</p>
+        </section>
+
+        <section id="changes" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">12.</span>Changes to these Terms</h2>
+          <p style="margin:0">We may update these Terms from time to time. If we make material changes, we'll provide notice, such as by email or an in-app notice, before they take effect. Continued use of the Service after changes take effect constitutes acceptance of the updated Terms.</p>
+        </section>
+
+        <section id="governing-law" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">13.</span>Governing law</h2>
+          <p style="margin:0">These Terms are governed by the laws of the State of Texas, without regard to its conflict-of-laws principles. Any dispute arising out of these Terms or the Service will be brought exclusively in the state or federal courts located in Texas, and you consent to personal jurisdiction there.</p>
+        </section>
+
+        <section id="contact" style="scroll-margin-top: 88px">
+          <h2 style="margin:0 0 12px; font-size: clamp(20px, 1.8vw, 24px); line-height:1.3; letter-spacing:-0.015em; font-weight:500; color: var(--color-text); display:flex; gap:12px"><span style="color: var(--color-accent); font-feature-settings: 'tnum' 1">14.</span>Contact</h2>
+          <p style="margin:0">Questions about these Terms can be sent to <a href="mailto:support@equipqr.co" style="color: var(--color-accent); text-decoration: underline; text-underline-offset: 3px">support@equipqr.co</a>.</p>
+        </section>
+
+        <sc-if value="{{ showNotice }}" hint-placeholder-val="{{ true }}">
+          <p style="margin: 8px 0 0; padding: 16px 18px; border-radius:12px; border:1px solid var(--color-neutral-900); background: var(--color-surface); font-size:14px; line-height:1.6; color: var(--color-neutral-400)"><strong style="font-weight:500; color: var(--color-text)">Note:</strong> this page is a general template provided for convenience and does not constitute legal advice. Have a qualified attorney review it before relying on it for your business.</p>
+        </sc-if>
+      </div>
+    </div>
+  </section>
+
+  <dc-import name="SiteFooter" hint-size="100%,360px"></dc-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;lastUpdated&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;September 3, 2026&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Content&quot;},&quot;showNotice&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Content&quot;}}">
+class Component extends DCLogic {
+  renderVals() {
+    return { lastUpdated: this.props.lastUpdated ?? 'September 3, 2026', showNotice: this.props.showNotice ?? true };
+  }
+}
+</script>
+</body>
+</html>
