@@ -51,6 +51,12 @@ export function isOwnedStaffMediaPath(path: string, companyId: string, requestId
 export const MIN_ETA_MINUTES = 1;
 export const MAX_ETA_MINUTES = 240;
 
+/** First word of a name, or `fallback` when it's blank/absent. Shared by every "Hi {first name}" on this surface so they all agree on what counts as a name. */
+export function firstNameOf(name: string | null | undefined, fallback: string): string {
+  const trimmed = (name ?? "").trim();
+  return trimmed ? trimmed.split(/\s+/)[0] : fallback;
+}
+
 /** Clamps whatever a technician typed into a sane ETA. Non-finite input (empty box, NaN) returns null — no ETA is still a valid "on my way". */
 export function clampEtaMinutes(value: number): number | null {
   if (!Number.isFinite(value)) return null;
@@ -59,8 +65,26 @@ export function clampEtaMinutes(value: number): number | null {
 
 /** The customer-visible note stamped when a technician taps "On my way". */
 export function formatOnMyWayNote(technicianName: string, etaMinutes: number | null): string {
-  const firstName = technicianName.trim().split(/\s+/)[0] || "Your technician";
+  const firstName = firstNameOf(technicianName, "Your technician");
   return etaMinutes ? `${firstName} is on the way — ETA ~${etaMinutes} min` : `${firstName} is on the way`;
+}
+
+// ----------------------------------------------------------------------------
+// "On my way" SMS fallback (Q-03, §2 of the QoL brief)
+// ----------------------------------------------------------------------------
+//
+// notifyRequesterOfStatus() (src/lib/email/request-status.ts) silently no-ops
+// when there's no email on file, customer updates are off, or (always, for
+// owner-kind) contact_email is null — sendOnMyWay() reports that back as
+// `channel: "none"` instead of claiming a send that never happened. This is
+// what fills the offered text, sent from the TECHNICIAN'S OWN PHONE via a
+// plain `sms:` link (no server-side SMS provider exists yet).
+
+/** `smsHref`-ready body for the "no email on file" On my way fallback — the exact copy §2 of the QoL brief specifies. */
+export function formatOnMyWaySms(customerName: string, technicianName: string, companyName: string): string {
+  const customerFirst = firstNameOf(customerName, "there");
+  const technicianFirst = firstNameOf(technicianName, "Your technician");
+  return `Hi ${customerFirst}, this is ${technicianFirst} from ${companyName} — I'm on my way.`;
 }
 
 // ----------------------------------------------------------------------------
