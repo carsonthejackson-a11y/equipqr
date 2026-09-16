@@ -210,6 +210,19 @@ export type CloseOutFromScanInput = {
 };
 
 /**
+ * Pre-flight lock check the close-out dialog calls BEFORE starting any
+ * photo/signature upload (C1-33). Uploads go straight from the browser to
+ * Storage — closeOutFromScan's own requireActiveSubscription() check below
+ * still runs, as a backstop, but on its own it would only fire after a
+ * locked company's files were already sitting in Storage. Exported
+ * separately (rather than folded into closeOutFromScan) so the dialog can
+ * ask "am I allowed to start?" up front.
+ */
+export async function assertStaffUploadsAllowed(): Promise<{ error: string } | null> {
+  return requireActiveSubscription();
+}
+
+/**
  * The phone equivalent of `closeServiceRequest` (dashboard). Kept as a
  * sibling action rather than reusing that one's FormData signature because
  * this flow also attaches staff media rows and an optional signature — but
@@ -362,7 +375,16 @@ export async function closeOutFromScan(
 export async function createVisitRequest(
   qrToken: string,
   equipmentId: string
-): Promise<ActionResult<{ requestId: string; contactEmail: string | null }>> {
+): Promise<
+  ActionResult<{ requestId: string; contactName: string; contactEmail: string | null; contactPhone: string | null; publicToken: string }>
+> {
+  // C1-33: a locked company shouldn't be able to open a brand-new close-out
+  // flow, same as sendOnMyWay/closeOutFromScan.
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return lockError;
+  }
+
   const supabase = await createClient();
   const { profile } = await getCurrentProfile();
 
@@ -402,8 +424,8 @@ export async function createVisitRequest(
       priority: "normal",
       source: "staff",
     })
-    .select("id")
-    .single<{ id: string }>();
+    .select("id, public_token")
+    .single<{ id: string; public_token: string }>();
 
   if (error || !inserted) {
     return { error: error?.message ?? "Couldn't log this visit" };
@@ -420,5 +442,12 @@ export async function createVisitRequest(
   });
 
   revalidateStaffSurfaces(qrToken, inserted.id);
-  return { success: true, requestId: inserted.id, contactEmail: contact.contactEmail };
+  return {
+    success: true,
+    requestId: inserted.id,
+    contactName: contact.contactName,
+    contactEmail: contact.contactEmail,
+    contactPhone: contact.contactPhone,
+    publicToken: inserted.public_token,
+  };
 }

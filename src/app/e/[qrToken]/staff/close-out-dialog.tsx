@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
-import { closeOutFromScan } from "../staff-actions";
+import { assertStaffUploadsAllowed, closeOutFromScan } from "../staff-actions";
 
 // One screen, on the phone, to finish a job: what was done, before/after
 // photos, an optional customer signature, and whether to email a summary.
@@ -116,6 +116,15 @@ export function CloseOutDialog({
     const validationError = validateCloseOut({ summary, sendEmail, emailTo });
     if (validationError) {
       setError(validationError);
+      return;
+    }
+
+    // C1-33: checked before the upload loop below starts, not just inside
+    // closeOutFromScan afterward — a locked company shouldn't get photos and
+    // a signature sitting in Storage for a close-out that can never save.
+    const lockError = await assertStaffUploadsAllowed();
+    if (lockError) {
+      setError(lockError.error);
       return;
     }
 
