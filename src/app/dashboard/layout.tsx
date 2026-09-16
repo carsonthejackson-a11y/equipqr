@@ -188,6 +188,7 @@ async function sendWelcomeEmailOnce(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const { subject, html, text } = buildWelcomeEmail({
       companyName: company.name,
+      kind: company.kind,
       recipientName,
       dashboardUrl: `${appUrl}/dashboard`,
     });
