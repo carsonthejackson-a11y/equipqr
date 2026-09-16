@@ -4,6 +4,7 @@ import { brandingForEmail } from "@/lib/email/request-status";
 import { buildPmDueEmail } from "@/lib/email/pm-due";
 import { buildServiceRequestNotificationEmail } from "@/lib/email/service-request-notification";
 import { sendEmail } from "@/lib/email/send";
+import { sendCompanyEmail } from "@/lib/email/company-email";
 import { getRequestStatusUrl } from "@/lib/qr";
 import { formatDateOnly } from "@/lib/schedule";
 import { serverEnv } from "@/lib/env";
@@ -95,7 +96,13 @@ export async function GET(request: Request) {
           statusUrl,
         });
 
-        const sent = await sendEmail({ to: row.contact_email, subject, html, text });
+        const { sent } = await sendCompanyEmail({
+          company: { name: row.company_name, notification_email: row.company_notification_email },
+          to: row.contact_email,
+          subject,
+          html,
+          text,
+        });
         if (sent) customerEmailsSent++;
       } catch (err) {
         console.error(`pm-due cron: customer email failed for request ${row.request_id}:`, err);

@@ -6,6 +6,7 @@ import { brandingForEmail } from "@/lib/email/request-status";
 import { buildVisitReminderEmail } from "@/lib/email/visit-reminder";
 import { buildAssigneeNotificationEmail } from "@/lib/email/assignment";
 import { sendEmail } from "@/lib/email/send";
+import { sendCompanyEmail } from "@/lib/email/company-email";
 import { getRequestStatusUrl, getEquipmentPublicUrl } from "@/lib/qr";
 import { pickBestCode } from "@/lib/qr-codes";
 import { formatCompanyLongDateTime } from "@/lib/format";
@@ -213,7 +214,13 @@ export async function GET(request: Request) {
         statusUrl: getRequestStatusUrl(req.public_token),
       });
 
-      const sent = await sendEmail({ to: req.contact_email, subject, html, text });
+      const { sent } = await sendCompanyEmail({
+        company: { name: company.name, notification_email: company.notification_email },
+        to: req.contact_email,
+        subject,
+        html,
+        text,
+      });
       if (!sent) {
         // Email not configured or the provider declined.
         await releaseClaim();
