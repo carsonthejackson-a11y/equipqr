@@ -9,13 +9,17 @@ How a second (or third...) user joins a company, and what each role can do.
 | View/manage customers, equipment, equipment types, requests | ✅ | ✅ | ✅ |
 | Company settings (name, notification email) | ✅ | ❌ | ❌ |
 | Team (invite, change roles, remove members) | ✅ | ❌ | ❌ |
-| Billing (future workstream) | ✅ | ❌ | ❌ |
-| Delete equipment types / customers | ✅ | ❌ (view/create/edit only) | ❌ (view/create/edit only) |
+| Billing (`docs/BILLING.md`) | ✅ | ❌ | ❌ |
+| Delete equipment types / guides / customers / locations / vendors | ✅ | ❌ (view/create/edit only) | ❌ (view/create/edit only) |
+| CSV data export, API keys, webhooks (`docs/API.md`) | ✅ | ❌ | ❌ |
 
 A technician who visits an owner-only page (`/dashboard/settings`,
 `/dashboard/settings/team`) sees an "only owners can manage this" card
 instead of the form. Owner-only nav items are hidden for technicians
-entirely.
+entirely — both the main sidebar (Team/Billing/Settings) and, one level
+down, the Settings subnav itself only shows the Account tab to a
+non-owner, since every other settings tab is a dead end for that role
+(Q-16).
 
 ### Manager role (owner-roadmap, Phase 1)
 
@@ -67,6 +71,9 @@ an existing member's role.
 
 ## Seats / billing
 
-Invite creation has a `-- TODO(billing)` marker where a plan's member-count
-limit should be enforced once the billing workstream ships; today there's no
-cap.
+Every plan has a member limit (`Plan.memberLimit` in `src/lib/plans.ts` — `null` means
+unlimited, e.g. Business/Multi-kitchen). `assertCanAddMember()` (`src/lib/billing.ts`) checks it
+before an invite is created — counting existing members *and* other pending invitations, so a
+company can't oversell its own seat count by sending more invites than it has room for — and
+`/dashboard/settings/team/actions.ts`'s `createInvite` returns that error inline rather than
+creating the row. The Billing page shows a members used/limit bar next to the equipment one.
