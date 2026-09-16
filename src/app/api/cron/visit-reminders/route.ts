@@ -265,13 +265,16 @@ export async function GET(request: Request) {
           admin.auth.admin.getUserById(req.assigned_to),
           admin
             .from("profiles")
-            .select("full_name")
+            .select("full_name, company_id")
             .eq("id", req.assigned_to)
-            .maybeSingle<Pick<Profile, "full_name">>(),
+            .maybeSingle<Pick<Profile, "full_name" | "company_id">>(),
         ]);
         const assigneeEmail = userResult?.user?.email;
+        // assigned_to is only a foreign key to profiles, so never email
+        // someone who isn't a member of the request's own company.
+        const isCompanyMember = assigneeProfile?.company_id === req.company_id;
 
-        if (!userError && assigneeEmail) {
+        if (!userError && assigneeEmail && isCompanyMember) {
           const { siteName, address, staffScanUrl } = await resolveAssigneeSiteContext(
             admin,
             company.kind,
