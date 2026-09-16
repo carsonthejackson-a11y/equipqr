@@ -1,31 +1,38 @@
 import Link from "next/link";
-import type { CompanyKind } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { UserRole } from "@/lib/types";
 
-export function TrialBanner({
-  daysLeft,
-  companyKind,
-}: {
-  daysLeft: number;
-  /**
-   * equipment_owner companies are never locked and always have a Free tier
-   * to land on, so a trial countdown nudging them to "choose a plan" is
-   * misleading urgency they don't have (docs/OWNER-ROADMAP-BRIEF.md §9 Q1,
-   * §3.4). Optional so a caller that predates this prop still compiles and
-   * behaves exactly as before — see this build's report for the
-   * dashboard/layout.tsx change that wires it up.
-   */
-  companyKind?: CompanyKind;
-}) {
-  if (companyKind === "equipment_owner") return null;
+/**
+ * Q-15: escalates visually inside the last 3 days, and reads differently for
+ * an owner (who can act) versus everyone else (who can't touch billing —
+ * settings/billing/page.tsx and this app's other billing surfaces are all
+ * owner-gated). companyKind isn't a prop here on purpose: the caller
+ * (src/app/dashboard/layout.tsx) already only renders this component when
+ * trialDaysLeft is non-null, which it never is for an equipment_owner
+ * company (docs/OWNER-ROADMAP-BRIEF.md §9 Q1) — gating twice would just be
+ * dead code in this file.
+ */
+export function TrialBanner({ daysLeft, role }: { daysLeft: number; role: UserRole }) {
+  const urgent = daysLeft <= 3;
+  const isOwner = role === "owner";
 
   return (
-    <div className="flex items-center justify-center gap-2 border-b bg-muted/40 px-4 py-2 text-center text-sm print:hidden">
-      <span>
+    <div
+      className={cn(
+        "flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-b px-4 py-2 text-center text-sm print:hidden",
+        urgent ? "bg-amber-500/15 text-amber-800 dark:text-amber-300" : "bg-muted/40"
+      )}
+    >
+      <span className={urgent ? "font-medium" : undefined}>
         {daysLeft} day{daysLeft === 1 ? "" : "s"} left in your trial.
       </span>
-      <Link href="/dashboard/settings/billing" className="font-medium underline underline-offset-2">
-        Choose a plan
-      </Link>
+      {isOwner ? (
+        <Link href="/dashboard/settings/billing" className="font-medium underline underline-offset-2">
+          Choose a plan
+        </Link>
+      ) : (
+        <span className="font-medium">Ask your account owner to choose a plan.</span>
+      )}
     </div>
   );
 }

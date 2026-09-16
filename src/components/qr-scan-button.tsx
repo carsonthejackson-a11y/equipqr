@@ -26,7 +26,23 @@ function extractCode(decodedText: string) {
   return decodedText;
 }
 
-export function QrScanButton({ onScan }: { onScan: (code: string) => void }) {
+export function QrScanButton({
+  onScan,
+  trigger,
+}: {
+  onScan: (code: string) => void;
+  /**
+   * Custom trigger element (e.g. a compact icon-only button for a header).
+   * Defaults to the original "Scan code" outline button so every existing
+   * caller keeps its exact current look — QoL-5 app-shell work (Q-50) added
+   * this rather than changing the default, which other workstreams' forms
+   * already render as-is.
+   */
+  // ReactElement (not the broader ReactNode) because this is handed straight
+  // to DialogTrigger's `render`, which needs a single element — not a bare
+  // string/number/fragment-of-nodes — to clone props onto.
+  trigger?: React.ReactElement;
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -97,10 +113,12 @@ export function QrScanButton({ onScan }: { onScan: (code: string) => void }) {
     >
       <DialogTrigger
         render={
-          <Button type="button" variant="outline">
-            <ScanLine className="size-4" />
-            Scan code
-          </Button>
+          trigger ?? (
+            <Button type="button" variant="outline">
+              <ScanLine className="size-4" />
+              Scan code
+            </Button>
+          )
         }
       />
       <DialogContent>

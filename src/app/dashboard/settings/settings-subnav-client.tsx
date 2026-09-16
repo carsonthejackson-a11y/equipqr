@@ -5,18 +5,30 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { CompanyKind } from "@/lib/types";
 
-const items = [
-  { href: "/dashboard/settings", label: "Settings" },
-  { href: "/dashboard/settings/team", label: "Team" },
-  { href: "/dashboard/settings/billing", label: "Billing" },
-  { href: "/dashboard/settings/account", label: "Account" },
-  { href: "/dashboard/settings/branding", label: "Branding" },
+type SubnavItem = {
+  href: string;
+  label: string;
   // No owner plan includes API access today, so "View plans" from this tab
   // would lead nowhere for an equipment_owner company — hidden for that
-  // kind rather than shown with a broken upsell (C1-06).
-  { href: "/dashboard/settings/api", label: "API", ownerKindOnly: true },
-  { href: "/dashboard/settings/qr-codes", label: "Blank codes" },
-  { href: "/dashboard/settings/custom-fields", label: "Custom fields" },
+  // kind rather than shown with a broken upsell (C1-06). This is about
+  // CompanyKind, unrelated to the ownerOnly flag below about UserRole —
+  // don't conflate the two "owner"s (C1-08).
+  ownerKindOnly?: boolean;
+  // Every settings page except Account requireOwner()-gates its content
+  // server-side (renders an "Owners only" card to anyone else) — hide the
+  // tab itself for a non-owner rather than link to a dead end (Q-16).
+  ownerOnly?: boolean;
+};
+
+const items: SubnavItem[] = [
+  { href: "/dashboard/settings", label: "Settings", ownerOnly: true },
+  { href: "/dashboard/settings/team", label: "Team", ownerOnly: true },
+  { href: "/dashboard/settings/billing", label: "Billing", ownerOnly: true },
+  { href: "/dashboard/settings/account", label: "Account" },
+  { href: "/dashboard/settings/branding", label: "Branding", ownerOnly: true },
+  { href: "/dashboard/settings/api", label: "API", ownerKindOnly: true, ownerOnly: true },
+  { href: "/dashboard/settings/qr-codes", label: "Blank codes", ownerOnly: true },
+  { href: "/dashboard/settings/custom-fields", label: "Custom fields", ownerOnly: true },
 ];
 
 // Unlike the main dashboard nav, "/dashboard/settings" (company settings) is
@@ -27,9 +39,11 @@ function isActive(pathname: string, href: string) {
   return href === "/dashboard/settings" ? pathname === href : pathname.startsWith(href);
 }
 
-export function SettingsSubnavClient({ kind }: { kind: CompanyKind }) {
+export function SettingsSubnavClient({ kind, isOwner }: { kind: CompanyKind; isOwner: boolean }) {
   const pathname = usePathname();
-  const visible = items.filter((item) => !(item.ownerKindOnly && kind === "equipment_owner"));
+  const visible = items.filter(
+    (item) => !(item.ownerKindOnly && kind === "equipment_owner") && !(item.ownerOnly && !isOwner)
+  );
 
   return (
     <nav className="flex gap-1 overflow-x-auto border-b [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
