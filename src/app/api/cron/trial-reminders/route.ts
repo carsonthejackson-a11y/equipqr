@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { buildTrialEndingEmail } from "@/lib/email/trial-ending";
 import { sendEmail } from "@/lib/email/send";
 import { serverEnv } from "@/lib/env";
+import type { CompanyKind } from "@/lib/types";
 
 // Needs the Node runtime for the service-role admin client + auth admin API.
 export const runtime = "nodejs";
@@ -13,6 +14,7 @@ type TrialingCompany = {
   id: string;
   name: string;
   trial_ends_at: string;
+  kind: CompanyKind;
 };
 
 function daysLeft(iso: string): number {
@@ -40,7 +42,7 @@ export async function GET(request: Request) {
 
   const { data: companies, error } = await admin
     .from("companies")
-    .select("id, name, trial_ends_at")
+    .select("id, name, trial_ends_at, kind")
     .is("trial_reminder_sent_at", null)
     .gte("trial_ends_at", now.toISOString())
     .lte("trial_ends_at", windowEnd.toISOString())
@@ -77,6 +79,7 @@ export async function GET(request: Request) {
 
     const { subject, html, text } = buildTrialEndingEmail({
       companyName: company.name,
+      kind: company.kind,
       daysLeft: daysLeft(company.trial_ends_at),
       billingUrl: `${appUrl}/dashboard/settings/billing`,
     });

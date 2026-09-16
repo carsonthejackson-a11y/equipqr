@@ -36,7 +36,17 @@ const VALID_PRIORITIES: RequestPriority[] = ["low", "normal", "high", "urgent"];
 /** Everything notifyRequesterOfStatus() needs that isn't already on the request row. */
 type NotifyCompany = Pick<
   Company,
-  "id" | "name" | "phone" | "sms_number" | "website" | "logo_path" | "brand_color" | "customer_updates_enabled"
+  | "id"
+  | "name"
+  | "phone"
+  | "sms_number"
+  | "website"
+  | "logo_path"
+  | "brand_color"
+  | "customer_updates_enabled"
+  // QoL-1/C1-43: notifyRequesterOfStatus() now sends through sendCompanyEmail(),
+  // which needs the company's own inbox for the Reply-To header.
+  | "notification_email"
 >;
 
 /**
@@ -59,7 +69,9 @@ async function notifyRequesterFromApi(
   const [{ data: company }, { data: equipment }, { data: flags }] = await Promise.all([
     admin
       .from("companies")
-      .select("id, name, phone, sms_number, website, logo_path, brand_color, customer_updates_enabled")
+      .select(
+        "id, name, phone, sms_number, website, logo_path, brand_color, customer_updates_enabled, notification_email"
+      )
       .eq("id", companyId)
       .maybeSingle<NotifyCompany>(),
     admin

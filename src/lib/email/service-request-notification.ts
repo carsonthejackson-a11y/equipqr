@@ -1,8 +1,16 @@
 import { renderEmail, renderEmailText, escapeHtml, type EmailCta } from "./layout";
+import { vocabFor, type Vocab } from "@/lib/vocab";
 
 type PathEntry = { question: string; answer: string };
 
-/** Notification sent to company staff when a customer submits a new service request via the public QR scan flow. */
+/**
+ * Notification sent to company staff when a new request comes in — the
+ * public QR scan flow (service-requests/owner-requests) or the pm-due cron.
+ * Vocab-aware (C1-05): defaults to "New service request" for callers that
+ * haven't resolved a company kind (every current caller except pm-due,
+ * which generates for both kinds and is the one that actually needs this —
+ * see cron/pm-due/route.ts).
+ */
 export function buildServiceRequestNotificationEmail({
   equipmentName,
   contactName,
@@ -14,6 +22,7 @@ export function buildServiceRequestNotificationEmail({
   troubleshootingPath,
   dashboardUrl,
   priority,
+  vocab = vocabFor(undefined),
 }: {
   equipmentName: string;
   contactName: string;
@@ -26,8 +35,10 @@ export function buildServiceRequestNotificationEmail({
   dashboardUrl: string;
   /** Human label for the urgency the requester chose ("Not urgent" → "Low"). Omitted for callers that don't collect one. */
   priority?: string | null;
+  vocab?: Vocab;
 }): { subject: string; html: string; text: string } {
-  const subject = `New service request: ${equipmentName}`;
+  const noun = vocab.requestSingular.toLowerCase();
+  const subject = `New ${noun}: ${equipmentName}`;
   const cta: EmailCta = { label: "View in dashboard", url: dashboardUrl };
 
   const contactLine = [contactName, contactEmail, contactPhone]
@@ -36,7 +47,7 @@ export function buildServiceRequestNotificationEmail({
     .join(" · ");
 
   const htmlParts: string[] = [
-    `<p>A new service request was submitted for <strong>${escapeHtml(equipmentName)}</strong>.</p>`,
+    `<p>A new ${noun} was submitted for <strong>${escapeHtml(equipmentName)}</strong>.</p>`,
     `<p style="margin:16px 0 4px;"><strong>Contact:</strong> ${contactLine}</p>`,
     `<p style="margin:16px 0 4px;"><strong>Description</strong></p><p style="margin:0;white-space:pre-wrap;">${escapeHtml(description)}</p>`,
   ];
@@ -70,10 +81,10 @@ export function buildServiceRequestNotificationEmail({
     );
   }
 
-  const html = renderEmail({ heading: "New service request", bodyHtml: htmlParts.join(""), cta });
+  const html = renderEmail({ heading: `New ${noun}`, bodyHtml: htmlParts.join(""), cta });
 
   const text = renderEmailText({
-    heading: `A new service request was submitted for ${equipmentName}.`,
+    heading: `A new ${noun} was submitted for ${equipmentName}.`,
     lines: [
       `Contact: ${contactName}`,
       contactEmail ? `Email: ${contactEmail}` : undefined,

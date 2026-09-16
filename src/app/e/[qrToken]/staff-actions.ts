@@ -18,10 +18,11 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { requireActiveSubscription, getEntitlements } from "@/lib/billing";
 import { emitEquipmentEvent, emitRequestActivity } from "@/lib/events";
-import { notifyRequesterOfStatus } from "@/lib/email/request-status";
+import { notifyRequesterOfStatus, brandingForEmail } from "@/lib/email/request-status";
 import { buildResolutionEmail } from "@/lib/email/resolution";
-import { sendEmail } from "@/lib/email/send";
+import { sendCompanyEmail } from "@/lib/email/company-email";
 import { publicEnv } from "@/lib/env";
+import { vocabFor } from "@/lib/vocab";
 import {
   clampEtaMinutes,
   formatOnMyWayNote,
@@ -72,7 +73,11 @@ async function loadOwnedRequest(
  * optional note, and "<Name> is on the way — ETA ~N min" reads fine as that
  * note without a new email needing to exist.
  */
-export async function sendOnMyWay(qrToken: string, requestId: string, etaMinutes: number): Promise<ActionResult> {
+export async function sendOnMyWay(
+  qrToken: string,
+  requestId: string,
+  etaMinutes: number
+): Promise<ActionResult<{ notified: boolean }>> {
   const supabase = await createClient();
   const { profile, company } = await getCurrentProfile();
 
@@ -110,7 +115,7 @@ export async function sendOnMyWay(qrToken: string, requestId: string, etaMinutes
     .maybeSingle<Pick<Equipment, "name">>();
 
   const entitlements = await getEntitlements();
-  await notifyRequesterOfStatus(supabase, {
+  const notified = await notifyRequesterOfStatus(supabase, {
     request,
     status: request.status,
     equipmentName: equipment?.name ?? "your equipment",
@@ -122,7 +127,7 @@ export async function sendOnMyWay(qrToken: string, requestId: string, etaMinutes
   });
 
   revalidateStaffSurfaces(qrToken, requestId);
-  return { success: true };
+  return { success: true, notified };
 }
 
 // ============================================================================
@@ -212,21 +217,31 @@ export async function closeOutFromScan(
 
   let emailSentAt: string | null = null;
   if (input.sendEmail) {
-    const { data: equipment } = await supabase
-      .from("equipment")
-      .select("name")
-      .eq("id", request.equipment_id)
-      .maybeSingle<Pick<Equipment, "name">>();
+    const [{ data: equipment }, entitlements] = await Promise.all([
+      supabase.from("equipment").select("name").eq("id", request.equipment_id).maybeSingle<Pick<Equipment, "name">>(),
+      getEntitlements(),
+    ]);
 
     const { subject, html, text } = buildResolutionEmail({
-      companyName: company.name,
+      brand: brandingForEmail({
+        company,
+        planId: entitlements?.plan_id ?? null,
+        supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+      }),
+      requestNoun: vocabFor(company.kind).requestSingular.toLowerCase(),
       equipmentName: equipment?.name ?? "your equipment",
       contactName: request.contact_name,
       summary,
       recommendations,
     });
 
-    const sent = await sendEmail({ to: emailTo, subject, html, text });
+    const { sent } = await sendCompanyEmail({
+      company: { name: company.name, notification_email: company.notification_email },
+      to: emailTo,
+      subject,
+      html,
+      text,
+    });
     if (sent) {
       emailSentAt = new Date().toISOString();
     }

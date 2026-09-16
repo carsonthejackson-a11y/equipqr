@@ -5,17 +5,34 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { requireActiveSubscription, getEntitlements } from "@/lib/billing";
 import { emitRequestActivity } from "@/lib/events";
-import { notifyRequesterOfStatus } from "@/lib/email/request-status";
+import { notifyRequesterOfStatus, brandingForEmail, type RequestEmailBranding } from "@/lib/email/request-status";
 import { buildResolutionEmail } from "@/lib/email/resolution";
+import { buildAssigneeNotificationEmail } from "@/lib/email/assignment";
 import { sendEmail } from "@/lib/email/send";
+import { sendCompanyEmail } from "@/lib/email/company-email";
 import { publicEnv } from "@/lib/env";
+import { getEquipmentPublicUrl } from "@/lib/qr";
+import { pickBestCode } from "@/lib/qr-codes";
+import { vocabFor } from "@/lib/vocab";
+import { formatCompanyLongDateTime, DEFAULT_COMPANY_TIME_ZONE } from "@/lib/format";
 import {
   REQUEST_STATUS_LABELS,
   REQUEST_PRIORITY_LABELS,
   REQUEST_STATUS_ORDER,
   REQUEST_PRIORITY_ORDER,
 } from "@/components/status-badge";
-import type { Company, Equipment, Profile, RequestPriority, RequestStatus, ServiceRequest } from "@/lib/types";
+import type {
+  Company,
+  CompanyMember,
+  Customer,
+  Equipment,
+  Location,
+  Profile,
+  QrCode,
+  RequestPriority,
+  RequestStatus,
+  ServiceRequest,
+} from "@/lib/types";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -58,16 +75,18 @@ async function loadRequestContext(supabase: SupabaseServerClient, id: string): P
  * One-call wrapper around notifyRequesterOfStatus() that resolves the
  * caller's plan id (for branding) and the public Supabase URL (for the
  * logo link) so every action below doesn't repeat that boilerplate.
- * Best-effort like the underlying helper — never throws.
+ * Best-effort like the underlying helper — never throws. Returns whether an
+ * email actually went out, so callers can report honestly instead of
+ * assuming "success" meant "the customer was told" (C1-31/Q-03).
  */
 async function notifyStatus(
   supabase: SupabaseServerClient,
   ctx: RequestContext,
   status: RequestStatus,
   opts?: { note?: string | null; actorUserId?: string | null }
-) {
+): Promise<boolean> {
   const entitlements = await getEntitlements();
-  await notifyRequesterOfStatus(supabase, {
+  return notifyRequesterOfStatus(supabase, {
     request: ctx.request,
     status,
     equipmentName: ctx.equipmentName,
@@ -77,6 +96,102 @@ async function notifyStatus(
     note: opts?.note ?? null,
     actorUserId: opts?.actorUserId ?? null,
   });
+}
+
+/**
+ * Resolves the site/customer label, address and a staff-scan link for one
+ * request's equipment — everything buildAssigneeNotificationEmail() needs
+ * beyond the request/company fields the caller already has. Vocab-aware
+ * (customer for service_provider, location for equipment_owner — C1-44).
+ * Never throws; a lookup failure just means a thinner (still honest) email.
+ */
+async function resolveAssigneeEmailContext(
+  supabase: SupabaseServerClient,
+  companyKind: Company["kind"],
+  equipmentId: string
+): Promise<{ siteName: string | null; address: string | null; staffScanUrl: string | null }> {
+  const [{ data: equipment }, { data: codes }] = await Promise.all([
+    supabase
+      .from("equipment")
+      .select("address, customer_id, location_id")
+      .eq("id", equipmentId)
+      .maybeSingle<Pick<Equipment, "address" | "customer_id" | "location_id">>(),
+    supabase
+      .from("qr_codes")
+      .select("token, status, equipment_id")
+      .eq("equipment_id", equipmentId)
+      .returns<Pick<QrCode, "token" | "status" | "equipment_id">[]>(),
+  ]);
+
+  let siteName: string | null = null;
+  let address = equipment?.address ?? null;
+
+  if (companyKind === "equipment_owner" && equipment?.location_id) {
+    const { data: location } = await supabase
+      .from("locations")
+      .select("name, address")
+      .eq("id", equipment.location_id)
+      .maybeSingle<Pick<Location, "name" | "address">>();
+    siteName = location?.name ?? null;
+    address = address || (location?.address ?? null);
+  } else if (equipment?.customer_id) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("name, address")
+      .eq("id", equipment.customer_id)
+      .maybeSingle<Pick<Customer, "name" | "address">>();
+    siteName = customer?.name ?? null;
+    address = address || (customer?.address ?? null);
+  }
+
+  const best = pickBestCode(codes ?? []);
+  const staffScanUrl = best ? getEquipmentPublicUrl(best.token) : null;
+
+  return { siteName, address, staffScanUrl };
+}
+
+/**
+ * Emails the ASSIGNED TECHNICIAN — never the customer's template, never
+ * customer-branded (C1-44: the assignee used to hear about a job in exactly
+ * one case, a customer reply). Best-effort and silent on any failure,
+ * mirroring every other staff notification in this codebase; its result
+ * isn't surfaced anywhere today, so a lookup or send failure never blocks
+ * the caller's own return value.
+ */
+async function notifyAssignee(
+  supabase: SupabaseServerClient,
+  ctx: RequestContext,
+  assigneeId: string,
+  reason: "assigned" | "scheduled"
+): Promise<void> {
+  try {
+    const { data: members } = await supabase.rpc("get_company_members");
+    const assignee = ((members as CompanyMember[] | null) ?? []).find((m) => m.id === assigneeId);
+    if (!assignee) return;
+
+    const { siteName, address, staffScanUrl } = await resolveAssigneeEmailContext(
+      supabase,
+      ctx.company.kind,
+      ctx.request.equipment_id
+    );
+
+    const { subject, html, text } = buildAssigneeNotificationEmail({
+      reason,
+      technicianName: assignee.full_name,
+      equipmentName: ctx.equipmentName,
+      siteName,
+      address,
+      whenText: ctx.request.scheduled_for
+        ? formatCompanyLongDateTime(ctx.request.scheduled_for, ctx.company.timezone ?? DEFAULT_COMPANY_TIME_ZONE)
+        : null,
+      staffScanUrl,
+      requestUrl: `${publicEnv.NEXT_PUBLIC_APP_URL}/dashboard/requests/${ctx.request.id}`,
+    });
+
+    await sendEmail({ to: assignee.email, subject, html, text });
+  } catch (err) {
+    console.error("notifyAssignee failed:", err);
+  }
 }
 
 // A server action's arguments come off the wire, so the `RequestStatus` /
@@ -128,10 +243,10 @@ export async function updateRequestStatus(id: string, status: RequestStatus) {
     authorUserId: profile.id,
   });
 
-  await notifyStatus(supabase, ctx, status, { actorUserId: profile.id });
+  const notified = await notifyStatus(supabase, ctx, status, { actorUserId: profile.id });
 
   revalidateRequest(id);
-  return { success: true };
+  return { success: true, notified };
 }
 
 export async function updateRequestPriority(id: string, priority: RequestPriority) {
@@ -222,15 +337,22 @@ export async function assignRequest(id: string, userId: string | null) {
   // No dedicated "assignment" email template exists yet — reuse the status
   // update email (same status, a short note) so the customer still hears
   // that someone picked up their request.
+  let notified = false;
   if (userId) {
-    await notifyStatus(supabase, ctx, ctx.request.status, {
+    notified = await notifyStatus(supabase, ctx, ctx.request.status, {
       actorUserId: profile.id,
       note: assigneeName ? `${assigneeName} has been assigned to your request.` : "A technician has been assigned to your request.",
     });
+
+    // Tell the technician too (C1-44) — but not when they assigned it to
+    // themselves, which tells them nothing they don't already know.
+    if (userId !== profile.id) {
+      await notifyAssignee(supabase, ctx, userId, "assigned");
+    }
   }
 
   revalidateRequest(id);
-  return { success: true };
+  return { success: true, notified };
 }
 
 export async function addRequestNote(id: string, body: string, visibleToCustomer: boolean) {
@@ -261,12 +383,12 @@ export async function addRequestNote(id: string, body: string, visibleToCustomer
     return { error: "Couldn't save note" };
   }
 
-  if (visibleToCustomer) {
-    await notifyStatus(supabase, ctx, ctx.request.status, { actorUserId: profile.id, note: trimmed });
-  }
+  const notified = visibleToCustomer
+    ? await notifyStatus(supabase, ctx, ctx.request.status, { actorUserId: profile.id, note: trimmed })
+    : false;
 
   revalidateRequest(id);
-  return { success: true };
+  return { success: true, notified };
 }
 
 export async function cancelRequest(id: string, reason: string) {
@@ -295,13 +417,13 @@ export async function cancelRequest(id: string, reason: string) {
     authorUserId: profile.id,
   });
 
-  await notifyStatus(supabase, ctx, "canceled", {
+  const notified = await notifyStatus(supabase, ctx, "canceled", {
     actorUserId: profile.id,
     note: trimmedReason || null,
   });
 
   revalidateRequest(id);
-  return { success: true };
+  return { success: true, notified };
 }
 
 export async function closeServiceRequest(id: string, formData: FormData) {
@@ -339,19 +461,35 @@ export async function closeServiceRequest(id: string, formData: FormData) {
   let emailSentAt: string | null = null;
 
   if (sendResolutionEmailFlag) {
-    const [{ data: equipment }, { data: company }] = await Promise.all([
-      supabase.from("equipment").select("name").eq("id", serviceRequest.equipment_id).maybeSingle(),
-      supabase.from("companies").select("name").eq("id", serviceRequest.company_id).maybeSingle(),
+    const [{ data: equipment }, { data: company }, entitlements] = await Promise.all([
+      supabase
+        .from("equipment")
+        .select("name")
+        .eq("id", serviceRequest.equipment_id)
+        .maybeSingle<Pick<Equipment, "name">>(),
+      supabase.from("companies").select("*").eq("id", serviceRequest.company_id).maybeSingle<Company>(),
+      getEntitlements(),
     ]);
 
-    const sent = await sendResolutionEmailTo({
-      to: emailTo,
-      companyName: company?.name ?? "Your service provider",
-      equipmentName: equipment?.name ?? "your equipment",
-      contactName: serviceRequest.contact_name,
-      summary,
-      recommendations,
-    });
+    let sent = false;
+    if (company) {
+      sent = await sendResolutionEmailTo({
+        to: emailTo,
+        company,
+        brand: brandingForEmail({
+          company,
+          planId: entitlements?.plan_id ?? null,
+          supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+        }),
+        requestNoun: vocabFor(company.kind).requestSingular.toLowerCase(),
+        equipmentName: equipment?.name ?? "your equipment",
+        contactName: serviceRequest.contact_name,
+        summary,
+        recommendations,
+      });
+    } else {
+      console.error(`closeServiceRequest: company ${serviceRequest.company_id} not found — resolution email skipped`);
+    }
 
     if (sent) {
       emailSentAt = new Date().toISOString();
@@ -403,12 +541,15 @@ export async function closeServiceRequest(id: string, formData: FormData) {
 
 async function sendResolutionEmailTo(params: {
   to: string;
-  companyName: string;
+  company: { name: string; notification_email: string | null };
+  brand: RequestEmailBranding;
+  requestNoun: string;
   equipmentName: string;
   contactName: string;
   summary: string;
   recommendations: string;
-}) {
+}): Promise<boolean> {
   const { subject, html, text } = buildResolutionEmail(params);
-  return sendEmail({ to: params.to, subject, html, text });
+  const { sent } = await sendCompanyEmail({ company: params.company, to: params.to, subject, html, text });
+  return sent;
 }

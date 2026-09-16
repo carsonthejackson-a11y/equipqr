@@ -49,6 +49,11 @@ export async function draftTroubleshootingGuide({
       "Every node needs at least one option that eventually reaches 'resolved' or 'escalate' — don't create dead ends.",
       "Every 'continue' option's next_temp_id must reference the temp_id of another node in the same response.",
       "Exactly one node must have is_root set to true.",
+      // Safety rules, no exceptions (a guide step is instructions a customer
+      // follows alone, on their phone, next to the equipment — never treat
+      // this like a technician manual).
+      "Never write an instruction telling the customer to open a panel or cover, touch anything electrical, gas, refrigerant, pressurized, steam, or hot, or to bypass or reset a safety device (a limit switch, pressure relief valve, gas shutoff, breaker, etc.). Looking at, listening to, or smelling near the equipment from a safe distance is fine; opening it up or touching its internals is not.",
+      "If a symptom is a hazard — a gas smell, a burning smell, smoke, sparking, water pooling near anything electrical, a steam leak, or a refrigerant leak — the option for it must lead straight to a terminal node whose instructions tell the customer to stop, keep clear of the equipment, and call the service company immediately, with outcome 'escalate'; for a gas smell or any sign of fire, that node must also tell them to call emergency services (fire department / gas utility) before anything else.",
     ].join(" "),
     tools: [
       {
@@ -163,22 +168,31 @@ export async function summarizeTroubleshootingPath({
 
     const pathText = path.map((entry, i) => `${i + 1}. ${entry.question} → ${entry.answer}`).join("\n");
 
-    const message = await anthropic.messages.create({
-      model: DRAFTING_MODEL,
-      max_tokens: 300,
-      system:
-        "You summarize a customer's self-service troubleshooting attempt for a field service technician who's about to be dispatched. Write 2-4 plain sentences: what the customer tried, and what's still wrong. No greeting, no headers, no bullet points — just the summary.",
-      messages: [
-        {
-          role: "user",
-          content: [
-            `Equipment: ${equipmentName}`,
-            `Customer's description: ${description}`,
-            path.length > 0 ? `Troubleshooting steps taken:\n${pathText}` : "No guided troubleshooting steps were taken.",
-          ].join("\n\n"),
-        },
-      ],
-    });
+    const message = await anthropic.messages.create(
+      {
+        model: CLASSIFIER_MODEL,
+        max_tokens: 300,
+        system:
+          "You summarize a customer's self-service troubleshooting attempt for a field service technician who's about to be dispatched. Write 2-4 plain sentences: what the customer tried, and what's still wrong. No greeting, no headers, no bullet points — just the summary.",
+        messages: [
+          {
+            role: "user",
+            content: [
+              `Equipment: ${equipmentName}`,
+              `Customer's description: ${description}`,
+              path.length > 0 ? `Troubleshooting steps taken:\n${pathText}` : "No guided troubleshooting steps were taken.",
+            ].join("\n\n"),
+          },
+        ],
+      },
+      // This runs inline in the public submit request (Q-05) — a slow or
+      // hanging call must not hold up the response much longer than the
+      // customer would wait for "request submitted" anyway. A cheap
+      // classifier model with a short timeout and a single retry: if it
+      // doesn't come back quickly, the request still submits fine without a
+      // summary (this function already returns null on any failure).
+      { timeout: 8_000, maxRetries: 1 }
+    );
 
     const textBlock = message.content.find((block) => block.type === "text");
     return textBlock && textBlock.type === "text" ? textBlock.text.trim() : null;
@@ -291,6 +305,10 @@ export async function generateChecklistDraft({
       "Prefer 'check' and 'pass_fail' for most items. Use 'number' only for a real measurement. Use 'photo' sparingly, only when a picture is genuinely useful documentation.",
       "Mark an item required only when skipping it would be a real problem — most items should not be required.",
       "Keep labels short (a few words, no trailing period). 'help' is one short sentence of guidance, or null when the label is self-explanatory.",
+      // Safety rules, no exceptions (a technician on-site is still not
+      // automatically licensed for every trade a piece of equipment touches).
+      "Never write an item that instructs the technician to open an electrical panel or enclosure, touch live electrical components, work on gas or refrigerant lines, or bypass or reset a safety device (a limit switch, pressure relief valve, gas shutoff, interlock, etc.) — those are licensed-trade tasks, not checklist steps.",
+      "Never write an item that has the technician approach, investigate, or attempt to fix a hazard symptom (a gas smell, a burning smell, smoke, sparking, water pooling near anything electrical, a steam leak, or a refrigerant leak). If that's relevant to this equipment type, the item should instead ask them to confirm the area is clear and stop, keep clear, and call the service company (and emergency services for gas/fire) — not to diagnose or touch the hazard.",
     ].join(" "),
     tools: [
       {
