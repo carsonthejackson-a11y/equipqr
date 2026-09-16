@@ -152,3 +152,70 @@ export const publicEnv: PublicEnv = new Proxy({} as PublicEnv, {
     return prop in loadPublicEnv();
   },
 });
+
+// ---------------------------------------------------------------------------
+// Production env guard (C1-53/C1-54). Deliberately reads raw process.env,
+// not serverEnv/loadServerEnv above — those throw on the two REQUIRED
+// Supabase vars, and this guard must stay report-only by default no matter
+// what the rest of the schema is doing. Keeping it decoupled means a
+// broken serverEnv can never turn "report" into an accidental "throw" here.
+// ---------------------------------------------------------------------------
+
+/**
+ * The vars a production deploy needs and might plausibly still be missing
+ * right after launch: NEXT_PUBLIC_APP_URL (present and not still pointing
+ * at localhost), the Supabase service-role key, both Resend settings, and
+ * CRON_SECRET. Exported so checkProductionEnv() and /api/health?deep=1
+ * report from the exact same list — the two silently drifting apart would
+ * be worse than either alone.
+ */
+export function missingProductionEnvVars(): string[] {
+  const missing: string[] = [];
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  if (!appUrl || appUrl.includes("localhost")) missing.push("NEXT_PUBLIC_APP_URL");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!process.env.RESEND_API_KEY) missing.push("RESEND_API_KEY");
+  if (!process.env.RESEND_FROM_EMAIL) missing.push("RESEND_FROM_EMAIL");
+  if (!process.env.CRON_SECRET) missing.push("CRON_SECRET");
+  return missing;
+}
+
+/**
+ * Report-only production config guard, called once at server startup from
+ * instrumentation.ts's register(). Missing config in production is loud —
+ * one structured console.error naming every missing variable, plus a
+ * Sentry captureMessage when SENTRY_DSN is set — but never fatal by
+ * default. Some of what a fresh production deploy is missing (e.g. the
+ * four owner Stripe price vars — see the webhook route's kind-mismatch
+ * guard, which already treats an unmapped price as "fine, just log it")
+ * is genuinely okay to launch without for a while, and a hard crash here
+ * would be worse than the misconfiguration itself.
+ *
+ * Set ENV_GUARD_ENFORCE=true to make this throw instead. Thrown from
+ * register(), that fails the server's startup entirely — the deploy never
+ * comes up and Vercel keeps serving the previous working one — rather than
+ * ever 500ing a live request on /e/* or anywhere else. That's an explicit,
+ * opt-in choice for whoever runs that environment; it is never the default.
+ */
+export async function checkProductionEnv(): Promise<void> {
+  if (process.env.VERCEL_ENV !== "production") return;
+
+  const missing = missingProductionEnvVars();
+  if (missing.length === 0) return;
+
+  const message = `Production is missing required configuration: ${missing.join(", ")}`;
+  console.error(JSON.stringify({ event: "env_guard_failure", missing, message }));
+
+  if (process.env.SENTRY_DSN) {
+    try {
+      const Sentry = await import("@sentry/nextjs");
+      Sentry.captureMessage(message, "error");
+    } catch (err) {
+      console.error("env_guard: failed to report to Sentry:", err);
+    }
+  }
+
+  if (process.env.ENV_GUARD_ENFORCE === "true") {
+    throw new Error(message);
+  }
+}

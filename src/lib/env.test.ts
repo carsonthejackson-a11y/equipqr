@@ -1,5 +1,12 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
+// checkProductionEnv() dynamic-imports @sentry/nextjs only when SENTRY_DSN
+// is set (see env.ts) — mocked so those tests never need a real Sentry init.
+const captureMessageMock = vi.fn();
+vi.mock("@sentry/nextjs", () => ({
+  captureMessage: (...args: unknown[]) => captureMessageMock(...args),
+}));
+
 const ORIGINAL_ENV = process.env;
 
 function setBaseEnv() {
@@ -7,9 +14,19 @@ function setBaseEnv() {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
 }
 
+/** The 5 C1-53/C1-54 production vars, all present — the "nothing missing" baseline. */
+function setProductionReadyEnv() {
+  process.env.NEXT_PUBLIC_APP_URL = "https://equipqr.co";
+  process.env.SUPABASE_SERVICE_ROLE_KEY = "x";
+  process.env.RESEND_API_KEY = "x";
+  process.env.RESEND_FROM_EMAIL = "x";
+  process.env.CRON_SECRET = "x";
+}
+
 beforeEach(() => {
   vi.resetModules();
   process.env = { ...ORIGINAL_ENV };
+  captureMessageMock.mockClear();
 });
 
 afterEach(() => {
@@ -77,5 +94,132 @@ describe("serverEnv", () => {
     expect(serverEnv.NEXT_PUBLIC_SUPABASE_URL).toBe("https://example.supabase.co");
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://changed.supabase.co";
     expect(serverEnv.NEXT_PUBLIC_SUPABASE_URL).toBe("https://example.supabase.co");
+  });
+});
+
+describe("missingProductionEnvVars (C1-53/C1-54)", () => {
+  it("is empty when every production var is set", async () => {
+    setProductionReadyEnv();
+    const { missingProductionEnvVars } = await import("./env");
+    expect(missingProductionEnvVars()).toEqual([]);
+  });
+
+  it("lists exactly what's missing", async () => {
+    setProductionReadyEnv();
+    delete process.env.CRON_SECRET;
+    delete process.env.RESEND_FROM_EMAIL;
+    const { missingProductionEnvVars } = await import("./env");
+    expect(missingProductionEnvVars().sort()).toEqual(["CRON_SECRET", "RESEND_FROM_EMAIL"]);
+  });
+
+  it("treats a still-localhost NEXT_PUBLIC_APP_URL as missing, not just an unset one", async () => {
+    setProductionReadyEnv();
+
+    process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
+    const fresh1 = await import("./env");
+    expect(fresh1.missingProductionEnvVars()).toEqual(["NEXT_PUBLIC_APP_URL"]);
+
+    vi.resetModules();
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    const fresh2 = await import("./env");
+    expect(fresh2.missingProductionEnvVars()).toEqual(["NEXT_PUBLIC_APP_URL"]);
+  });
+});
+
+describe("checkProductionEnv (C1-53/C1-54)", () => {
+  it("does nothing outside production, even with everything missing", async () => {
+    delete process.env.VERCEL_ENV;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { checkProductionEnv } = await import("./env");
+
+    await expect(checkProductionEnv()).resolves.toBeUndefined();
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("does nothing in production when everything required is set", async () => {
+    process.env.VERCEL_ENV = "production";
+    setProductionReadyEnv();
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { checkProductionEnv } = await import("./env");
+
+    await checkProductionEnv();
+    expect(errorSpy).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("logs one structured error naming every missing var, but does not throw, when ENV_GUARD_ENFORCE is unset", async () => {
+    process.env.VERCEL_ENV = "production";
+    delete process.env.NEXT_PUBLIC_APP_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_FROM_EMAIL;
+    delete process.env.CRON_SECRET;
+    delete process.env.ENV_GUARD_ENFORCE;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { checkProductionEnv } = await import("./env");
+
+    await expect(checkProductionEnv()).resolves.toBeUndefined();
+
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    const logged = JSON.parse(errorSpy.mock.calls[0][0] as string);
+    expect(logged.event).toBe("env_guard_failure");
+    expect(logged.missing).toEqual(
+      expect.arrayContaining(["NEXT_PUBLIC_APP_URL", "SUPABASE_SERVICE_ROLE_KEY", "CRON_SECRET"])
+    );
+    errorSpy.mockRestore();
+  });
+
+  it('throws when ENV_GUARD_ENFORCE is "true" and something is missing', async () => {
+    process.env.VERCEL_ENV = "production";
+    setProductionReadyEnv();
+    delete process.env.CRON_SECRET;
+    process.env.ENV_GUARD_ENFORCE = "true";
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { checkProductionEnv } = await import("./env");
+
+    await expect(checkProductionEnv()).rejects.toThrow(/CRON_SECRET/);
+    errorSpy.mockRestore();
+  });
+
+  it('does not throw when ENV_GUARD_ENFORCE is any value other than the literal string "true"', async () => {
+    process.env.VERCEL_ENV = "production";
+    setProductionReadyEnv();
+    delete process.env.CRON_SECRET;
+    process.env.ENV_GUARD_ENFORCE = "1";
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { checkProductionEnv } = await import("./env");
+
+    await expect(checkProductionEnv()).resolves.toBeUndefined();
+    errorSpy.mockRestore();
+  });
+
+  it("reports to Sentry when SENTRY_DSN is set", async () => {
+    process.env.VERCEL_ENV = "production";
+    process.env.SENTRY_DSN = "https://key@sentry.io/1";
+    setProductionReadyEnv();
+    delete process.env.CRON_SECRET;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { checkProductionEnv } = await import("./env");
+
+    await checkProductionEnv();
+
+    expect(captureMessageMock).toHaveBeenCalledTimes(1);
+    expect(captureMessageMock.mock.calls[0][0]).toContain("CRON_SECRET");
+    errorSpy.mockRestore();
+  });
+
+  it("skips Sentry entirely when SENTRY_DSN is unset", async () => {
+    process.env.VERCEL_ENV = "production";
+    delete process.env.SENTRY_DSN;
+    setProductionReadyEnv();
+    delete process.env.CRON_SECRET;
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { checkProductionEnv } = await import("./env");
+
+    await checkProductionEnv();
+
+    expect(captureMessageMock).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 });

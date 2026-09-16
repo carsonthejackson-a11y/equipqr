@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { serverEnv } from "@/lib/env";
 import { drainWebhookDeliveries } from "@/lib/webhooks";
+import { timingSafeEqualString } from "@/lib/timing-safe-equal";
 
 // Needs the Node runtime: the service-role admin client and node:crypto
 // (HMAC signing in src/lib/webhook-signing.ts).
@@ -29,8 +30,10 @@ const DRAIN_BUDGET_MS = 45_000;
 export async function GET(request: Request) {
   const expected = serverEnv.CRON_SECRET;
   const authHeader = request.headers.get("authorization");
+  const provided = authHeader?.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
 
-  if (!expected || authHeader !== `Bearer ${expected}`) {
+  // C1-53/C1-54: constant-time comparison — see timing-safe-equal.ts.
+  if (!expected || !provided || !timingSafeEqualString(provided, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
