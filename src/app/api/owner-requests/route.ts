@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -107,35 +107,24 @@ export async function POST(request: Request) {
 
   const result = data as OwnerSubmitResult;
   const statusUrl = getRequestStatusUrl(result.public_token);
-
-  const aiSummary = await summarizeTroubleshootingPath({
-    equipmentName: result.equipment_name,
-    description,
-    path: body.symptoms.map((s) => ({ question: "Symptom", answer: s })),
-  });
-
-  if (aiSummary) {
-    // Anon has no RLS update grant on service_requests — same reasoning as
-    // the provider route: this goes through a security-definer RPC keyed on
-    // id + the public token we were just handed.
-    const supabase = await createClient();
-    const { error: summaryError } = await supabase.rpc("set_request_ai_summary", {
-      p_request_id: result.request_id,
-      p_public_token: result.public_token,
-      p_summary: aiSummary,
-    });
-    if (summaryError) {
-      console.error("set_request_ai_summary failed:", summaryError.message);
-    }
-  }
-
   const priorityLabel = REQUEST_PRIORITY_LABELS[body.priority];
 
-  if (result.dispatch_id && result.dispatch_token && result.vendor_email && result.vendor) {
-    await sendVendorDispatchEmail(writer, result, body, description);
-  }
+  // Anon has no RLS update grant on service_requests — same reasoning as the
+  // provider route: the AI summary goes through a security-definer RPC keyed
+  // on id + the public token we were just handed, rather than a direct
+  // table write.
+  const supabase = await createClient();
 
-  await sendOwnerNotificationEmail(result, body, description, priorityLabel);
+  // The request (and any dispatch) is already safely recorded at this
+  // point, so none of this needs to sit in front of the response the form
+  // is waiting on (Q-05): the AI summary (an Anthropic call), its RPC
+  // write, the vendor dispatch email and the owner notification email are
+  // all best-effort and deferred to run after the response is sent.
+  // `supabase`/`writer` were both created above (not inside this callback),
+  // so they carry no unread request-scoped state into it.
+  after(async () => {
+    await runPostSubmitWork(supabase, writer, result, body, description, priorityLabel);
+  });
 
   return NextResponse.json({
     id: result.request_id,
@@ -148,6 +137,42 @@ export async function POST(request: Request) {
     vendor: result.vendor ? { name: result.vendor.name, phone: result.vendor.phone } : null,
     dispatched: !!result.dispatch_id,
   });
+}
+
+async function runPostSubmitWork(
+  supabase: SupabaseClient,
+  writer: SupabaseClient,
+  result: OwnerSubmitResult,
+  body: OwnerServiceRequestInput,
+  description: string,
+  priorityLabel: string
+): Promise<void> {
+  const aiSummary = await summarizeTroubleshootingPath({
+    equipmentName: result.equipment_name,
+    description,
+    path: body.symptoms.map((s) => ({ question: "Symptom", answer: s })),
+  });
+
+  if (aiSummary) {
+    // summarizeTroubleshootingPath() never throws (returns null on any
+    // failure) and .rpc() resolves an { error } rather than throwing, so
+    // nothing here needs its own try/catch to keep the two sends below from
+    // being skipped.
+    const { error: summaryError } = await supabase.rpc("set_request_ai_summary", {
+      p_request_id: result.request_id,
+      p_public_token: result.public_token,
+      p_summary: aiSummary,
+    });
+    if (summaryError) {
+      console.error("set_request_ai_summary failed:", summaryError.message);
+    }
+  }
+
+  if (result.dispatch_id && result.dispatch_token && result.vendor_email && result.vendor) {
+    await sendVendorDispatchEmail(writer, result, body, description);
+  }
+
+  await sendOwnerNotificationEmail(result, body, description, priorityLabel);
 }
 
 type EquipmentExtra = {
