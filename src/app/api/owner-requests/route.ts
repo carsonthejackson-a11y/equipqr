@@ -81,7 +81,14 @@ export async function POST(request: Request) {
   // Honeypot: report success without touching the database so a bot doesn't
   // learn it was caught.
   if (body.website) {
-    return NextResponse.json({ id: "", publicToken: "", statusUrl: "", vendor: null, dispatched: false });
+    return NextResponse.json({
+      id: "",
+      publicToken: "",
+      statusUrl: "",
+      vendor: null,
+      dispatched: false,
+      ownerNotified: false,
+    });
   }
 
   const writer = await submitClient();
@@ -269,14 +276,21 @@ async function sendVendorDispatchEmail(
   }
 }
 
+/**
+ * Best-effort notification to the owner's own back office. Returns whether
+ * `sendEmail()` actually reported success — QoL-2b's confirmation screen
+ * only claims "{company} was notified" when this is true (C1-30, Q-12), the
+ * same "senders report truthfully" contract QoL-1 uses elsewhere (never
+ * `void`, so a caller can't accidentally assume silence means it worked).
+ */
 async function sendOwnerNotificationEmail(
   result: OwnerSubmitResult,
   body: OwnerServiceRequestInput,
   description: string,
   priorityLabel: string
-): Promise<void> {
+): Promise<boolean> {
   // Null when the RPC ran without the service-role key — see submitClient().
-  if (!result.company_notification_email) return;
+  if (!result.company_notification_email) return false;
 
   try {
     if (result.dispatch_id && result.vendor) {
@@ -293,22 +307,23 @@ async function sendOwnerNotificationEmail(
         vendorPhone: result.vendor.phone,
         requestUrl,
       });
-      await sendEmail({ to: result.company_notification_email, subject, html, text });
-    } else {
-      const equipmentUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/equipment/${result.equipment_id}`;
-      const { subject, html, text } = buildOwnerNoVendorEmail({
-        equipmentName: result.equipment_name,
-        locationName: result.location_name,
-        reporterName: body.contactName,
-        reporterPhone: body.reporterPhone || null,
-        priorityLabel,
-        symptoms: body.symptoms,
-        description,
-        equipmentUrl,
-      });
-      await sendEmail({ to: result.company_notification_email, subject, html, text });
+      return await sendEmail({ to: result.company_notification_email, subject, html, text });
     }
+
+    const equipmentUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/equipment/${result.equipment_id}`;
+    const { subject, html, text } = buildOwnerNoVendorEmail({
+      equipmentName: result.equipment_name,
+      locationName: result.location_name,
+      reporterName: body.contactName,
+      reporterPhone: body.reporterPhone || null,
+      priorityLabel,
+      symptoms: body.symptoms,
+      description,
+      equipmentUrl,
+    });
+    return await sendEmail({ to: result.company_notification_email, subject, html, text });
   } catch (err) {
     console.error("owner-requests: failed to send owner notification email:", err);
+    return false;
   }
 }

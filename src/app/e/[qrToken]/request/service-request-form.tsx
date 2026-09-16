@@ -11,15 +11,58 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { phoneHref, type ResolvedBranding } from "@/lib/branding";
 import {
   DEFAULT_PRIORITY_CHOICE,
+  firstErrorField,
+  HAZARD_WARNING,
+  hasDraftContent,
+  hasHazardLanguage,
   MAX_DESCRIPTION_LENGTH,
   MAX_MEDIA_ITEMS,
+  parseReportDraft,
   PRIORITY_CHOICES,
   priorityFromChoice,
   openRequestStorageKey,
+  reportDraftStorageKey,
   requestReference,
   type PriorityChoice,
 } from "@/lib/public-request";
 import { cn } from "@/lib/utils";
+
+// Field order the form renders in, for scroll-to-first-error (Q-58).
+const FIELD_ORDER = ["description", "contactName", "contactPhone", "contactEmail"] as const;
+type FieldName = (typeof FIELD_ORDER)[number];
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type ReportDraft = {
+  description: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  priority: PriorityChoice;
+};
+
+/** See the comment on `initialDraft` in the component below for why this runs as a lazy `useState` initializer rather than inside a `useEffect`. */
+function readInitialDraft(qrToken: string): ReportDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const draft = parseReportDraft(localStorage.getItem(reportDraftStorageKey(qrToken)));
+    if (!draft) return null;
+    const textFields = {
+      description: draft.description ?? "",
+      contactName: draft.contactName ?? "",
+      contactEmail: draft.contactEmail ?? "",
+      contactPhone: draft.contactPhone ?? "",
+    };
+    if (!hasDraftContent(textFields)) return null;
+    const priority =
+      draft.priority && PRIORITY_CHOICES.some((c) => c.value === draft.priority)
+        ? (draft.priority as PriorityChoice)
+        : DEFAULT_PRIORITY_CHOICE;
+    return { ...textFields, priority };
+  } catch {
+    return null;
+  }
+}
 
 // Camera first: the customer is already standing in front of the problem, so
 // the fastest useful thing they can do is photograph it. Images are downscaled
@@ -84,19 +127,49 @@ export function ServiceRequestForm({
   qrToken: string;
   branding: ResolvedBranding;
 }) {
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<PriorityChoice>(DEFAULT_PRIORITY_CHOICE);
-  const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
+  // Lazy initializer, not an effect: read any saved draft once, on this
+  // component's very first render (Q-54). `typeof window === "undefined"` on
+  // the server, so SSR always starts blank like a fresh visit; React doesn't
+  // diff controlled form elements' `value` during hydration (unlike text
+  // content), so the client picking up a real draft immediately afterwards
+  // doesn't produce a hydration-mismatch warning. This is also what keeps
+  // this out of a `useEffect` — see the comment on `readStoredPinPass` in
+  // ../owner/owner-report-form.tsx for why this codebase avoids setState
+  // inside a mount effect for exactly this "browser knows something the
+  // server render can't" shape.
+  const [initialDraft] = useState(() => readInitialDraft(qrToken));
+  const [description, setDescription] = useState(initialDraft?.description ?? "");
+  const [priority, setPriority] = useState<PriorityChoice>(initialDraft?.priority ?? DEFAULT_PRIORITY_CHOICE);
+  const [contactName, setContactName] = useState(initialDraft?.contactName ?? "");
+  const [contactEmail, setContactEmail] = useState(initialDraft?.contactEmail ?? "");
+  const [contactPhone, setContactPhone] = useState(initialDraft?.contactPhone ?? "");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
+  const [restoredDraft, setRestoredDraft] = useState(!!initialDraft);
   const [progress, setProgress] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState<{ reference: string; statusUrl: string } | null>(null);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  const fieldWrapperRefs = useRef<Partial<Record<FieldName, HTMLDivElement | null>>>({});
+
+  function clearFieldError(field: FieldName) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function focusField(field: FieldName) {
+    const wrapper = fieldWrapperRefs.current[field];
+    if (!wrapper) return;
+    wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
+    wrapper.querySelector<HTMLElement>("input, textarea")?.focus();
+  }
 
   // Object URLs are only freed when the component goes away; freeing them as
   // attachments change would blank thumbnails that are still on screen.
@@ -106,6 +179,22 @@ export function ServiceRequestForm({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep the draft current as the visitor types, so a killed tab loses
+  // nothing. Cleared once there's no meaningful text left to save.
+  useEffect(() => {
+    try {
+      const key = reportDraftStorageKey(qrToken);
+      const textFields = { description, contactName, contactEmail, contactPhone };
+      if (hasDraftContent(textFields)) {
+        localStorage.setItem(key, JSON.stringify({ ...textFields, priority }));
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      /* best effort */
+    }
+  }, [description, contactName, contactEmail, contactPhone, priority, qrToken]);
 
   function getTroubleshootingPath(): PathEntry[] {
     try {
@@ -147,14 +236,28 @@ export function ServiceRequestForm({
     });
   }
 
+  function validate(): Partial<Record<FieldName, string>> {
+    const errors: Partial<Record<FieldName, string>> = {};
+    if (!description.trim()) errors.description = "Please describe the problem";
+    if (!contactName.trim()) errors.contactName = "Please enter your name";
+    if (!contactEmail.trim() && !contactPhone.trim()) {
+      errors.contactPhone = "Add a phone number or an email so we can reach you";
+    } else if (contactEmail.trim() && !EMAIL_PATTERN.test(contactEmail.trim())) {
+      errors.contactEmail = "Enter a valid email address";
+    }
+    return errors;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (!description.trim()) return setError("Please describe the problem");
-    if (!contactName.trim()) return setError("Please enter your name");
-    if (!contactEmail.trim() && !contactPhone.trim()) {
-      return setError("Add a phone number or an email so we can reach you");
+    const errors = validate();
+    setFieldErrors(errors);
+    const firstField = firstErrorField(errors, FIELD_ORDER) as FieldName | null;
+    if (firstField) {
+      focusField(firstField);
+      return;
     }
 
     setSubmitting(true);
@@ -212,6 +315,7 @@ export function ServiceRequestForm({
       try {
         sessionStorage.removeItem(pathStorageKey(qrToken));
         if (statusUrl) sessionStorage.setItem(openRequestStorageKey(qrToken), statusUrl);
+        localStorage.removeItem(reportDraftStorageKey(qrToken));
       } catch {
         /* best effort — the emailed link is the durable way back */
       }
@@ -257,19 +361,19 @@ export function ServiceRequestForm({
             {branding.phone && (
               <a
                 href={phoneHref("tel", branding.phone)}
-                className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl border text-base font-medium"
+                className="flex min-h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border text-base font-medium"
               >
-                <Phone className="size-5" aria-hidden />
-                Call us
+                <Phone className="size-5 shrink-0" aria-hidden />
+                <span className="truncate">Call {branding.companyName}</span>
               </a>
             )}
             {branding.smsNumber && (
               <a
                 href={phoneHref("sms", branding.smsNumber)}
-                className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl border text-base font-medium"
+                className="flex min-h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border text-base font-medium"
               >
-                <MessageSquare className="size-5" aria-hidden />
-                Text us
+                <MessageSquare className="size-5 shrink-0" aria-hidden />
+                <span className="truncate">Text {branding.companyName}</span>
               </a>
             )}
           </div>
@@ -279,16 +383,41 @@ export function ServiceRequestForm({
   }
 
   const atLimit = attachments.length >= MAX_MEDIA_ITEMS;
+  const hazardDetected = hasHazardLanguage(description);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <div className="space-y-2">
+      {hazardDetected && (
+        <Alert variant="destructive">
+          <AlertDescription>{HAZARD_WARNING}</AlertDescription>
+        </Alert>
+      )}
+
+      {restoredDraft && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          <span>Restored your draft.</span>
+          <button
+            type="button"
+            onClick={() => setRestoredDraft(false)}
+            className="shrink-0 font-medium underline underline-offset-2"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <div
+        className="space-y-2"
+        ref={(el) => {
+          fieldWrapperRefs.current.description = el;
+        }}
+      >
         <Label htmlFor="description" className="text-base">
           What&apos;s wrong?
         </Label>
@@ -296,11 +425,21 @@ export function ServiceRequestForm({
           id="description"
           rows={4}
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(e) => {
+            setDescription(e.target.value);
+            clearFieldError("description");
+          }}
           placeholder="It's making a grinding noise and won't start…"
           maxLength={MAX_DESCRIPTION_LENGTH}
           required
+          aria-invalid={!!fieldErrors.description}
+          aria-describedby={fieldErrors.description ? "description-error" : undefined}
         />
+        {fieldErrors.description && (
+          <p id="description-error" role="alert" className="text-sm text-destructive">
+            {fieldErrors.description}
+          </p>
+        )}
       </div>
 
       <fieldset className="space-y-2">
@@ -422,7 +561,12 @@ export function ServiceRequestForm({
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-2">
+        <div
+          className="space-y-2"
+          ref={(el) => {
+            fieldWrapperRefs.current.contactName = el;
+          }}
+        >
           <Label htmlFor="contactName" className="text-base">
             Your name
           </Label>
@@ -431,13 +575,28 @@ export function ServiceRequestForm({
             className="h-12 text-base"
             autoComplete="name"
             value={contactName}
-            onChange={(e) => setContactName(e.target.value)}
+            onChange={(e) => {
+              setContactName(e.target.value);
+              clearFieldError("contactName");
+            }}
             maxLength={120}
             required
+            aria-invalid={!!fieldErrors.contactName}
+            aria-describedby={fieldErrors.contactName ? "contactName-error" : undefined}
           />
+          {fieldErrors.contactName && (
+            <p id="contactName-error" role="alert" className="text-sm text-destructive">
+              {fieldErrors.contactName}
+            </p>
+          )}
         </div>
 
-        <div className="space-y-2">
+        <div
+          className="space-y-2"
+          ref={(el) => {
+            fieldWrapperRefs.current.contactPhone = el;
+          }}
+        >
           <Label htmlFor="contactPhone" className="text-base">
             Phone
           </Label>
@@ -448,12 +607,27 @@ export function ServiceRequestForm({
             autoComplete="tel"
             className="h-12 text-base"
             value={contactPhone}
-            onChange={(e) => setContactPhone(e.target.value)}
+            onChange={(e) => {
+              setContactPhone(e.target.value);
+              clearFieldError("contactPhone");
+            }}
             maxLength={40}
+            aria-invalid={!!fieldErrors.contactPhone}
+            aria-describedby={fieldErrors.contactPhone ? "contactPhone-error" : undefined}
           />
+          {fieldErrors.contactPhone && (
+            <p id="contactPhone-error" role="alert" className="text-sm text-destructive">
+              {fieldErrors.contactPhone}
+            </p>
+          )}
         </div>
 
-        <div className="space-y-2">
+        <div
+          className="space-y-2"
+          ref={(el) => {
+            fieldWrapperRefs.current.contactEmail = el;
+          }}
+        >
           <Label htmlFor="contactEmail" className="text-base">
             Email
           </Label>
@@ -464,13 +638,24 @@ export function ServiceRequestForm({
             autoComplete="email"
             className="h-12 text-base"
             value={contactEmail}
-            onChange={(e) => setContactEmail(e.target.value)}
+            onChange={(e) => {
+              setContactEmail(e.target.value);
+              clearFieldError("contactEmail");
+            }}
             maxLength={200}
+            aria-invalid={!!fieldErrors.contactEmail}
+            aria-describedby={fieldErrors.contactEmail ? "contactEmail-error" : "contactEmail-hint"}
           />
-          <p className="text-sm text-muted-foreground">
-            A phone number or an email — whichever is easier. We&apos;ll use it to reach you about
-            this request.
-          </p>
+          {fieldErrors.contactEmail ? (
+            <p id="contactEmail-error" role="alert" className="text-sm text-destructive">
+              {fieldErrors.contactEmail}
+            </p>
+          ) : (
+            <p id="contactEmail-hint" className="text-sm text-muted-foreground">
+              A phone number or an email — whichever is easier. We&apos;ll use it to reach you about
+              this request.
+            </p>
+          )}
         </div>
       </div>
 

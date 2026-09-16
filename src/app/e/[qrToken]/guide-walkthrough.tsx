@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Send } from "lucide-react";
+import { AlertTriangle, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { phoneHref } from "@/lib/branding";
 import { cn } from "@/lib/utils";
 import type { EquipmentGuide } from "@/lib/types";
 
@@ -16,6 +17,39 @@ type ChatMessage = { role: "assistant" | "user"; text: string };
 
 function pathStorageKey(qrToken: string) {
   return `troubleshooting-path-${qrToken}`;
+}
+
+/**
+ * Persistent safety reminder shown on every step of the walkthrough (new
+ * item, this pass) — a customer self-diagnosing a machine over several chat
+ * turns should never have to scroll back up to be told to stop touching it.
+ * Static, not gated on typed text like the report forms' hazard banner
+ * (there's no free text here to pattern-match): the guide is closed-ended
+ * multiple choice, so this just always shows.
+ */
+function GuideSafetyNotice({
+  companyName,
+  companyPhone,
+}: {
+  companyName: string;
+  companyPhone: string | null;
+}) {
+  return (
+    <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <p>
+        If you smell gas or see sparks, smoke or burning: stop, keep clear, and{" "}
+        {companyPhone ? (
+          <a href={phoneHref("tel", companyPhone)} className="font-medium underline underline-offset-2">
+            call {companyName}
+          </a>
+        ) : (
+          <span className="font-medium">call {companyName}</span>
+        )}
+        . For gas or fire, call 911 (or your local emergency number) first.
+      </p>
+    </div>
+  );
 }
 
 function Bubble({ role, text }: ChatMessage) {
@@ -128,8 +162,10 @@ export function GuideWalkthrough({
 
   return (
     // The scan page above already names the company, the unit and its type —
-    // this component renders only the conversation itself.
+    // this component renders only the conversation itself (plus the safety
+    // notice below, which stays put across every step).
     <div className="flex flex-1 flex-col gap-6">
+      <GuideSafetyNotice companyName={guide.company.name} companyPhone={guide.company.phone} />
       {!step && !resolved ? (
         <Card className="flex-1">
           <CardHeader>

@@ -10,10 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   DEFAULT_PRIORITY_CHOICE,
+  firstErrorField,
+  HAZARD_WARNING,
+  hasDraftContent,
+  hasHazardLanguage,
   MAX_DESCRIPTION_LENGTH,
   MAX_MEDIA_ITEMS,
   OWNER_PRIORITY_CHOICES,
+  parseReportDraft,
   priorityFromChoice,
+  reportDraftStorageKey,
   sitePinStorageKey,
   type PriorityChoice,
 } from "@/lib/public-request";
@@ -33,7 +39,41 @@ const MAX_IMAGE_EDGE = 1600;
 const JPEG_QUALITY = 0.85;
 
 const SOMETHING_ELSE = "Something else";
-const GAS_SMELL_PATTERN = /gas smell/i;
+
+// Field order for scroll-to-first-error (Q-58). "problem" covers both the
+// symptom chips and the free-text box — either satisfies the same
+// requirement, so a single combined wrapper is what gets scrolled to.
+const FIELD_ORDER = ["problem", "contactName"] as const;
+type FieldName = (typeof FIELD_ORDER)[number];
+
+type ReportDraft = {
+  description: string;
+  contactName: string;
+  reporterPhone: string;
+  priority: PriorityChoice;
+};
+
+/** Lazy `useState` initializer, not a mount effect — see the matching comment in ../request/service-request-form.tsx for why. */
+function readInitialDraft(qrToken: string): ReportDraft | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const draft = parseReportDraft(localStorage.getItem(reportDraftStorageKey(qrToken)));
+    if (!draft) return null;
+    const textFields = {
+      description: draft.description ?? "",
+      contactName: draft.contactName ?? "",
+      reporterPhone: draft.reporterPhone ?? "",
+    };
+    if (!hasDraftContent(textFields)) return null;
+    const priority =
+      draft.priority && OWNER_PRIORITY_CHOICES.some((c) => c.value === draft.priority)
+        ? (draft.priority as PriorityChoice)
+        : DEFAULT_PRIORITY_CHOICE;
+    return { ...textFields, priority };
+  } catch {
+    return null;
+  }
+}
 
 type Attachment = { file: File; previewUrl: string; isVideo: boolean };
 
@@ -76,6 +116,8 @@ async function downscaleImage(file: File): Promise<File> {
 
 type SentState = {
   vendor: { name: string; phone: string | null } | null;
+  /** Whether a dispatch row was actually created — the confirmation only claims "Sent to {vendor}" when this is true (C1-30, Q-12). */
+  dispatched: boolean;
   publicToken: string;
   statusUrl: string;
 };
@@ -125,18 +167,41 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
 
   const chips = [...(guide.equipment_type.symptom_chips ?? []), SOMETHING_ELSE];
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<PriorityChoice>(DEFAULT_PRIORITY_CHOICE);
-  const [contactName, setContactName] = useState("");
-  const [reporterPhone, setReporterPhone] = useState("");
+  // Lazy initializer, not an effect — see readInitialDraft()'s comment above
+  // and the matching one in ../request/service-request-form.tsx.
+  const [initialDraft] = useState(() => readInitialDraft(qrToken));
+  const [description, setDescription] = useState(initialDraft?.description ?? "");
+  const [priority, setPriority] = useState<PriorityChoice>(initialDraft?.priority ?? DEFAULT_PRIORITY_CHOICE);
+  const [contactName, setContactName] = useState(initialDraft?.contactName ?? "");
+  const [reporterPhone, setReporterPhone] = useState(initialDraft?.reporterPhone ?? "");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
+  const [restoredDraft, setRestoredDraft] = useState(!!initialDraft);
   const [progress, setProgress] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState<SentState | null>(null);
 
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const libraryInputRef = useRef<HTMLInputElement>(null);
+  // HTMLElement, not HTMLDivElement: the "problem" wrapper is a <fieldset>.
+  const fieldWrapperRefs = useRef<Partial<Record<FieldName, HTMLElement | null>>>({});
+
+  function clearFieldError(field: FieldName) {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
+  function focusField(field: FieldName) {
+    const wrapper = fieldWrapperRefs.current[field];
+    if (!wrapper) return;
+    wrapper.scrollIntoView({ behavior: "smooth", block: "center" });
+    wrapper.querySelector<HTMLElement>("input, textarea")?.focus();
+  }
 
   useEffect(() => {
     return () => {
@@ -145,8 +210,26 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep the draft current as the visitor types (Q-54), cleared once there's
+  // no meaningful text left to save. Symptom chips aren't persisted — the
+  // reduced scope is "text fields and urgency".
+  useEffect(() => {
+    try {
+      const key = reportDraftStorageKey(qrToken);
+      const textFields = { description, contactName, reporterPhone };
+      if (hasDraftContent(textFields)) {
+        localStorage.setItem(key, JSON.stringify({ ...textFields, priority }));
+      } else {
+        localStorage.removeItem(key);
+      }
+    } catch {
+      /* best effort */
+    }
+  }, [description, contactName, reporterPhone, priority, qrToken]);
+
   function toggleSymptom(chip: string) {
     setError(null);
+    clearFieldError("problem");
     setSelectedSymptoms((current) =>
       current.includes(chip) ? current.filter((c) => c !== chip) : [...current, chip]
     );
@@ -183,14 +266,26 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
     });
   }
 
+  function validate(): Partial<Record<FieldName, string>> {
+    const errors: Partial<Record<FieldName, string>> = {};
+    if (!description.trim() && selectedSymptoms.length === 0) {
+      errors.problem = "Pick a symptom or tell us what's wrong";
+    }
+    if (!contactName.trim()) errors.contactName = "Please enter your name";
+    return errors;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (!description.trim() && selectedSymptoms.length === 0) {
-      return setError("Pick a symptom or tell us what's wrong");
+    const errors = validate();
+    setFieldErrors(errors);
+    const firstField = firstErrorField(errors, FIELD_ORDER) as FieldName | null;
+    if (firstField) {
+      focusField(firstField);
+      return;
     }
-    if (!contactName.trim()) return setError("Please enter your name");
 
     setSubmitting(true);
 
@@ -238,6 +333,7 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
         publicToken?: string;
         statusUrl?: string;
         vendor?: { name: string; phone: string | null } | null;
+        dispatched?: boolean;
       };
 
       if (!response.ok) {
@@ -256,8 +352,15 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
         throw new Error(body.error ?? "Something went wrong submitting your request");
       }
 
+      try {
+        localStorage.removeItem(reportDraftStorageKey(qrToken));
+      } catch {
+        /* best effort */
+      }
+
       setSent({
         vendor: body.vendor ?? null,
+        dispatched: !!body.dispatched,
         publicToken: body.publicToken ?? "",
         statusUrl: body.statusUrl ?? (body.publicToken ? `/r/${body.publicToken}` : ""),
       });
@@ -274,6 +377,7 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
       <OwnerConfirmation
         companyName={guide.company.name}
         vendor={sent.vendor}
+        dispatched={sent.dispatched}
         publicToken={sent.publicToken}
         statusUrl={sent.statusUrl}
       />
@@ -292,26 +396,45 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
   }
 
   const atLimit = attachments.length >= MAX_MEDIA_ITEMS;
-  const gasSmellSelected = selectedSymptoms.some((s) => GAS_SMELL_PATTERN.test(s));
+  // Q-59: run the same hazard pattern the provider form uses against both the
+  // typed description AND the selected chips, not just chip text — a
+  // restaurant that types "there's smoke coming from it" into the free-text
+  // box gets the same warning as one who picks a chip that says so.
+  const hazardDetected = hasHazardLanguage(description, ...selectedSymptoms);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} noValidate className="space-y-6">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {gasSmellSelected && (
+      {hazardDetected && (
         <Alert variant="destructive">
-          <AlertDescription>
-            If you smell gas, leave the area now and call 911 and your gas utility. Send this
-            afterwards.
-          </AlertDescription>
+          <AlertDescription>{HAZARD_WARNING}</AlertDescription>
         </Alert>
       )}
 
-      <fieldset className="space-y-2">
+      {restoredDraft && (
+        <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+          <span>Restored your draft.</span>
+          <button
+            type="button"
+            onClick={() => setRestoredDraft(false)}
+            className="shrink-0 font-medium underline underline-offset-2"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      <fieldset
+        className="space-y-2"
+        ref={(el) => {
+          fieldWrapperRefs.current.problem = el;
+        }}
+      >
         <legend className="text-base font-medium">What&apos;s wrong?</legend>
         <div className="flex flex-wrap gap-2">
           {chips.map((chip) => {
@@ -344,10 +467,20 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
           id="description"
           rows={4}
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={(e) => {
+            setDescription(e.target.value);
+            clearFieldError("problem");
+          }}
           placeholder="Add detail if a chip above doesn't cover it…"
           maxLength={MAX_DESCRIPTION_LENGTH}
+          aria-invalid={!!fieldErrors.problem}
+          aria-describedby={fieldErrors.problem ? "problem-error" : undefined}
         />
+        {fieldErrors.problem && (
+          <p id="problem-error" role="alert" className="text-sm text-destructive">
+            {fieldErrors.problem}
+          </p>
+        )}
       </div>
 
       <fieldset className="space-y-2">
@@ -469,7 +602,12 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
       </div>
 
       <div className="space-y-4">
-        <div className="space-y-2">
+        <div
+          className="space-y-2"
+          ref={(el) => {
+            fieldWrapperRefs.current.contactName = el;
+          }}
+        >
           <Label htmlFor="contactName" className="text-base">
             Your name
           </Label>
@@ -478,10 +616,20 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
             className="h-12 text-base"
             autoComplete="name"
             value={contactName}
-            onChange={(e) => setContactName(e.target.value)}
+            onChange={(e) => {
+              setContactName(e.target.value);
+              clearFieldError("contactName");
+            }}
             maxLength={120}
             required
+            aria-invalid={!!fieldErrors.contactName}
+            aria-describedby={fieldErrors.contactName ? "contactName-error" : undefined}
           />
+          {fieldErrors.contactName && (
+            <p id="contactName-error" role="alert" className="text-sm text-destructive">
+              {fieldErrors.contactName}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
