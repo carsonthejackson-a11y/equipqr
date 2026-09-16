@@ -23,14 +23,17 @@ const groups: { label: string; plans: readonly Plan[] }[] = [
 const unlimited = (n: number | null) => (n === null ? "Unlimited" : n);
 
 const batchRow: CompareRow[] = FEATURES.batchQr
-  ? [{ label: "Pre-printed sticker batches", value: (p) => p.features.batchQr }]
+  ? [{ label: "Blank QR code batches to print yourself", value: (p) => p.features.batchQr }]
   : [];
 
 const rows: CompareRow[] = [
   { label: "Equipment units", value: (p) => p.equipmentLimit.toLocaleString("en-US") },
   { label: "Team members", value: (p) => unlimited(p.memberLimit) },
   { label: "Locations", value: (p) => unlimited(p.locationLimit) },
-  { label: "Service requests with photo & video", value: () => true },
+  // Neutral wording: this one row is shared by both audience columns (service-company
+  // "service requests" and restaurant "work orders" — src/lib/vocab.ts), so it must read
+  // naturally for both kinds rather than picking either kind's noun (brief §1.3).
+  { label: "Requests with photo & video", value: () => true },
   // Every service-company plan ships guides; restaurant plans get them with the assistant.
   { label: "AI-drafted troubleshooting guides", value: (p) => p.kind === "service_provider" || p.features.aiChat },
   { label: "Chat-style AI assistant", value: (p) => p.features.aiChat },

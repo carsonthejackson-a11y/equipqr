@@ -18,9 +18,9 @@ export function formatPrice(amount: number): string {
   return `$${amount.toLocaleString("en-US")}`;
 }
 
-/** Card highlights, minus the pre-printed batch line when the feature is off. */
+/** Card highlights, minus the blank-QR-batch line when the feature is off. */
 export function planHighlights(plan: Plan): string[] {
-  return FEATURES.batchQr ? plan.highlights : plan.highlights.filter((h) => !h.includes("Pre-printed"));
+  return FEATURES.batchQr ? plan.highlights : plan.highlights.filter((h) => !h.includes("QR code batches"));
 }
 
 /** The short "· separated" limits line the compact card shows. */
@@ -30,7 +30,16 @@ export function planLimitsLine(plan: Plan): string {
   if (plan.kind === "equipment_owner") {
     parts.push(`Up to ${units} pieces of equipment`);
     parts.push(plan.locationLimit === 1 ? "1 location" : `Up to ${plan.locationLimit ?? "unlimited"} locations`);
-    parts.push(plan.priceMonthly === 0 ? "Unlimited staff" : "14-day free trial");
+    // Every owner trial resolves to Kitchen-level entitlements regardless of
+    // plan (TRIAL_PLAN_BY_KIND.equipment_owner = "site" in plans.ts), so only
+    // the Kitchen card itself may say "14-day free trial" (C1-35).
+    if (plan.priceMonthly === 0) {
+      parts.push("Unlimited staff");
+    } else if (plan.id === "site") {
+      parts.push("14-day free trial");
+    } else {
+      parts.push("Trial starts on Kitchen");
+    }
   } else {
     parts.push(`Up to ${units} units of equipment`);
     parts.push(plan.memberLimit === null ? "Unlimited team members" : `${plan.memberLimit} team members`);

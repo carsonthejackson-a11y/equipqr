@@ -149,7 +149,7 @@ const benefits = [
 ];
 
 const providerPoints = [
-  "Pre-printed sticker batches: tag first, then claim the unit on-site by photographing the nameplate.",
+  "Blank sticker batches: tag first, then claim the unit on-site by photographing the nameplate.",
   "Requests arrive with photos, video, urgency, and an AI summary of what the customer already tried.",
   "Customer and equipment records per site, with custom fields, bulk import, and label printing.",
   "Owners run billing and settings; technicians work equipment and requests. Data never crosses between companies.",
@@ -498,8 +498,8 @@ export default function HomePage() {
               to make.
             </p>
             <p>
-              Print codes per unit as SVG or PNG, or order pre-printed batches and claim each sticker on-site by
-              photographing the nameplate.
+              Print codes per unit as SVG or PNG, or print a batch of blank codes ahead of a route and claim each
+              sticker on-site by photographing the nameplate.
             </p>
           </Step>
           <div aria-hidden="true" className={stepRule} />
@@ -572,11 +572,17 @@ export default function HomePage() {
                 { label: "Done" },
               ]}
             />
+            {/* Labels match the real inbox's REQUEST_BUCKETS (src/lib/request-queries.ts) — Open,
+                Unassigned, Urgent, Unread messages, Awaiting vendor — so this mock never claims a
+                metric the app doesn't actually show (Q-27). "Awaiting vendor" is left out here:
+                dispatch_status only exists for equipment_owner work orders (migration
+                0024_owner_foundation.sql:194), so a service-provider account like Metro
+                Refrigeration — this mock — would never see that bucket populated. */}
             <DashboardStats>
               <DashboardStat label="Open" value="7" />
-              <DashboardStat label="Awaiting ETA" value="3" />
-              <DashboardStat label="Scheduled today" value="2" />
-              <DashboardStat label="Resolved by guide, 30 days" value="41" />
+              <DashboardStat label="Unassigned" value="3" />
+              <DashboardStat label="Urgent" value="2" />
+              <DashboardStat label="Unread messages" value="1" />
             </DashboardStats>
             <DashboardTable columns={["Equipment", "Reported", "Urgency", "Status", "Age"]}>
               <DashboardRow

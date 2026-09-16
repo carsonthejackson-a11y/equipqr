@@ -321,7 +321,7 @@ export function BrandingMock() {
         </figure>
         <figure className="m-0 flex flex-col items-center gap-[10px]">
           <TagMock variant="branded" company={COMPANY} phone={PHONE} />
-          <figcaption className="text-[12px] text-eq-neutral-500">Your logo, colors, and wording</figcaption>
+          <figcaption className="text-[12px] text-eq-neutral-500">Your logo and colors</figcaption>
         </figure>
       </div>
       <div className="overflow-hidden rounded-[12px] border border-eq-neutral-800 bg-eq-surface text-[12px] shadow-eq-sm">
