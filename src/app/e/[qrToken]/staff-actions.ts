@@ -25,11 +25,13 @@ import { publicEnv } from "@/lib/env";
 import { vocabFor } from "@/lib/vocab";
 import {
   clampEtaMinutes,
+  firstNameOf,
   formatOnMyWayNote,
   isOwnedStaffMediaPath,
   resolveVisitContact,
   validateCloseOut,
 } from "@/lib/staff-scan";
+import { REQUEST_STATUS_LABELS } from "@/components/status-badge";
 import type { Customer, Equipment, ServiceRequest } from "@/lib/types";
 
 type ActionResult<T = unknown> = { error: string } | ({ success: true } & T);
@@ -66,18 +68,40 @@ async function loadOwnedRequest(
 // ============================================================================
 
 /**
+ * "Which channel actually told the requester?" — C1-31/Q-03: the toast used
+ * to claim "Customer notified" unconditionally. `"email"` means
+ * notifyRequesterOfStatus() actually sent one (it already returns `false`
+ * for a phone-only reporter, `customer_updates_enabled=false`, or any
+ * owner-kind request, whose `contact_email` is always null); `"none"` means
+ * the caller should offer the tech's-own-phone SMS/Call fallback instead.
+ */
+export type OnMyWayChannel = "email" | "none";
+
+/**
  * Stamps `on_my_way_sent_at`, appends a customer-visible activity note, and
  * emails the requester the same way any other status note does — there's no
  * separate "on my way" template (see `src/lib/email/request-status.ts`):
  * `notifyRequesterOfStatus` already renders the current status line plus an
  * optional note, and "<Name> is on the way — ETA ~N min" reads fine as that
  * note without a new email needing to exist.
+ *
+ * Also applies the QoL brief's §2 shared default: an unassigned request gets
+ * assigned to the tech who tapped this, and `new`/`scheduled` moves to
+ * `in_progress` — "on my way" is a commitment to the job, so the record
+ * should say so.
  */
 export async function sendOnMyWay(
   qrToken: string,
   requestId: string,
   etaMinutes: number
-): Promise<ActionResult<{ notified: boolean }>> {
+): Promise<ActionResult<{ channel: OnMyWayChannel }>> {
+  // C1-33: checked before any write, not just at close-out — a locked
+  // provider's staff scan mode should stop here, not after the fact.
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return lockError;
+  }
+
   const supabase = await createClient();
   const { profile, company } = await getCurrentProfile();
 
@@ -90,9 +114,16 @@ export async function sendOnMyWay(
   const note = formatOnMyWayNote(profile.full_name ?? "", eta);
   const nowIso = new Date().toISOString();
 
+  const shouldAssign = !request.assigned_to;
+  const shouldAdvanceStatus = request.status === "new" || request.status === "scheduled";
+
   const { error } = await supabase
     .from("service_requests")
-    .update({ on_my_way_sent_at: nowIso })
+    .update({
+      on_my_way_sent_at: nowIso,
+      ...(shouldAssign ? { assigned_to: profile.id, assigned_at: nowIso } : {}),
+      ...(shouldAdvanceStatus ? { status: "in_progress" } : {}),
+    })
     .eq("id", requestId);
   if (error) {
     return { error: error.message };
@@ -108,6 +139,33 @@ export async function sendOnMyWay(
     authorUserId: profile.id,
   });
 
+  // Internal-only records of the two side effects above — the customer-
+  // visible "on the way" note already covers what the requester needs to
+  // hear; these are for the request's own activity history (parity with
+  // assignRequest()/updateRequestStatus() in the dashboard's requests/actions.ts).
+  if (shouldAssign) {
+    await emitRequestActivity(supabase, {
+      companyId: request.company_id,
+      serviceRequestId: requestId,
+      kind: "assignment",
+      visibility: "internal",
+      body: `Assigned to ${firstNameOf(profile.full_name, "you")} (On my way)`,
+      authorKind: "staff",
+      authorUserId: profile.id,
+    });
+  }
+  if (shouldAdvanceStatus) {
+    await emitRequestActivity(supabase, {
+      companyId: request.company_id,
+      serviceRequestId: requestId,
+      kind: "status_change",
+      visibility: "internal",
+      body: `Status changed to ${REQUEST_STATUS_LABELS.in_progress} (On my way)`,
+      authorKind: "staff",
+      authorUserId: profile.id,
+    });
+  }
+
   const { data: equipment } = await supabase
     .from("equipment")
     .select("name")
@@ -115,9 +173,9 @@ export async function sendOnMyWay(
     .maybeSingle<Pick<Equipment, "name">>();
 
   const entitlements = await getEntitlements();
-  const notified = await notifyRequesterOfStatus(supabase, {
+  const emailSent = await notifyRequesterOfStatus(supabase, {
     request,
-    status: request.status,
+    status: shouldAdvanceStatus ? "in_progress" : request.status,
     equipmentName: equipment?.name ?? "your equipment",
     company,
     planId: entitlements?.plan_id ?? null,
@@ -127,7 +185,7 @@ export async function sendOnMyWay(
   });
 
   revalidateStaffSurfaces(qrToken, requestId);
-  return { success: true, notified };
+  return { success: true, channel: emailSent ? "email" : "none" };
 }
 
 // ============================================================================
@@ -151,6 +209,19 @@ export type CloseOutFromScanInput = {
   sendEmail: boolean;
   emailTo: string;
 };
+
+/**
+ * Pre-flight lock check the close-out dialog calls BEFORE starting any
+ * photo/signature upload (C1-33). Uploads go straight from the browser to
+ * Storage — closeOutFromScan's own requireActiveSubscription() check below
+ * still runs, as a backstop, but on its own it would only fire after a
+ * locked company's files were already sitting in Storage. Exported
+ * separately (rather than folded into closeOutFromScan) so the dialog can
+ * ask "am I allowed to start?" up front.
+ */
+export async function assertStaffUploadsAllowed(): Promise<{ error: string } | null> {
+  return requireActiveSubscription();
+}
 
 /**
  * The phone equivalent of `closeServiceRequest` (dashboard). Kept as a
@@ -315,7 +386,16 @@ export async function closeOutFromScan(
 export async function createVisitRequest(
   qrToken: string,
   equipmentId: string
-): Promise<ActionResult<{ requestId: string; contactEmail: string | null }>> {
+): Promise<
+  ActionResult<{ requestId: string; contactName: string; contactEmail: string | null; contactPhone: string | null; publicToken: string }>
+> {
+  // C1-33: a locked company shouldn't be able to open a brand-new close-out
+  // flow, same as sendOnMyWay/closeOutFromScan.
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return lockError;
+  }
+
   const supabase = await createClient();
   const { profile } = await getCurrentProfile();
 
@@ -355,8 +435,8 @@ export async function createVisitRequest(
       priority: "normal",
       source: "staff",
     })
-    .select("id")
-    .single<{ id: string }>();
+    .select("id, public_token")
+    .single<{ id: string; public_token: string }>();
 
   if (error || !inserted) {
     return { error: error?.message ?? "Couldn't log this visit" };
@@ -373,5 +453,12 @@ export async function createVisitRequest(
   });
 
   revalidateStaffSurfaces(qrToken, inserted.id);
-  return { success: true, requestId: inserted.id, contactEmail: contact.contactEmail };
+  return {
+    success: true,
+    requestId: inserted.id,
+    contactName: contact.contactName,
+    contactEmail: contact.contactEmail,
+    contactPhone: contact.contactPhone,
+    publicToken: inserted.public_token,
+  };
 }

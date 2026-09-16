@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireActiveSubscription } from "@/lib/billing";
 import { emitEquipmentEvent, emitRequestActivity } from "@/lib/events";
 import {
   anyFailedItemRequired,
@@ -50,6 +51,15 @@ export async function startInspection({
   const supabase = await createClient();
   const staff = await currentStaff(supabase);
   if (!staff) return { error: "Not authenticated" };
+
+  // C1-33: a locked company shouldn't be able to start new inspection work —
+  // same guard as createVisitRequest/sendOnMyWay in staff-actions.ts. The
+  // "Start inspection" link is already hidden/disabled client-side when
+  // locked; this is the server-side backstop.
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return lockError;
+  }
 
   const { data: equipment } = await supabase
     .from("equipment")
@@ -149,6 +159,15 @@ export async function completeInspection({
   const supabase = await createClient();
   const staff = await currentStaff(supabase);
   if (!staff) return { error: "Not authenticated" };
+
+  // C1-33: defense-in-depth backstop — the client already calls
+  // assertStaffUploadsAllowed() before uploading a signature (see
+  // inspect-flow.tsx), but a multi-tab or slow-connection technician could
+  // still reach this action after the company locks mid-inspection.
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return lockError;
+  }
 
   const { data: inspection } = await supabase
     .from("inspections")
