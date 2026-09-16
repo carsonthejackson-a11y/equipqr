@@ -22,10 +22,18 @@ export function KindStep({
   return (
     <div className="space-y-2">
       <Label>What kind of company is this?</Label>
+      {/*
+        Always a single column, even at desktop widths: this renders inside
+        the (auth) route group's shared max-w-sm card (src/app/(auth)/layout.tsx),
+        so a sm:grid-cols-2 split used to squeeze each card's icon + heading
+        + two-sentence description into ~170px and wrap badly — "crushed"
+        regardless of how wide the actual viewport was
+        (docs/QOL-CONTINUITY-BRIEF.md item 8).
+      */}
       <RadioGroup
         value={value}
         onValueChange={(next) => onChange(next as CompanyKind)}
-        className="grid gap-2 sm:grid-cols-2"
+        className="grid gap-2"
       >
         <label
           htmlFor="kind-provider"

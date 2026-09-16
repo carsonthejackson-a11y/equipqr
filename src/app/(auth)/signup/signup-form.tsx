@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,11 +22,22 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { CompanyKind, PublicInvitation } from "@/lib/types";
 import { KindStep } from "@/components/kind-step";
 import { isRateLimitError } from "@/lib/auth-errors";
+import { isPlanId } from "@/lib/plans";
 
 // A generous, non-annoying cooldown on the resend button — not a security
 // control (Supabase enforces the real rate limit server-side), just a guard
 // against someone mashing the button before the first email can land.
 const RESEND_COOLDOWN_MS = 30_000;
+
+// §2 shared trial copy, restated per kind right under the kind picker so
+// "free trial" doesn't sound like a credit-card trap either way
+// (docs/QOL-CONTINUITY-BRIEF.md item 8).
+const TRIAL_REASSURANCE: Record<CompanyKind, string> = {
+  service_provider:
+    "14 days free, no card required. If your trial ends before you choose a plan, your dashboard pauses — your stickers, the customer request page, and your data all keep working.",
+  equipment_owner:
+    "14 days of full Kitchen features, then your account stays on Free for good — 1 location, 10 units, no card required, never locked.",
+};
 
 export function SignupForm() {
   const router = useRouter();
@@ -38,6 +50,12 @@ export function SignupForm() {
   const [kind, setKind] = useState<CompanyKind>(
     searchParams.get("kind") === "owner" ? "equipment_owner" : "service_provider"
   );
+  // Carried through to auth user metadata for a later step (checkout right
+  // after onboarding) to read — nothing here acts on it yet, so an unknown
+  // value is simply dropped rather than trusted (same defensive stance as
+  // pendingCompanyKind() in dashboard/layout.tsx for pending_company_kind).
+  const rawPlan = searchParams.get("plan");
+  const pendingPlanId = rawPlan && isPlanId(rawPlan) ? rawPlan : null;
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
@@ -48,22 +66,20 @@ export function SignupForm() {
   const [invite, setInvite] = useState<PublicInvitation | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [loadingInvite, setLoadingInvite] = useState(!!inviteToken);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Signing up via an invite: no company to create, and the login email is
-  // locked to whoever the invite was sent to.
-  const schema = z
-    .object({
-      companyName: inviteToken ? z.string().optional() : z.string().min(2, "Company name is required"),
-      notificationEmail: inviteToken ? z.string().optional() : z.string().email("Enter a valid email"),
-      fullName: z.string().min(1, "Your name is required"),
-      email: z.string().email("Enter a valid email"),
-      password: z.string().min(8, "At least 8 characters"),
-      confirmPassword: z.string(),
-    })
-    .refine((data) => data.password === data.confirmPassword, {
-      message: "Passwords don't match",
-      path: ["confirmPassword"],
-    });
+  // locked to whoever the invite was sent to. One email total (it doubles
+  // as the initial notification address for a new company — a disclosure
+  // next to the field says so) and no confirm-password field — show/hide
+  // on the single password field serves the same typo-catching purpose
+  // (docs/QOL-CONTINUITY-BRIEF.md item 8).
+  const schema = z.object({
+    companyName: inviteToken ? z.string().optional() : z.string().min(2, "Company name is required"),
+    fullName: z.string().min(1, "Your name is required"),
+    email: z.string().email("Enter a valid email"),
+    password: z.string().min(8, "At least 8 characters"),
+  });
 
   type FormValues = z.infer<typeof schema>;
 
@@ -127,9 +143,13 @@ export function SignupForm() {
             }
           : {
               pending_company_name: values.companyName,
-              pending_notification_email: values.notificationEmail,
+              // The login email doubles as the initial notification
+              // address (item 8's "one email") — editable later in
+              // Settings, same as pending_plan_id below is only a hint.
+              pending_notification_email: values.email,
               pending_full_name: values.fullName,
               pending_company_kind: kind,
+              ...(pendingPlanId ? { pending_plan_id: pendingPlanId } : {}),
             },
       },
     });
@@ -243,23 +263,13 @@ export function SignupForm() {
           {!inviteToken && (
             <>
               <KindStep value={kind} onChange={setKind} />
+              <p className="text-sm text-muted-foreground">{TRIAL_REASSURANCE[kind]}</p>
 
               <div className="space-y-2">
                 <Label htmlFor="companyName">Company name</Label>
                 <Input id="companyName" {...register("companyName")} />
                 {errors.companyName && (
                   <p className="text-sm text-destructive">{errors.companyName.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notificationEmail">Notification email</Label>
-                <Input id="notificationEmail" type="email" {...register("notificationEmail")} />
-                <p className="text-sm text-muted-foreground">
-                  New service requests will be emailed here.
-                </p>
-                {errors.notificationEmail && (
-                  <p className="text-sm text-destructive">{errors.notificationEmail.message}</p>
                 )}
               </div>
             </>
@@ -283,25 +293,39 @@ export function SignupForm() {
               className={invite ? "bg-muted" : undefined}
               {...register("email")}
             />
-            {invite && (
+            {invite ? (
               <p className="text-sm text-muted-foreground">Locked to your invitation&apos;s email.</p>
+            ) : (
+              !inviteToken && (
+                <p className="text-sm text-muted-foreground">
+                  New service requests will be sent here by default — change that anytime in
+                  Settings.
+                </p>
+              )
             )}
             {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" {...register("password")} />
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                className="pr-8"
+                {...register("password")}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute inset-y-0 right-0 flex items-center px-2.5 text-muted-foreground hover:text-foreground"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+              </button>
+            </div>
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm password</Label>
-            <Input id="confirmPassword" type="password" {...register("confirmPassword")} />
-            {errors.confirmPassword && (
-              <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
             )}
           </div>
 
