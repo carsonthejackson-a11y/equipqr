@@ -153,14 +153,27 @@ describe("attemptDelivery", () => {
 });
 
 type EndpointRow = { id: string; url: string; secret: string; is_active: boolean };
+type PlanFlagsRow = { plan_id: string; is_trialing: boolean; is_locked: boolean } | null;
 
-function fakeAdmin(deliveries: WebhookDelivery[], endpoints: EndpointRow[]) {
+/** A fully-entitled Business-plan company — the implicit default for every company_id a test doesn't list in `planFlagsByCompany`. */
+const ENTITLED_FLAGS: PlanFlagsRow = { plan_id: "business", is_trialing: false, is_locked: false };
+
+function fakeAdmin(
+  deliveries: WebhookDelivery[],
+  endpoints: EndpointRow[],
+  planFlagsByCompany: Record<string, PlanFlagsRow> = {}
+) {
   const rpc = vi.fn<
     (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>
   >(async (fn, args) => {
     if (fn === "claim_webhook_deliveries") return { data: deliveries, error: null };
     if (fn === "finish_webhook_delivery") return { data: null, error: null };
     if (fn === "release_webhook_deliveries") return { data: (args?.p_ids as string[]).length, error: null };
+    if (fn === "get_company_plan_flags") {
+      const companyId = args?.p_company_id as string;
+      const flags = companyId in planFlagsByCompany ? planFlagsByCompany[companyId] : ENTITLED_FLAGS;
+      return { data: flags, error: null };
+    }
     return { data: null, error: { message: `unexpected rpc ${fn}` } };
   });
   const inMock = vi.fn(() => ({ returns: async () => ({ data: endpoints, error: null }) }));
@@ -247,6 +260,66 @@ describe("drainWebhookDeliveries", () => {
     expect(result).toEqual({ claimed: 0, delivered: 0, failed: 0, released: 0, outcomes: [] });
     expect(from).not.toHaveBeenCalled();
     errorSpy.mockRestore();
+  });
+
+  describe("entitlement re-check at use time (C1-36)", () => {
+    it("skips deliveries for a locked company or one downgraded off webhooks, and still sends for an entitled one", async () => {
+      const { drainWebhookDeliveries } = await import("./webhooks");
+      const rows = [
+        delivery({ id: "d-locked", endpoint_id: "e1", company_id: "locked-co" }),
+        delivery({ id: "d-downgraded", endpoint_id: "e1", company_id: "downgraded-co" }),
+        delivery({ id: "d-ok", endpoint_id: "e1", company_id: "ok-co" }),
+      ];
+      const endpoints: EndpointRow[] = [{ id: "e1", url: "https://ok.example/h", secret, is_active: true }];
+      const admin = fakeAdmin(rows, endpoints, {
+        "locked-co": { plan_id: "business", is_trialing: false, is_locked: true },
+        "downgraded-co": { plan_id: "starter", is_trialing: false, is_locked: false },
+        "ok-co": ENTITLED_FLAGS,
+      });
+      const { impl, calls } = fakeFetch(() => new Response("", { status: 200 }));
+
+      const result = await drainWebhookDeliveries(admin.client, { limit: 10, fetchImpl: impl });
+
+      // Only the entitled company's delivery actually reached the network.
+      expect(calls).toHaveLength(1);
+
+      const finishes = admin.rpc.mock.calls.filter(([fn]) => fn === "finish_webhook_delivery").map(([, args]) => args);
+      expect(finishes).toEqual(
+        expect.arrayContaining([
+          {
+            p_delivery_id: "d-locked",
+            p_response_status: null,
+            p_error: "Skipped: company is not entitled to webhook deliveries",
+          },
+          {
+            p_delivery_id: "d-downgraded",
+            p_response_status: null,
+            p_error: "Skipped: company is not entitled to webhook deliveries",
+          },
+          { p_delivery_id: "d-ok", p_response_status: 200, p_error: null },
+        ])
+      );
+      expect(result.delivered).toBe(1);
+      expect(result.failed).toBe(2);
+    });
+
+    it("checks entitlement once per company per drain, not once per row", async () => {
+      const { drainWebhookDeliveries } = await import("./webhooks");
+      const rows = [
+        delivery({ id: "r1", endpoint_id: "e1", company_id: "co-1" }),
+        delivery({ id: "r2", endpoint_id: "e1", company_id: "co-1" }),
+        delivery({ id: "r3", endpoint_id: "e1", company_id: "co-1" }),
+      ];
+      const endpoints: EndpointRow[] = [{ id: "e1", url: "https://ok.example/h", secret, is_active: true }];
+      const admin = fakeAdmin(rows, endpoints, { "co-1": ENTITLED_FLAGS });
+      const { impl, calls } = fakeFetch(() => new Response("", { status: 200 }));
+
+      await drainWebhookDeliveries(admin.client, { limit: 10, fetchImpl: impl });
+
+      expect(calls).toHaveLength(3);
+      const planFlagsCalls = admin.rpc.mock.calls.filter(([fn]) => fn === "get_company_plan_flags");
+      expect(planFlagsCalls).toHaveLength(1);
+    });
   });
 });
 

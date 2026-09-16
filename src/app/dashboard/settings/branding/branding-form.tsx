@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 import { DEFAULT_BRAND_COLOR, MIN_AA_CONTRAST, companyAssetUrl, contrastRatio, phoneHref, resolveBranding } from "@/lib/branding";
 import type { Company } from "@/lib/types";
-import type { PlanId } from "@/lib/plans";
+import { upgradeCopyFor, type PlanId } from "@/lib/plans";
 import { removeCompanyLogo, setCompanyLogo, updateBranding } from "./actions";
 
 const MAX_LOGO_BYTES = 1 * 1024 * 1024;
@@ -137,11 +137,12 @@ export function BrandingForm({
     <div className="space-y-6">
       {!entitled && (
         <Alert>
-          <AlertTitle>Branding is a Pro feature</AlertTitle>
+          <AlertTitle>Branding isn&apos;t on your plan yet</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
             <span>
-              Upgrade to Pro or Business to put your logo and brand color on customer-facing pages. You
-              can still see how it would look below.
+              {/* Names this account's OWN kind's plans, never a plan it could never buy (C1-06). */}
+              {upgradeCopyFor(company.kind, "branding") ?? "Upgrade your plan"} to put your logo and brand
+              color on customer-facing pages. You can still see how it would look below.
             </span>
             <Button size="sm" render={<a href="/dashboard/settings/billing">View plans</a>} />
           </AlertDescription>

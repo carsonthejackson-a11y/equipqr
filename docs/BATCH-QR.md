@@ -89,17 +89,26 @@ With `FEATURES.batchQr` on (the default):
   plain "not set up yet, contact the service company" message.
 - `/e/[qrToken]/onboard`, the scan-to-onboard flow.
 - `/dashboard/settings/qr-codes`, the owner self-serve blank-code pool.
-- Platform admin batch tools under `/admin/` (unrelated to plan — internal
-  tooling stays available to the team regardless of a customer's plan).
 - The pricing page's "Pre-printed batch QR sticker orders" comparison row.
 - The marketing mentions listed in `docs/` history below (now restored).
 
-With it off, all of the above reverts to the "not set up yet" / instant-code-
-only behavior described by the original (Now roadmap) parking of this
-feature: both equipment forms only ever submit `codeSource=instant`, an
-unclaimed code always shows the generic message regardless of who's signed
-in, `/admin` 404s, `/dashboard/settings/qr-codes` and `/e/*/onboard` 404, and
-the pricing row and marketing copy disappear again.
+The `/admin` console itself is **not** gated on this flag — access there is
+platform-admin status alone (C1-42). It used to `notFound()` the whole
+section when this flag was off, on the reasoning that batch QR was the only
+thing under `/admin`; that coupled a platform admin's own access to a
+customer-facing feature flag, and would've hidden any future non-batchQr
+admin tool too. The individual pages/actions that actually *do* something
+batch-QR-specific still check the flag themselves — `admin/qr-codes/
+actions.ts`'s `generateBatch()` and `admin/qr-codes/export/route.ts` both
+refuse (a form error and a 404 respectively) when it's off, so "parked"
+still means parked even though the section itself renders.
+
+With the flag off, everything else above reverts to the "not set up yet" /
+instant-code-only behavior described by the original (Now roadmap) parking
+of this feature: both equipment forms only ever submit `codeSource=instant`,
+an unclaimed code always shows the generic message regardless of who's
+signed in, `/dashboard/settings/qr-codes` and `/e/*/onboard` 404, and the
+pricing row and marketing copy disappear again.
 
 `src/lib/plans.ts`'s `PlanFeatures.batchQr` key (Pro/Business `true`, Starter
 `false`) is independent of the flag and always present — the billing

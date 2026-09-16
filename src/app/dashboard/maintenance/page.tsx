@@ -14,7 +14,8 @@ import { VisitsMaintenanceTabs } from "../schedule/visits-maintenance-tabs";
 
 export default async function MaintenancePage() {
   const supabase = await createClient();
-  const { company } = await getCurrentProfile();
+  const { profile, company } = await getCurrentProfile();
+  const isOwner = profile.role === "owner";
 
   const [{ data: schedules }, { data: equipment }, { data: customers }, { data: templates }] = await Promise.all([
     supabase
@@ -118,6 +119,7 @@ export default async function MaintenancePage() {
                     equipmentOptions={equipmentOptions}
                     checklistTemplates={checklistTemplates}
                     companyTimezone={company.timezone}
+                    isOwner={isOwner}
                   />
                 </CardContent>
               </Card>

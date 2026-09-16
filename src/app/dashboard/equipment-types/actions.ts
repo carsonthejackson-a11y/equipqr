@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { GuideGraphNode } from "@/lib/types";
 import { draftTroubleshootingGuide } from "@/lib/anthropic";
-import { requireActiveSubscription } from "@/lib/billing";
+import { getEntitlements, hasFeature, requireActiveSubscription } from "@/lib/billing";
+import { getCurrentProfile, requireOwner } from "@/lib/auth";
+import { serverEnv } from "@/lib/env";
+import { RATE_LIMITS, checkRateLimit } from "@/lib/rate-limit";
+import { upgradeCopyFor } from "@/lib/plans";
 
 export async function createEquipmentType(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -110,10 +114,20 @@ export async function updateEquipmentType(id: string, formData: FormData) {
 
 export async function deleteEquipmentType(id: string) {
   const supabase = await createClient();
-  const { error } = await supabase.from("equipment_types").delete().eq("id", id);
+  // RLS ("Owners delete own equipment types") already blocks a non-owner's
+  // delete — but it does so by silently filtering the row, not by erroring,
+  // so a non-owner's click would otherwise look like it worked. Chaining
+  // .select("id") reports which rows the delete actually touched, so a
+  // 0-row result (blocked, not "already gone" — this button doesn't render
+  // for a non-owner in the first place) can be turned into an explicit
+  // error instead of a silent no-op (C1-38).
+  const { data, error } = await supabase.from("equipment_types").delete().eq("id", id).select("id");
 
   if (error) {
     return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "Only owners can delete equipment types." };
   }
 
   revalidatePath("/dashboard/equipment-types");
@@ -214,6 +228,15 @@ export async function updateGuideStep(
 }
 
 export async function deleteGuideStep(stepId: string, equipmentTypeId: string) {
+  // guide_steps' own RLS policy ("Staff manage own guide steps") is scoped
+  // only to company membership, not ownership — any staff member can
+  // already delete through it, so unlike deleteEquipmentType() above there's
+  // no row-count trick available here. Gate explicitly instead (C1-38).
+  const owner = await requireOwner();
+  if (!owner) {
+    return { error: "Only company owners can delete guide steps." };
+  }
+
   const supabase = await createClient();
 
   const { data: step } = await supabase
@@ -318,6 +341,13 @@ export async function updateGuideOption(
 }
 
 export async function deleteGuideOption(optionId: string, equipmentTypeId: string) {
+  // Same reasoning as deleteGuideStep() above — guide_options' RLS policy
+  // isn't owner-restricted, so this needs an explicit check (C1-38).
+  const owner = await requireOwner();
+  if (!owner) {
+    return { error: "Only company owners can delete guide options." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("guide_options").delete().eq("id", optionId);
 
@@ -390,12 +420,43 @@ export async function replaceGuideGraph(equipmentTypeId: string, nodes: GuideGra
 // Generates a draft guide graph via AI — does NOT persist anything. The
 // caller renders the returned nodes for the owner to review and only calls
 // replaceGuideGraph() above if they explicitly accept it.
+//
+// Gated the same way generateChecklistDraftAction() (checklists/actions.ts)
+// is — same Anthropic cost, and until this pass it was the only staff AI
+// surface with no plan, lock or rate-limit check at all (C1-37). Whether
+// owner-kind Free should get an aiChat exception is a separate, still-open
+// product decision (C1-37's "AI on Free") — this only makes the mechanical
+// gating consistent with checklist AI's.
 export async function draftGuideWithAI(
   equipmentTypeId: string,
   formData: FormData
 ): Promise<{ nodes: GuideGraphNode[] } | { error: string }> {
   const description = String(formData.get("description") ?? "").trim();
   const commonIssues = String(formData.get("commonIssues") ?? "").trim();
+
+  if (!serverEnv.ANTHROPIC_API_KEY) {
+    return { error: "AI drafting isn't configured for this environment" };
+  }
+
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return { error: lockError.error };
+  }
+
+  const { company } = await getCurrentProfile();
+
+  const entitlements = await getEntitlements();
+  if (!hasFeature(entitlements, "aiChat")) {
+    // Names this account's OWN kind's plans, never a plan it could never buy (C1-06).
+    return {
+      error: `AI drafting isn't available on your plan. ${upgradeCopyFor(company.kind, "aiChat") ?? "Upgrade your plan"} to use it.`,
+    };
+  }
+
+  const withinLimit = await checkRateLimit(`guide-draft:company:${company.id}`, RATE_LIMITS.aiDraftPerCompany);
+  if (!withinLimit) {
+    return { error: "Too many AI drafts recently — please wait a bit and try again." };
+  }
 
   const supabase = await createClient();
   const { data: type } = await supabase

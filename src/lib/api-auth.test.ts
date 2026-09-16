@@ -4,7 +4,20 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 // not React's "react-server" condition, so the real package would throw.
 vi.mock("server-only", () => ({}));
 
-const rpcMock = vi.fn();
+// Two RPCs go through the same admin client now: resolve_api_key (auth) and
+// get_company_plan_flags (the C1-36 use-time entitlement re-check). Kept as
+// separate mocks so a test can drive one without accidentally feeding its
+// shape to the other — resolve_api_key's `{company_id, scopes}` row and
+// get_company_plan_flags' `{plan_id, is_trialing, is_locked}` row look
+// nothing alike, and a shared blanket mock previously meant every test
+// implicitly (and inertly) fed the wrong shape into the other RPC.
+const resolveApiKeyMock = vi.fn();
+const planFlagsMock = vi.fn();
+const rpcMock = vi.fn((fn: string, args?: Record<string, unknown>) => {
+  if (fn === "resolve_api_key") return resolveApiKeyMock(args);
+  if (fn === "get_company_plan_flags") return planFlagsMock(args);
+  throw new Error(`unexpected rpc in test: ${fn}`);
+});
 const createAdminClientMock = vi.fn(() => ({ rpc: rpcMock }));
 const checkRateLimitMock = vi.fn(async () => true);
 
@@ -16,6 +29,11 @@ vi.mock("@/lib/rate-limit", () => ({
   RATE_LIMITS: { apiKey: { limit: 600, windowSeconds: 60 } },
   checkRateLimit: () => checkRateLimitMock(),
 }));
+
+/** A fully-entitled Business-plan company — the default for every test that isn't specifically about the entitlement gate. */
+function entitled() {
+  return { data: { plan_id: "business", is_trialing: false, is_locked: false }, error: null };
+}
 
 function request(headers: Record<string, string> = {}) {
   return new Request("https://api.equipqr.co/api/v1/me", { headers });
@@ -48,7 +66,9 @@ describe("generateApiKey / hashApiKey", () => {
 
 describe("authenticateApiRequest", () => {
   beforeEach(() => {
-    rpcMock.mockReset();
+    rpcMock.mockClear();
+    resolveApiKeyMock.mockReset();
+    planFlagsMock.mockReset().mockResolvedValue(entitled());
     createAdminClientMock.mockReset().mockImplementation(() => ({ rpc: rpcMock }));
     checkRateLimitMock.mockReset().mockResolvedValue(true);
   });
@@ -78,7 +98,7 @@ describe("authenticateApiRequest", () => {
   });
 
   it("rejects an unknown or revoked key", async () => {
-    rpcMock.mockResolvedValue({ data: [], error: null });
+    resolveApiKeyMock.mockResolvedValue({ data: [], error: null });
     const { authenticateApiRequest } = await import("./api-auth");
     const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }));
     expect(result.ok).toBe(false);
@@ -86,7 +106,7 @@ describe("authenticateApiRequest", () => {
   });
 
   it("rejects when the key lacks the required scope", async () => {
-    rpcMock.mockResolvedValue({ data: [{ company_id: "co_1", scopes: ["read"] }], error: null });
+    resolveApiKeyMock.mockResolvedValue({ data: [{ company_id: "co_1", scopes: ["read"] }], error: null });
     const { authenticateApiRequest } = await import("./api-auth");
     const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }), "write");
     expect(result.ok).toBe(false);
@@ -94,7 +114,7 @@ describe("authenticateApiRequest", () => {
   });
 
   it("rejects when the per-key rate limit is exceeded", async () => {
-    rpcMock.mockResolvedValue({ data: [{ company_id: "co_1", scopes: ["read", "write"] }], error: null });
+    resolveApiKeyMock.mockResolvedValue({ data: [{ company_id: "co_1", scopes: ["read", "write"] }], error: null });
     checkRateLimitMock.mockResolvedValue(false);
     const { authenticateApiRequest } = await import("./api-auth");
     const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }));
@@ -106,7 +126,7 @@ describe("authenticateApiRequest", () => {
   });
 
   it("succeeds and returns a scoped context for a valid read-scoped key", async () => {
-    rpcMock.mockResolvedValue({ data: [{ company_id: "co_1", scopes: ["read"] }], error: null });
+    resolveApiKeyMock.mockResolvedValue({ data: [{ company_id: "co_1", scopes: ["read"] }], error: null });
     const { authenticateApiRequest } = await import("./api-auth");
     const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }), "read");
     expect(result.ok).toBe(true);
@@ -118,7 +138,7 @@ describe("authenticateApiRequest", () => {
   });
 
   it("succeeds for a write-scoped key when write is required", async () => {
-    rpcMock.mockResolvedValue({ data: [{ company_id: "co_2", scopes: ["read", "write"] }], error: null });
+    resolveApiKeyMock.mockResolvedValue({ data: [{ company_id: "co_2", scopes: ["read", "write"] }], error: null });
     const { authenticateApiRequest } = await import("./api-auth");
     const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_xyz" }), "write");
     expect(result.ok).toBe(true);
@@ -126,7 +146,7 @@ describe("authenticateApiRequest", () => {
   });
 
   it("filters out unknown scope strings from the resolved row", async () => {
-    rpcMock.mockResolvedValue({
+    resolveApiKeyMock.mockResolvedValue({
       data: [{ company_id: "co_1", scopes: ["read", "admin", "delete-everything"] }],
       error: null,
     });
@@ -134,5 +154,60 @@ describe("authenticateApiRequest", () => {
     const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }), "read");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.ctx.scopes).toEqual(["read"]);
+  });
+
+  describe("entitlement re-check at use time (C1-36)", () => {
+    beforeEach(() => {
+      resolveApiKeyMock.mockResolvedValue({ data: [{ company_id: "co_1", scopes: ["read", "write"] }], error: null });
+    });
+
+    it("returns 402 JSON when the company is locked", async () => {
+      planFlagsMock.mockResolvedValue({
+        data: { plan_id: "business", is_trialing: false, is_locked: true },
+        error: null,
+      });
+      const { authenticateApiRequest } = await import("./api-auth");
+      const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }));
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.response.status).toBe(402);
+        const body = await result.response.json();
+        expect(body.error).toMatch(/plan/i);
+      }
+    });
+
+    it("returns 402 when the current plan no longer includes exportApi (downgraded since the key was created)", async () => {
+      planFlagsMock.mockResolvedValue({
+        data: { plan_id: "starter", is_trialing: false, is_locked: false },
+        error: null,
+      });
+      const { authenticateApiRequest } = await import("./api-auth");
+      const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }));
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.response.status).toBe(402);
+    });
+
+    it("succeeds when the plan includes exportApi and the company isn't locked", async () => {
+      planFlagsMock.mockResolvedValue(entitled());
+      const { authenticateApiRequest } = await import("./api-auth");
+      const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }));
+      expect(result.ok).toBe(true);
+    });
+
+    it("fails OPEN (still succeeds) when the plan-flags lookup itself errors", async () => {
+      planFlagsMock.mockResolvedValue({ data: null, error: { message: "db hiccup" } });
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { authenticateApiRequest } = await import("./api-auth");
+      const result = await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }));
+      expect(result.ok).toBe(true);
+      errorSpy.mockRestore();
+    });
+
+    it("checks entitlement exactly once per request, after resolving the key", async () => {
+      const { authenticateApiRequest } = await import("./api-auth");
+      await authenticateApiRequest(request({ authorization: "Bearer eqr_live_abc123" }));
+      expect(planFlagsMock).toHaveBeenCalledTimes(1);
+      expect(planFlagsMock).toHaveBeenCalledWith({ p_company_id: "co_1" });
+    });
   });
 });

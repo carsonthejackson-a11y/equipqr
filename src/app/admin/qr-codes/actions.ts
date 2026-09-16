@@ -2,8 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { FEATURES } from "@/lib/features";
 
 export async function generateBatch(companyId: string, formData: FormData) {
+  // Server actions aren't wrapped by admin/layout.tsx's render-time checks
+  // either (same reasoning as export/route.ts) — since that layout no
+  // longer 404s this whole section when batch QR is parked (C1-42), this
+  // mutating action needs its own check so "parked" still means parked.
+  if (!FEATURES.batchQr) {
+    return { error: "Batch QR is currently disabled." };
+  }
+
   const count = Number(formData.get("count"));
 
   if (!companyId) {

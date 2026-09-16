@@ -47,11 +47,20 @@ try {
   throw err;
 }
 
-// Keep in sync with src/lib/plans.ts and supabase/migrations/0007_billing.sql.
-const PLANS = [
+// Keep in sync with src/lib/plans.ts (`plans`) and supabase/migrations/0007_billing.sql.
+const PROVIDER_PLANS = [
   { id: "starter", name: "EquipQR Starter", monthly: 29, yearly: 290, blurb: "Up to 50 units, 2 team members" },
   { id: "pro", name: "EquipQR Pro", monthly: 79, yearly: 790, blurb: "Up to 300 units, 10 team members, AI chat, branding" },
   { id: "business", name: "EquipQR Business", monthly: 199, yearly: 1990, blurb: "Up to 1,500 units, unlimited team, export & API" },
+];
+
+// Keep in sync with src/lib/plans.ts (`ownerPlans`) and
+// supabase/migrations/0024_owner_foundation.sql. `free` isn't listed here —
+// it's the zero-cost floor for equipment_owner companies and has no Stripe
+// price (see isFreePlanId() in src/lib/plans.ts).
+const OWNER_PLANS = [
+  { id: "site", name: "EquipQR Kitchen", monthly: 24, yearly: 240, blurb: "Up to 75 pieces of equipment, 1 location, AI troubleshooting" },
+  { id: "multi_site", name: "EquipQR Multi-kitchen", monthly: 69, yearly: 690, blurb: "Up to 400 pieces of equipment, up to 5 locations, branding" },
 ];
 
 // Must match src/app/api/stripe/webhook/route.ts.
@@ -118,25 +127,32 @@ async function ensurePrice(product, planId, interval, dollars) {
   return p;
 }
 
-const priceIds = []; // for the portal config
-for (const plan of PLANS) {
-  let product = await findProduct(plan.id);
-  if (product) {
-    log(`found   product ${plan.id.padEnd(9)} ${product.id}`);
-  } else {
-    product = await stripe.products.create({
-      name: plan.name,
-      description: plan.blurb,
-      metadata: { equipqr_plan: plan.id },
-    });
-    log(`created product ${plan.id.padEnd(9)} ${product.id}`);
+async function ensurePlans(planList) {
+  const priceIds = [];
+  for (const plan of planList) {
+    let product = await findProduct(plan.id);
+    if (product) {
+      log(`found   product ${plan.id.padEnd(9)} ${product.id}`);
+    } else {
+      product = await stripe.products.create({
+        name: plan.name,
+        description: plan.blurb,
+        metadata: { equipqr_plan: plan.id },
+      });
+      log(`created product ${plan.id.padEnd(9)} ${product.id}`);
+    }
+    const monthly = await ensurePrice(product, plan.id, "month", plan.monthly);
+    const yearly = await ensurePrice(product, plan.id, "year", plan.yearly);
+    priceIds.push({ product: product.id, prices: [monthly.id, yearly.id] });
+    envOut[`STRIPE_PRICE_${plan.id.toUpperCase()}_MONTHLY`] = monthly.id;
+    envOut[`STRIPE_PRICE_${plan.id.toUpperCase()}_YEARLY`] = yearly.id;
   }
-  const monthly = await ensurePrice(product, plan.id, "month", plan.monthly);
-  const yearly = await ensurePrice(product, plan.id, "year", plan.yearly);
-  priceIds.push({ product: product.id, prices: [monthly.id, yearly.id] });
-  envOut[`STRIPE_PRICE_${plan.id.toUpperCase()}_MONTHLY`] = monthly.id;
-  envOut[`STRIPE_PRICE_${plan.id.toUpperCase()}_YEARLY`] = yearly.id;
+  return priceIds;
 }
+
+const providerPriceIds = await ensurePlans(PROVIDER_PLANS); // for the provider portal config
+console.log("\n1b. Owner products & prices");
+const ownerPriceIds = await ensurePlans(OWNER_PLANS); // for the owner portal config
 
 // ---------------------------------------------------------------------------
 // 2. Webhook endpoint
@@ -181,52 +197,97 @@ if (hook) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Customer Portal (the app uses the account's DEFAULT configuration)
+// 3. Customer Portal — provider companies (the account's DEFAULT
+//    configuration: used whenever a portal session omits `configuration`,
+//    which is EquipQR's own fallback when STRIPE_PORTAL_CONFIG_PROVIDER
+//    isn't set — see createPortalSession() in
+//    src/app/dashboard/settings/billing/actions.ts).
 // ---------------------------------------------------------------------------
-console.log("\n3. Customer portal");
-const portalParams = {
-  business_profile: {
-    headline: "Manage your EquipQR subscription",
-    privacy_policy_url: `${APP_URL}/privacy`,
-    terms_of_service_url: `${APP_URL}/terms`,
-  },
-  features: {
-    customer_update: { enabled: true, allowed_updates: ["email", "address", "name"] },
-    invoice_history: { enabled: true },
-    payment_method_update: { enabled: true },
-    subscription_cancel: {
-      enabled: true,
-      mode: "at_period_end",
-      cancellation_reason: {
+console.log("\n3. Customer portal (provider)");
+function portalParams({ headline, products }) {
+  return {
+    business_profile: {
+      headline,
+      privacy_policy_url: `${APP_URL}/privacy`,
+      terms_of_service_url: `${APP_URL}/terms`,
+    },
+    features: {
+      customer_update: { enabled: true, allowed_updates: ["email", "address", "name"] },
+      invoice_history: { enabled: true },
+      payment_method_update: { enabled: true },
+      subscription_cancel: {
         enabled: true,
-        options: ["too_expensive", "missing_features", "switched_service", "unused", "other"],
+        mode: "at_period_end",
+        cancellation_reason: {
+          enabled: true,
+          options: ["too_expensive", "missing_features", "switched_service", "unused", "other"],
+        },
+      },
+      subscription_update: {
+        enabled: true,
+        default_allowed_updates: ["price"],
+        proration_behavior: "create_prorations",
+        products,
       },
     },
-    subscription_update: {
-      enabled: true,
-      default_allowed_updates: ["price"],
-      proration_behavior: "create_prorations",
-      products: priceIds,
-    },
-  },
-  default_return_url: `${APP_URL}/dashboard/settings/billing`,
-  metadata: { equipqr: "true" },
-};
-
-const defaults = await stripe.billingPortal.configurations.list({ is_default: true, limit: 1 });
-let portal;
-if (defaults.data[0]) {
-  portal = await stripe.billingPortal.configurations.update(defaults.data[0].id, portalParams);
-  log(`updated default configuration ${portal.id}`);
-} else {
-  portal = await stripe.billingPortal.configurations.create(portalParams);
-  log(`created configuration ${portal.id} (becomes the default)`);
+    default_return_url: `${APP_URL}/dashboard/settings/billing`,
+  };
 }
 
+const defaults = await stripe.billingPortal.configurations.list({ is_default: true, limit: 1 });
+let providerPortal;
+const providerPortalParams = {
+  ...portalParams({ headline: "Manage your EquipQR subscription", products: providerPriceIds }),
+  metadata: { equipqr: "true", equipqr_kind: "provider" },
+};
+if (defaults.data[0]) {
+  providerPortal = await stripe.billingPortal.configurations.update(defaults.data[0].id, providerPortalParams);
+  log(`updated default configuration ${providerPortal.id}`);
+} else {
+  providerPortal = await stripe.billingPortal.configurations.create(providerPortalParams);
+  log(`created configuration ${providerPortal.id} (becomes the default)`);
+}
+envOut.STRIPE_PORTAL_CONFIG_PROVIDER = providerPortal.id;
+
 // ---------------------------------------------------------------------------
-// 4. Output
+// 4. Customer Portal — owner (equipment_owner) companies. A second,
+//    explicitly non-default configuration (Stripe only auto-picks ONE
+//    account default) — never resolved by falling through, only ever by
+//    STRIPE_PORTAL_CONFIG_OWNER being set explicitly, so an owner-kind
+//    company that hasn't been switched over yet still safely falls back to
+//    the provider default above rather than erroring (C1-39).
 // ---------------------------------------------------------------------------
-console.log(`\n4. Env vars (${MODE}) — paste into .env.local and Vercel:\n`);
+console.log("\n4. Customer portal (owner)");
+async function findPortalConfig(kind) {
+  let startingAfter;
+  for (;;) {
+    const page = await stripe.billingPortal.configurations.list({ limit: 100, starting_after: startingAfter });
+    const hit = page.data.find((c) => c.metadata?.equipqr_kind === kind);
+    if (hit) return hit;
+    if (!page.has_more) return null;
+    startingAfter = page.data.at(-1).id;
+  }
+}
+
+const existingOwnerPortal = await findPortalConfig("owner");
+const ownerPortalParams = {
+  ...portalParams({ headline: "Manage your EquipQR subscription", products: ownerPriceIds }),
+  metadata: { equipqr: "true", equipqr_kind: "owner" },
+};
+let ownerPortal;
+if (existingOwnerPortal) {
+  ownerPortal = await stripe.billingPortal.configurations.update(existingOwnerPortal.id, ownerPortalParams);
+  log(`updated owner configuration ${ownerPortal.id}`);
+} else {
+  ownerPortal = await stripe.billingPortal.configurations.create(ownerPortalParams);
+  log(`created owner configuration ${ownerPortal.id} (non-default — set STRIPE_PORTAL_CONFIG_OWNER)`);
+}
+envOut.STRIPE_PORTAL_CONFIG_OWNER = ownerPortal.id;
+
+// ---------------------------------------------------------------------------
+// 5. Output
+// ---------------------------------------------------------------------------
+console.log(`\n5. Env vars (${MODE}) — paste into .env.local and Vercel:\n`);
 console.log(`STRIPE_SECRET_KEY=${KEY.slice(0, 12)}…  # the key you just used`);
 if (webhookSecretNote) console.log(`# STRIPE_WEBHOOK_SECRET: ${webhookSecretNote}`);
 for (const [k, v] of Object.entries(envOut)) console.log(`${k}=${v}`);

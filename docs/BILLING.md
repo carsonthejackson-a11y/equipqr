@@ -22,10 +22,15 @@ STRIPE_SECRET_KEY=sk_test_... node scripts/stripe-setup.mjs     # test mode
 STRIPE_SECRET_KEY=sk_live_... node scripts/stripe-setup.mjs     # live mode, once test passes
 ```
 
-It creates the products/prices (idempotent via `lookup_key`), the webhook endpoint at
-`$APP_URL/api/stripe/webhook` (default `https://equipqr.co`), configures the Customer Portal,
-and prints the eight `STRIPE_*` env vars. Stripe only reveals a webhook signing secret once, so
-if the endpoint already exists pass `--recreate-webhook` to get a fresh secret printed.
+It creates the products/prices for **both** plan sets (idempotent via `lookup_key`) — the 6
+provider prices and the 4 owner prices (§6) — the webhook endpoint at
+`$APP_URL/api/stripe/webhook` (default `https://equipqr.co`), configures **two** Customer Portal
+configurations (one per company kind, see §4), and prints every `STRIPE_*` env var it touched:
+`STRIPE_SECRET_KEY` (echoed back), `STRIPE_WEBHOOK_SECRET` (if newly created), the 10
+`STRIPE_PRICE_*` vars, and `STRIPE_PORTAL_CONFIG_PROVIDER` / `STRIPE_PORTAL_CONFIG_OWNER`. Stripe
+only reveals a webhook signing secret once, so if the endpoint already exists pass
+`--recreate-webhook` to get a fresh secret printed. Safe to run in either mode — it never deletes
+anything, only creates what's missing.
 
 ## 1. Create products & prices in the Stripe dashboard
 
@@ -95,12 +100,24 @@ allowed to write to `subscriptions` directly (see the RLS policy in
 In the Stripe dashboard → Settings → Billing → Customer portal, enable it and turn on:
 - Update payment method
 - Cancel subscription
-- Switch plans (add all 6 prices from step 1 so customers can self-serve switch plans there too,
-  though the app's own "Switch plan" buttons on `/dashboard/settings/billing` cover this via
-  Checkout as well)
+- Switch plans (see the per-kind note below for which prices go on which configuration, though
+  the app's own "Switch plan" buttons on `/dashboard/settings/billing` cover this via Checkout
+  as well)
 - Invoice history
 
 "Manage billing" on the billing page opens this portal for the company's Stripe customer.
+`createPortalSession()` (`src/app/dashboard/settings/billing/actions.ts`) picks the
+configuration by the company's kind:
+
+- **Two configurations, one per kind (C1-39).** A provider company's "Switch plans" list should
+  hold the 6 provider prices; an owner company's should hold the 4 owner prices from §6 — Stripe
+  doesn't let one portal configuration mix products from unrelated plan sets sensibly. Set
+  `STRIPE_PORTAL_CONFIG_PROVIDER` to the id of the (usually default) configuration with the 6
+  provider prices, and `STRIPE_PORTAL_CONFIG_OWNER` to a second, non-default configuration with
+  the 4 owner prices. `scripts/stripe-setup.mjs` creates both automatically (§0).
+- **Both are optional.** Unset, `createPortalSession()` omits `configuration` entirely and Stripe
+  falls back to the account's own default configuration for every company regardless of kind —
+  today's behavior if you set up billing by hand and only ever created one configuration.
 
 ## 5. How the trial → locked flow works
 
@@ -154,10 +171,10 @@ STRIPE_PRICE_MULTI_SITE_MONTHLY=price_...
 STRIPE_PRICE_MULTI_SITE_YEARLY=price_...
 ```
 
-Add all four new prices to the Customer Portal's "Switch plans" list (step 4 above) alongside
-the six provider ones. `scripts/stripe-setup.mjs` has **not** been updated for this build — it
-still only creates the three provider products, so the two owner products need to be created by
-hand (or the script extended) until that's done.
+Add these four prices to the **owner** Customer Portal configuration (§4) — not the same one the
+6 provider prices go on. `scripts/stripe-setup.mjs` creates all five products (3 provider + 2
+owner) and both portal configurations in one run (§0); this section describes what it's doing
+for anyone setting it up by hand instead.
 
 **How owner billing differs from provider billing:**
 
@@ -173,5 +190,9 @@ hand (or the script extended) until that's done.
   of the provider `plans` array, shows a locations used/limit bar alongside the equipment one
   for owner-kind companies, and shows the Free plan as "Current plan" with no checkout button
   (there's nothing to buy).
-- `src/components/billing/locked-screen.tsx` and `trial-banner.tsx` never render for
-  `equipment_owner` — see their `companyKind` prop.
+- `src/components/billing/locked-screen.tsx` never renders for `equipment_owner` — see its
+  `companyKind` prop. `trial-banner.tsx` takes a `role` prop instead (it escalates to amber
+  styling and different copy for a non-owner in the last 3 days, Q-15) and relies entirely on its
+  caller: `src/app/dashboard/layout.tsx` only renders it when `trialDaysLeft` is non-null, which
+  it computes as `null` for every `equipment_owner` company (an owner-kind free tier isn't a
+  "trial" — there's nothing to count down to).

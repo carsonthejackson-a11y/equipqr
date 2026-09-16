@@ -138,7 +138,7 @@ export default async function CustomerDetailPage({
         </div>
       </div>
 
-      <EditCustomerForm customer={customer} />
+      <EditCustomerForm customer={customer} isOwner={ctx.isOwnerRole} />
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Equipment</h2>

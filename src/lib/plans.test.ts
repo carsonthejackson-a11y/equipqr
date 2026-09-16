@@ -9,7 +9,10 @@ import {
   ownerPlans,
   plans,
   plansFor,
+  plansWithFeature,
   planFromStripePriceId,
+  upgradeCopyFor,
+  type PlanFeatures,
   type PlanId,
 } from "./plans";
 
@@ -150,6 +153,36 @@ describe("planFromStripePriceId", () => {
 
   it("returns null when nothing is configured", () => {
     expect(planFromStripePriceId("price_site_month")).toBeNull();
+  });
+});
+
+describe("plansWithFeature / upgradeCopyFor (C1-06)", () => {
+  it("names only this kind's own plans, never the other kind's", () => {
+    expect(plansWithFeature("service_provider", "branding").map((p) => p.id)).toEqual(["pro", "business"]);
+    expect(plansWithFeature("equipment_owner", "branding").map((p) => p.id)).toEqual(["multi_site"]);
+
+    expect(upgradeCopyFor("service_provider", "branding")).toBe("Upgrade to Pro or Business");
+    expect(upgradeCopyFor("equipment_owner", "branding")).toBe("Upgrade to Multi-kitchen");
+  });
+
+  it("joins a single matching plan without an 'or'", () => {
+    expect(upgradeCopyFor("service_provider", "exportApi")).toBe("Upgrade to Business");
+  });
+
+  it("returns null — not a dangling upgrade link — when no plan of this kind has the feature at all", () => {
+    // No equipment_owner plan includes exportApi today (C1-06's core bug: a
+    // "View plans" link with no actual answer on the destination page).
+    expect(plansWithFeature("equipment_owner", "exportApi")).toEqual([]);
+    expect(upgradeCopyFor("equipment_owner", "exportApi")).toBeNull();
+  });
+
+  it("every feature has non-empty upgrade copy for at least one kind (no feature is unreachable from both)", () => {
+    const features: (keyof PlanFeatures)[] = ["aiChat", "batchQr", "branding", "exportApi"];
+    for (const feature of features) {
+      const providerCopy = upgradeCopyFor("service_provider", feature);
+      const ownerCopy = upgradeCopyFor("equipment_owner", feature);
+      expect(providerCopy !== null || ownerCopy !== null).toBe(true);
+    }
   });
 });
 

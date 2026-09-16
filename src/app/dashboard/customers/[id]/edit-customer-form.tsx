@@ -10,7 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/types";
 import { deleteCustomer, updateCustomer } from "../actions";
 
-export function EditCustomerForm({ customer }: { customer: Customer }) {
+export function EditCustomerForm({
+  customer,
+  isOwner,
+}: {
+  customer: Customer;
+  /** Only owners can delete a customer (C1-38) — hides the button rather than letting a non-owner hit the server-side block. */
+  isOwner: boolean;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,9 +101,11 @@ export function EditCustomerForm({ customer }: { customer: Customer }) {
         <Button type="button" variant="ghost" onClick={() => setEditing(false)}>
           Cancel
         </Button>
-        <Button type="button" variant="outline" className="ml-auto" onClick={handleDelete} disabled={deleting}>
-          {deleting ? "Deleting..." : "Delete customer"}
-        </Button>
+        {isOwner && (
+          <Button type="button" variant="outline" className="ml-auto" onClick={handleDelete} disabled={deleting}>
+            {deleting ? "Deleting..." : "Delete customer"}
+          </Button>
+        )}
       </div>
     </form>
   );

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentProfile } from "@/lib/auth";
+import { requireOwner } from "@/lib/auth";
 import { getEntitlements, hasFeature } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
 import { csvFilename, toCsv, type CsvColumn } from "@/lib/csv-export";
@@ -17,8 +17,11 @@ import type {
   ServiceRequest,
 } from "@/lib/types";
 
-// Session-authenticated CSV export for signed-in staff (any role — export is
-// read-only, so this doesn't need requireOwner()). Gated by the Business
+// Session-authenticated CSV export, restricted to owners — the same
+// restriction as the Settings > API page that links here (dashboard/settings/api/page.tsx),
+// now enforced server-side too rather than only by hiding the button, since
+// a non-owner who found or bookmarked this URL directly could otherwise
+// still download the company's data (C1-38). Gated by the Business
 // "exportApi" feature the same way as the v1 API, since it's the same sold
 // capability ("Data export & API access").
 
@@ -29,7 +32,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
     return NextResponse.json({ error: "Unknown export entity" }, { status: 404 });
   }
 
-  const { company } = await getCurrentProfile();
+  const ctx = await requireOwner();
+  if (!ctx) {
+    return NextResponse.json({ error: "Only company owners can export data." }, { status: 403 });
+  }
+  const { company } = ctx;
 
   const entitlements = await getEntitlements();
   if (!hasFeature(entitlements, "exportApi")) {

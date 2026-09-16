@@ -1,18 +1,18 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Logo } from "@/components/logo";
 import { SignOutButton } from "@/components/sign-out-button";
-import { FEATURES } from "@/lib/features";
 
+// C1-42: this used to also notFound() the whole section when
+// FEATURES.batchQr was off — batch QR is the only thing under /admin today,
+// but coupling the console's access control to one feature's flag meant a
+// platform admin couldn't reach /admin at all while it was parked, and any
+// future non-batchQr admin tool would've inherited that gate too. Access
+// here is platform-admin status alone; individual pages/routes under
+// /admin (e.g. qr-codes/export/route.ts) already re-check FEATURES.batchQr
+// themselves for their own actual behavior.
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  // The pre-printed QR batch feature (the only thing under /admin today) is
-  // parked for launch — see docs/BATCH-QR.md. Treat the whole section as
-  // absent rather than gating each page individually.
-  if (!FEATURES.batchQr) {
-    notFound();
-  }
-
   const supabase = await createClient();
 
   const {

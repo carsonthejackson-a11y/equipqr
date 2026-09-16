@@ -1,5 +1,6 @@
 import { requireOwner } from "@/lib/auth";
 import { getEntitlements, hasFeature } from "@/lib/billing";
+import { upgradeCopyFor } from "@/lib/plans";
 import { createClient } from "@/lib/supabase/server";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,10 @@ export default async function ApiSettingsPage() {
 
   const entitlements = ctx ? await getEntitlements() : null;
   const entitled = hasFeature(entitlements, "exportApi");
+  // No owner plan includes exportApi today (this tab is hidden from
+  // owner-kind accounts in the subnav, but a direct link still reaches this
+  // page) — null here means "not offered for this kind", not "upgrade" (C1-06).
+  const upgradeCopy = ctx ? upgradeCopyFor(ctx.company.kind, "exportApi") : null;
 
   // Explicit column list, NOT `*`: `api_keys.key_hash` is the sha256 of the
   // plaintext key and this row is serialised into a client component, so
@@ -87,13 +92,21 @@ export default async function ApiSettingsPage() {
         <div className="space-y-6">
           {!entitled && (
             <Alert>
-              <AlertTitle>API access is a Business feature</AlertTitle>
+              <AlertTitle>
+                {upgradeCopy ? "API access isn't on your plan yet" : "API access isn't offered for this kind of account"}
+              </AlertTitle>
               <AlertDescription className="flex flex-col items-start gap-2">
                 <span>
-                  Upgrade to Business for CSV data export, the v1 API, and outbound webhooks. The docs
-                  below show what&apos;s available once you do.
+                  {upgradeCopy ? (
+                    <>
+                      {upgradeCopy} for CSV data export, the v1 API, and outbound webhooks. The docs below
+                      show what&apos;s available once you do.
+                    </>
+                  ) : (
+                    <>CSV data export, the v1 API, and outbound webhooks aren&apos;t on any current plan for this kind of account.</>
+                  )}
                 </span>
-                <Button size="sm" render={<a href="/dashboard/settings/billing">View plans</a>} />
+                {upgradeCopy && <Button size="sm" render={<a href="/dashboard/settings/billing">View plans</a>} />}
               </AlertDescription>
             </Alert>
           )}
