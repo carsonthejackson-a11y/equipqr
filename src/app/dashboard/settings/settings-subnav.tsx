@@ -1,50 +1,14 @@
-"use client";
+import { getCurrentProfile } from "@/lib/auth";
+import { SettingsSubnavClient } from "./settings-subnav-client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-
-const items = [
-  { href: "/dashboard/settings", label: "Settings" },
-  { href: "/dashboard/settings/team", label: "Team" },
-  { href: "/dashboard/settings/billing", label: "Billing" },
-  { href: "/dashboard/settings/account", label: "Account" },
-  { href: "/dashboard/settings/branding", label: "Branding" },
-  { href: "/dashboard/settings/api", label: "API" },
-  { href: "/dashboard/settings/qr-codes", label: "Blank codes" },
-  { href: "/dashboard/settings/custom-fields", label: "Custom fields" },
-];
-
-// Unlike the main dashboard nav, "/dashboard/settings" (company settings) is
-// a leaf here too, not a section prefix that Team/Billing/Account also fall
-// under — so it needs an exact match rather than dashboard-nav-links'
-// isNavLinkActive() prefix rule, or it would light up on every subpage.
-function isActive(pathname: string, href: string) {
-  return href === "/dashboard/settings" ? pathname === href : pathname.startsWith(href);
-}
-
-export function SettingsSubnav() {
-  const pathname = usePathname();
-
-  return (
-    <nav className="flex gap-1 overflow-x-auto border-b [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {items.map((item) => {
-        const active = isActive(pathname, item.href);
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              "shrink-0 border-b-2 px-3 py-2 text-sm font-medium transition-colors",
-              active
-                ? "border-primary text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
+// Async Server Component wrapper: fetches the one thing the tab list needs
+// to filter itself (the company's kind, for C1-06 — see settings-subnav-client.tsx)
+// so every one of this component's call sites stays exactly `<SettingsSubnav />`,
+// with no prop to thread through pages that don't otherwise need this data.
+// getCurrentProfile() redirects if somehow unauthenticated, but every caller
+// already renders inside /dashboard, which the dashboard layout itself
+// already guards — this never actually redirects in practice.
+export async function SettingsSubnav() {
+  const { company } = await getCurrentProfile();
+  return <SettingsSubnavClient kind={company.kind} />;
 }

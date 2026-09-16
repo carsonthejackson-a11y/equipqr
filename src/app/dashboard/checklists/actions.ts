@@ -7,6 +7,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getEntitlements, hasFeature, requireActiveSubscription } from "@/lib/billing";
 import { generateChecklistDraft } from "@/lib/anthropic";
 import { checklistItemsSchema, newItemId } from "@/lib/checklists";
+import { upgradeCopyFor } from "@/lib/plans";
 import { serverEnv } from "@/lib/env";
 import { RATE_LIMITS, checkRateLimit } from "@/lib/rate-limit";
 import type { ChecklistItem } from "@/lib/types";
@@ -165,12 +166,16 @@ export async function generateChecklistDraftAction(
     return { error: lockError.error };
   }
 
+  const { company } = await getCurrentProfile();
+
   const entitlements = await getEntitlements();
   if (!hasFeature(entitlements, "aiChat")) {
-    return { error: "AI drafting isn't available on your plan. Upgrade to Pro to use it." };
+    // Names this account's OWN kind's plans, never a plan it could never buy (C1-06).
+    return {
+      error: `AI drafting isn't available on your plan. ${upgradeCopyFor(company.kind, "aiChat") ?? "Upgrade your plan"} to use it.`,
+    };
   }
 
-  const { company } = await getCurrentProfile();
   const withinLimit = await checkRateLimit(`checklist-draft:company:${company.id}`, RATE_LIMITS.aiDraftPerCompany);
   if (!withinLimit) {
     return { error: "Too many AI drafts recently — please wait a bit and try again." };

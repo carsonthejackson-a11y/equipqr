@@ -3,6 +3,7 @@ import { getEntitlements, hasFeature } from "@/lib/billing";
 import { FEATURES } from "@/lib/features";
 import { createClient } from "@/lib/supabase/server";
 import { formatShortCode } from "@/lib/qr";
+import { upgradeCopyFor } from "@/lib/plans";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { OwnerOnlyCard } from "@/components/owner-only-card";
@@ -52,11 +53,13 @@ export default async function BlankQrCodesPage() {
         <OwnerOnlyCard message="Only company owners can generate a batch of blank codes." />
       ) : !entitled ? (
         <Alert>
-          <AlertTitle>Blank code batches are a Pro feature</AlertTitle>
+          <AlertTitle>Blank code batches aren&apos;t on your plan yet</AlertTitle>
           <AlertDescription className="flex flex-col items-start gap-2">
             <span>
-              Upgrade to Pro or Business to pre-print a pool of stickers ahead of a route. Every
-              plan can still generate and print a code for a unit the moment you add it.
+              {/* Names this account's OWN kind's plans, never a plan it could never buy (C1-06). */}
+              {upgradeCopyFor(ctx.company.kind, "batchQr") ?? "Upgrade your plan"} to pre-print a pool of
+              stickers ahead of a route. Every plan can still generate and print a code for a unit the
+              moment you add it.
             </span>
             <Button size="sm" render={<a href="/dashboard/settings/billing">View plans</a>} />
           </AlertDescription>

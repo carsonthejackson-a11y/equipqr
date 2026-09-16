@@ -8,6 +8,7 @@ import { getEntitlements, hasFeature, requireActiveSubscription } from "@/lib/bi
 import { getCurrentProfile, requireOwner } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
 import { RATE_LIMITS, checkRateLimit } from "@/lib/rate-limit";
+import { upgradeCopyFor } from "@/lib/plans";
 
 export async function createEquipmentType(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
@@ -442,12 +443,16 @@ export async function draftGuideWithAI(
     return { error: lockError.error };
   }
 
+  const { company } = await getCurrentProfile();
+
   const entitlements = await getEntitlements();
   if (!hasFeature(entitlements, "aiChat")) {
-    return { error: "AI drafting isn't available on your plan. Upgrade to Pro to use it." };
+    // Names this account's OWN kind's plans, never a plan it could never buy (C1-06).
+    return {
+      error: `AI drafting isn't available on your plan. ${upgradeCopyFor(company.kind, "aiChat") ?? "Upgrade your plan"} to use it.`,
+    };
   }
 
-  const { company } = await getCurrentProfile();
   const withinLimit = await checkRateLimit(`guide-draft:company:${company.id}`, RATE_LIMITS.aiDraftPerCompany);
   if (!withinLimit) {
     return { error: "Too many AI drafts recently — please wait a bit and try again." };
