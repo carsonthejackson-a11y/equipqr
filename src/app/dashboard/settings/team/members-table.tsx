@@ -33,11 +33,18 @@ import {
 import type { CompanyMember, UserRole } from "@/lib/types";
 import { removeMember, updateMemberRole } from "./actions";
 
-const ROLE_LABEL: Record<UserRole, string> = {
+export const ROLE_LABEL: Record<UserRole, string> = {
   owner: "Owner",
   manager: "Manager",
   technician: "Technician",
   staff: "Staff",
+};
+
+/** The roles assignable from this table's own role-change menu (Q-46) — "staff" isn't offered here, matching invite-member-dialog.tsx. */
+const ASSIGNABLE_ROLE_ITEMS: Partial<Record<UserRole, string>> = {
+  owner: "Owner",
+  manager: "Manager",
+  technician: "Technician",
 };
 
 export function MembersTable({
@@ -89,7 +96,9 @@ export function MembersTable({
   return (
     <div className="space-y-2">
       <h2 className="text-sm font-medium text-muted-foreground">Members</h2>
-      <Card>
+
+      {/* Table at md+; card list below md (Q-46) — same data, same handlers. */}
+      <Card className="hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -117,7 +126,7 @@ export function MembersTable({
                       value={member.role}
                       onValueChange={(value) => handleRoleChange(member, value)}
                       disabled={rowBusy || (isSelf && isLastOwner)}
-                      items={{ owner: "Owner", technician: "Technician" }}
+                      items={ASSIGNABLE_ROLE_ITEMS}
                     >
                       <SelectTrigger size="sm" className="w-32">
                         <SelectValue>
@@ -130,6 +139,7 @@ export function MembersTable({
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="owner">Owner</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
                         <SelectItem value="technician">Technician</SelectItem>
                       </SelectContent>
                     </Select>
@@ -157,6 +167,63 @@ export function MembersTable({
           </TableBody>
         </Table>
       </Card>
+
+      <div className="space-y-2 md:hidden">
+        {members.map((member) => {
+          const isSelf = member.id === currentUserId;
+          const isLastOwner = member.role === "owner" && ownerCount <= 1;
+          const rowBusy = isPending && pendingId === member.id;
+
+          return (
+            <Card key={member.id} className="p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">
+                    {member.full_name || "—"}
+                    {isSelf && <span className="ml-1.5 text-muted-foreground">(you)</span>}
+                  </p>
+                  <p className="truncate text-sm text-muted-foreground">{member.email}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-11 shrink-0"
+                  disabled={rowBusy || (isSelf && isLastOwner)}
+                  title={
+                    isSelf && isLastOwner
+                      ? "You're the last owner — promote someone else first"
+                      : "Remove member"
+                  }
+                  onClick={() => setRemoveTarget(member)}
+                >
+                  <Trash2 className="text-destructive" />
+                  <span className="sr-only">Remove {member.full_name ?? member.email}</span>
+                </Button>
+              </div>
+              <Select
+                value={member.role}
+                onValueChange={(value) => handleRoleChange(member, value)}
+                disabled={rowBusy || (isSelf && isLastOwner)}
+                items={ASSIGNABLE_ROLE_ITEMS}
+              >
+                <SelectTrigger size="sm" className="mt-2 h-11 w-full">
+                  <SelectValue>
+                    {(value: UserRole) => (
+                      <Badge variant={value === "owner" ? "default" : "secondary"}>{ROLE_LABEL[value]}</Badge>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="owner">Owner</SelectItem>
+                  <SelectItem value="manager">Manager</SelectItem>
+                  <SelectItem value="technician">Technician</SelectItem>
+                </SelectContent>
+              </Select>
+            </Card>
+          );
+        })}
+      </div>
 
       <Dialog open={!!removeTarget} onOpenChange={(open) => !open && setRemoveTarget(null)}>
         <DialogContent>

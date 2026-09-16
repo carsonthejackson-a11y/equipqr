@@ -15,7 +15,7 @@ export default async function EquipmentTypeDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: type }, { company }] = await Promise.all([
+  const [{ data: type }, { profile, company }] = await Promise.all([
     supabase.from("equipment_types").select("*").eq("id", id).maybeSingle<EquipmentType>(),
     getCurrentProfile(),
   ]);
@@ -23,6 +23,8 @@ export default async function EquipmentTypeDetailPage({
   if (!type) {
     notFound();
   }
+
+  const isOwner = profile.role === "owner";
 
   const { data: steps } = await supabase
     .from("guide_steps")
@@ -50,7 +52,7 @@ export default async function EquipmentTypeDetailPage({
         <p className="text-muted-foreground">Equipment type details and troubleshooting guide.</p>
       </div>
 
-      <EditTypeForm type={type} kind={company.kind} />
+      <EditTypeForm type={type} kind={company.kind} isOwner={isOwner} />
 
       <AiGuideDrafter
         equipmentTypeId={type.id}
@@ -58,7 +60,12 @@ export default async function EquipmentTypeDetailPage({
         existingStepCount={steps?.length ?? 0}
       />
 
-      <GuideStepsEditor equipmentTypeId={type.id} steps={steps ?? []} options={options ?? []} />
+      <GuideStepsEditor
+        equipmentTypeId={type.id}
+        steps={steps ?? []}
+        options={options ?? []}
+        isOwner={isOwner}
+      />
     </div>
   );
 }

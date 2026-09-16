@@ -10,7 +10,14 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@/lib/types";
 import { deleteCustomer, updateCustomer } from "../actions";
 
-export function EditCustomerForm({ customer }: { customer: Customer }) {
+export function EditCustomerForm({
+  customer,
+  isOwner,
+}: {
+  customer: Customer;
+  /** Only owners can delete a customer (C1-38) — hides the button rather than letting a non-owner hit the server-side block. */
+  isOwner: boolean;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -78,9 +85,11 @@ export function EditCustomerForm({ customer }: { customer: Customer }) {
       </div>
       <div className="flex gap-2">
         <Button type="submit">Save</Button>
-        <Button type="button" variant="outline" onClick={handleDelete} disabled={deleting}>
-          {deleting ? "Deleting..." : "Delete customer"}
-        </Button>
+        {isOwner && (
+          <Button type="button" variant="outline" onClick={handleDelete} disabled={deleting}>
+            {deleting ? "Deleting..." : "Delete customer"}
+          </Button>
+        )}
       </div>
     </form>
   );

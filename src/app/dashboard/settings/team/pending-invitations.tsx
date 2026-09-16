@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import type { Invitation } from "@/lib/types";
 import { resendInvite, revokeInvite } from "./actions";
+import { ROLE_LABEL } from "./members-table";
 
 function inviteUrl(token: string): string {
   if (typeof window === "undefined") return "";
@@ -92,7 +93,7 @@ export function PendingInvitations({ invitations }: { invitations: Invitation[] 
                     <TableCell className="font-medium">{invite.email}</TableCell>
                     <TableCell>
                       <Badge variant={invite.role === "owner" ? "default" : "secondary"}>
-                        {invite.role === "owner" ? "Owner" : "Technician"}
+                        {ROLE_LABEL[invite.role]}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground">

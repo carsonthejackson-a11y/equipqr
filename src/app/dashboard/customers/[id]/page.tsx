@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
 import { BackLink } from "@/components/back-link";
+import { getCurrentProfile } from "@/lib/auth";
 import type { Customer, Equipment, ServiceRequest } from "@/lib/types";
 import { EditCustomerForm } from "./edit-customer-form";
 
@@ -23,11 +24,10 @@ export default async function CustomerDetailPage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: customer } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle<Customer>();
+  const [{ data: customer }, { profile }] = await Promise.all([
+    supabase.from("customers").select("*").eq("id", id).maybeSingle<Customer>(),
+    getCurrentProfile(),
+  ]);
 
   if (!customer) {
     notFound();
@@ -71,7 +71,7 @@ export default async function CustomerDetailPage({
         <p className="text-muted-foreground">Customer details and linked equipment.</p>
       </div>
 
-      <EditCustomerForm customer={customer} />
+      <EditCustomerForm customer={customer} isOwner={profile.role === "owner"} />
 
       <div className="space-y-4">
         <h2 className="text-lg font-semibold">Equipment</h2>

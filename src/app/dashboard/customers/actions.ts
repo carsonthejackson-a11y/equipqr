@@ -99,10 +99,17 @@ export async function updateCustomer(id: string, formData: FormData) {
 
 export async function deleteCustomer(id: string) {
   const supabase = await createClient();
-  const { error } = await supabase.from("customers").delete().eq("id", id);
+  // RLS ("Owners delete own customers") silently filters a non-owner's
+  // delete rather than erroring, so check the affected row count and turn a
+  // blocked delete into an explicit error instead of a silent no-op — same
+  // pattern as deleteEquipmentType() (C1-38).
+  const { data, error } = await supabase.from("customers").delete().eq("id", id).select("id");
 
   if (error) {
     return { error: error.message };
+  }
+  if (!data || data.length === 0) {
+    return { error: "Only owners can delete customers." };
   }
 
   revalidatePath("/dashboard/customers");

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { addDaysToDateOnly, formatDateOnly, todayInTimeZone } from "@/lib/schedule";
@@ -15,7 +16,7 @@ import { ScheduleRowActions } from "../../maintenance/schedule-row-actions";
 export async function MaintenanceCard({ equipment }: { equipment: Equipment }) {
   const supabase = await createClient();
 
-  const [{ data: schedules }, { data: company }, { data: templates }] = await Promise.all([
+  const [{ data: schedules }, { data: company }, { data: templates }, { profile }] = await Promise.all([
     supabase
       .from("maintenance_schedules")
       .select("*")
@@ -28,8 +29,10 @@ export async function MaintenanceCard({ equipment }: { equipment: Equipment }) {
       .select("id, name")
       .eq("active", true)
       .returns<Pick<ChecklistTemplate, "id" | "name">[]>(),
+    getCurrentProfile(),
   ]);
 
+  const isOwner = profile.role === "owner";
   const timezone = company?.timezone ?? "UTC";
   const today = todayInTimeZone(timezone);
   const checklistTemplates = templates ?? [];
@@ -86,6 +89,7 @@ export async function MaintenanceCard({ equipment }: { equipment: Equipment }) {
                   equipmentOptions={equipmentOptions}
                   checklistTemplates={checklistTemplates}
                   companyTimezone={timezone}
+                  isOwner={isOwner}
                 />
               </div>
             );
