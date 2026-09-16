@@ -140,8 +140,8 @@ export function daysUntilDate(dateOnly: string | null | undefined, now: Date = n
   return Math.round((target - today) / 86_400_000);
 }
 
-/** Days inside which a warranty counts as "expiring soon" on the list and detail pages. */
-export const WARRANTY_SOON_DAYS = 30;
+/** Days inside which a warranty counts as "expiring soon" on the list and detail pages (docs/QOL-CONTINUITY-BRIEF.md §2 / Q-41). */
+export const WARRANTY_SOON_DAYS = 60;
 
 /** Longest an inline timeline note / service summary may be. Matches the textarea maxLength. */
 export const MAX_NOTE_LENGTH = 1000;

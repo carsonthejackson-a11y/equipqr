@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CalendarClock, ShieldCheck, Wrench } from "lucide-react";
+import { ShieldCheck, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,10 +15,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { cn } from "@/lib/utils";
 import { RelativeTime } from "@/components/relative-time";
 import { formatWarranty, warrantyState } from "@/lib/equipment";
+import { formatDateOnly } from "@/lib/schedule";
 import type {
   CategoryDefaultVendor,
   CompanyKind,
@@ -64,6 +74,9 @@ export function EditEquipmentForm({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [retiring, setRetiring] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const [customerId, setCustomerId] = useState(equipment.customer_id ?? "");
   const [address, setAddress] = useState(equipment.address ?? "");
   const [contactName, setContactName] = useState(equipment.contact_name ?? "");
@@ -99,8 +112,13 @@ export function EditEquipmentForm({
     router.refresh();
   }
 
+  // The delete dialog's copy is the confirmation now, so this fires straight
+  // from its "Delete permanently" button (docs/QOL-CONTINUITY-BRIEF.md §2 /
+  // Q-13's true semantics: deleting cascades service requests, activity and
+  // documents, but the sticker survives as an unclaimed code — see
+  // deleteEquipment()'s comment in ../actions.ts for why).
   async function handleDelete() {
-    if (!confirm("Delete this equipment? Its QR code will stop working.")) return;
+    setError(null);
     setDeleting(true);
     const result = await deleteEquipment(equipment.id);
     setDeleting(false);
@@ -111,11 +129,40 @@ export function EditEquipmentForm({
     router.push("/dashboard/equipment");
   }
 
+  // The dialog's offered alternative (§2: "Offer 'Mark retired instead' as
+  // the primary action") reuses the same save action the rest of this form
+  // already uses, just with status forced to "retired" — so every other
+  // field keeps whatever the form currently holds instead of being reset.
+  async function handleMarkRetired() {
+    const form = formRef.current;
+    if (!form) return;
+    setError(null);
+    setRetiring(true);
+    const formData = new FormData(form);
+    formData.set("status", "retired");
+    const result = await updateEquipment(equipment.id, formData);
+    setRetiring(false);
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
+    setDeleteDialogOpen(false);
+    toast.success(`${equipment.name} marked retired`);
+    router.refresh();
+  }
+
   const warranty = warrantyState(equipment.warranty_ends_on);
-  const warrantyLabel = formatWarranty(equipment.warranty_ends_on);
+  // Detail pages say "Warranty ended {date}" in neutral text, not an alarmed
+  // "expired N days ago" — a warranty running out is normal, not a problem
+  // (docs/QOL-CONTINUITY-BRIEF.md §2 / Q-41). Every other state keeps
+  // formatWarranty()'s wording.
+  const warrantyLabel =
+    warranty.state === "expired" && equipment.warranty_ends_on
+      ? `Warranty ended ${formatDateOnly(equipment.warranty_ends_on)}`
+      : formatWarranty(equipment.warranty_ends_on);
 
   return (
-    <form action={handleSave} className="max-w-xl space-y-4">
+    <form action={handleSave} ref={formRef} className="max-w-xl space-y-4">
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
@@ -133,17 +180,8 @@ export function EditEquipmentForm({
           </span>
         </div>
         <div className="flex items-start gap-2 text-sm">
-          {warranty.state === "expired" ? (
-            <CalendarClock className="mt-0.5 size-4 shrink-0 text-destructive" />
-          ) : (
-            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          )}
-          <span
-            className={cn(
-              warranty.state === "expired" && "text-destructive",
-              warranty.state === "soon" && "text-amber-700 dark:text-amber-400"
-            )}
-          >
+          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <span className={cn(warranty.state === "soon" && "text-amber-700 dark:text-amber-400")}>
             {warrantyLabel ?? <span className="text-muted-foreground">Warranty: not set</span>}
           </span>
         </div>
@@ -376,9 +414,48 @@ export function EditEquipmentForm({
           {saving ? "Saving..." : "Save"}
         </Button>
         {canDelete && (
-          <Button type="button" variant="outline" onClick={handleDelete} disabled={deleting}>
-            {deleting ? "Deleting..." : "Delete equipment"}
-          </Button>
+          <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <DialogTrigger
+              render={
+                <Button type="button" variant="outline">
+                  Delete equipment
+                </Button>
+              }
+            />
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete this equipment?</DialogTitle>
+                <DialogDescription>
+                  This permanently deletes {equipment.name}&apos;s service requests, activity,
+                  documents and signatures — there&apos;s no undo. Its QR sticker isn&apos;t
+                  destroyed: it becomes an unclaimed code you can attach to a different unit
+                  instead of printing a new one.
+                </DialogDescription>
+              </DialogHeader>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setDeleteDialogOpen(false)}
+                  disabled={deleting || retiring}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={deleting || retiring}
+                >
+                  {deleting ? "Deleting..." : "Delete permanently"}
+                </Button>
+                <Button type="button" onClick={handleMarkRetired} disabled={deleting || retiring}>
+                  {retiring ? "Marking retired..." : "Mark retired instead"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </form>

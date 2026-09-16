@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { AlertTriangle, HardHat, Upload } from "lucide-react";
+import { AlertTriangle, HardHat, ShieldCheck, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,18 @@ function searchFilter(term: string): string {
   return SEARCH_COLUMNS.map((column) => `${column}.ilike.%${safe}%`).join(",");
 }
 
+/**
+ * A sticker's short code is stored undashed ("AB3D9F2K" — see
+ * supabase/migrations/0013_now_roadmap_foundation.sql), but it's always
+ * *displayed* with a dash ("AB3D-9F2K"), so someone searching by a code read
+ * off a physical sticker will very likely type the dash. Strip everything
+ * but letters/digits so both forms match the stored column
+ * (docs/QOL-CONTINUITY-BRIEF.md item 11 / Q-31).
+ */
+function shortCodeSearchTerm(term: string): string {
+  return term.replace(/[^a-zA-Z0-9]/g, "");
+}
+
 function pageHref(params: URLSearchParams, page: number): string {
   const next = new URLSearchParams(params);
   if (page <= 1) {
@@ -91,8 +103,28 @@ export default async function EquipmentPage({
     .order("created_at", { ascending: false })
     .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
+  // Search also matches a sticker's short code (item 11 / Q-31) — someone
+  // standing at a unit can search what's printed on it. qr_codes has its own
+  // RLS ("Staff view own company qr codes"), so this needs no company filter.
+  const codeTerm = q ? shortCodeSearchTerm(q) : "";
+  const matchingCodeEquipmentIds: string[] = [];
+  if (codeTerm) {
+    const { data: matchingCodes } = await supabase
+      .from("qr_codes")
+      .select("equipment_id")
+      .ilike("short_code", `%${codeTerm}%`)
+      .not("equipment_id", "is", null)
+      .returns<{ equipment_id: string | null }[]>();
+    for (const code of matchingCodes ?? []) {
+      if (code.equipment_id) matchingCodeEquipmentIds.push(code.equipment_id);
+    }
+  }
+
   const orFilter = q ? searchFilter(q) : "";
-  if (orFilter) query = query.or(orFilter);
+  const combinedFilter = [orFilter, ...matchingCodeEquipmentIds.map((id) => `id.eq.${id}`)]
+    .filter(Boolean)
+    .join(",");
+  if (combinedFilter) query = query.or(combinedFilter);
   if (typeFilter) query = query.eq("equipment_type_id", typeFilter);
   if (statusFilter) query = query.eq("status", statusFilter);
   if (isOwnerKind) {
@@ -283,21 +315,29 @@ export default async function EquipmentPage({
                             </div>
                           </TableCell>
                           <TableCell>
+                            {/* Warranty badge rule (docs/QOL-CONTINUITY-BRIEF.md §2 / Q-41):
+                                a badge only for "in warranty" (neutral/green) and "ends
+                                soon" (amber, within WARRANTY_SOON_DAYS). An expired
+                                warranty gets no list badge — that's normal, not alarming,
+                                and the detail page says so in neutral text instead. */}
                             <div className="flex flex-wrap items-center gap-1.5">
                               <EquipmentStatusBadge status={item.status} />
-                              {(warranty.state === "soon" || warranty.state === "expired") && (
+                              {warranty.state === "active" && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400"
+                                  title="Warranty active"
+                                >
+                                  <ShieldCheck className="size-3.5" />
+                                  In warranty
+                                </span>
+                              )}
+                              {warranty.state === "soon" && (
                                 <span
                                   className="inline-flex items-center gap-1 text-xs text-amber-700 dark:text-amber-400"
-                                  title={
-                                    warranty.state === "expired"
-                                      ? `Warranty expired ${warranty.days} days ago`
-                                      : `Warranty expires in ${warranty.days} days`
-                                  }
+                                  title={`Warranty expires in ${warranty.days} days`}
                                 >
                                   <AlertTriangle className="size-3.5" />
-                                  {warranty.state === "expired"
-                                    ? "Warranty expired"
-                                    : `Warranty ≤${WARRANTY_SOON_DAYS}d`}
+                                  Warranty ends ≤{WARRANTY_SOON_DAYS}d
                                 </span>
                               )}
                             </div>

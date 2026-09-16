@@ -132,8 +132,9 @@ describe("warranty helpers", () => {
     expect(warrantyState(null, now)).toEqual({ state: "none" });
     expect(warrantyState("2026-08-24", now)).toEqual({ state: "expired", days: 12 });
     expect(warrantyState("2026-09-05", now)).toEqual({ state: "soon", days: 0 });
-    expect(warrantyState("2026-10-05", now)).toEqual({ state: "soon", days: 30 });
-    expect(warrantyState("2026-10-06", now)).toEqual({ state: "active", days: 31 });
+    // WARRANTY_SOON_DAYS = 60 (docs/QOL-CONTINUITY-BRIEF.md §2 / Q-41).
+    expect(warrantyState("2026-11-04", now)).toEqual({ state: "soon", days: 60 });
+    expect(warrantyState("2026-11-05", now)).toEqual({ state: "active", days: 61 });
   });
 
   it("formats for the detail page", () => {
