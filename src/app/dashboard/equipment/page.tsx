@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { AlertTriangle, HardHat, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -25,11 +26,12 @@ import type {
   Location,
   Vendor,
 } from "@/lib/types";
-import { getEntitlements, hasFeature } from "@/lib/billing";
+import { getEntitlements, hasFeature, planFor } from "@/lib/billing";
 import { FEATURES } from "@/lib/features";
 import { formatRelativeTime } from "@/lib/format";
 import { WARRANTY_SOON_DAYS, isEquipmentStatus, warrantyState } from "@/lib/equipment";
 import { getCurrentProfile } from "@/lib/auth";
+import { nextPlanUp, usageMetricsFor } from "@/lib/plan-usage";
 
 /** Rows per page. Big enough that most companies never paginate, small enough to stay fast. */
 const PAGE_SIZE = 50;
@@ -131,6 +133,21 @@ export default async function EquipmentPage({
   ]);
 
   const batchQrEnabled = FEATURES.batchQr && hasFeature(entitlements, "batchQr");
+  // Limits visible before work (docs/QOL-CONTINUITY-BRIEF.md item 6): an
+  // at-limit banner here, before anyone fills out the New equipment form
+  // only to hit assertCanAddEquipment()'s error on submit.
+  const plan = entitlements ? planFor(entitlements) : null;
+  const equipmentUsage =
+    entitlements && plan
+      ? usageMetricsFor({
+          kind: company.kind,
+          equipmentCount: entitlements.equipment_count,
+          memberCount: entitlements.member_count,
+          locationCount: entitlements.location_count,
+          plan,
+        }).find((s) => s.key === "equipment")
+      : undefined;
+  const upgradeTarget = plan ? nextPlanUp(company.kind, plan.id) : null;
   const typeById = new Map((equipmentTypes ?? []).map((t) => [t.id, t]));
   const customerById = new Map((customers ?? []).map((c) => [c.id, c]));
   const locationById = new Map((locations ?? []).map((l) => [l.id, l]));
@@ -185,6 +202,27 @@ export default async function EquipmentPage({
           </Suspense>
         </div>
       </div>
+
+      {equipmentUsage?.atLimit && (
+        <Alert variant="destructive">
+          <AlertTitle>
+            You&apos;ve reached the {equipmentUsage.limit}-unit limit of the {plan?.name} plan
+          </AlertTitle>
+          <AlertDescription>
+            {profile.role === "owner" ? (
+              <>
+                {upgradeTarget &&
+                  `Upgrade to ${upgradeTarget.name} for up to ${upgradeTarget.equipmentLimit} units. `}
+                <Link href="/dashboard/settings/billing">
+                  {upgradeTarget ? "View plans" : "Manage billing"}
+                </Link>
+              </>
+            ) : (
+              "Ask your account owner to upgrade the plan to add more equipment."
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <EquipmentFilters
         values={{ q, type: typeFilter, customer: customerFilter, location: locationFilter, status: statusFilter }}

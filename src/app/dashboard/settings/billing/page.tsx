@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getEntitlements, isLiveSubscriptionStatus, planFor } from "@/lib/billing";
 import { plansFor } from "@/lib/plans";
+import { recommendedPlanFor } from "@/lib/plan-usage";
 import { isStripeConfigured } from "@/lib/stripe";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
@@ -117,6 +118,16 @@ export default async function BillingPage() {
   const plan = planFor(entitlements);
   const hasActiveSubscription = isLiveSubscriptionStatus(subscription?.status);
   const cancelsAtPeriodEnd = !!subscription?.cancel_at_period_end;
+  // "Fits your usage" / "No active plan" when locked (docs/QOL-CONTINUITY-BRIEF.md
+  // item 7) — only computed while locked so a normal subscriber's cards never
+  // grow a recommendation badge they didn't ask for.
+  const recommendedPlanId = entitlements.is_locked
+    ? recommendedPlanFor({
+        kind: entitlements.company_kind,
+        equipmentCount: entitlements.equipment_count,
+        memberCount: entitlements.member_count,
+      }).id
+    : null;
 
   return (
     <div className="space-y-6">
@@ -147,7 +158,7 @@ export default async function BillingPage() {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle>Current plan: {plan.name}</CardTitle>
+            <CardTitle>{entitlements.is_locked ? "No active plan" : `Current plan: ${plan.name}`}</CardTitle>
             <Badge variant={statusBadgeVariant(entitlements.status)}>
               {STATUS_LABEL[entitlements.status] ?? entitlements.status}
             </Badge>
@@ -246,6 +257,7 @@ export default async function BillingPage() {
         stripeConfigured={stripeConfigured}
         onCheckout={createCheckoutSession}
         onOpenPortal={createPortalSession}
+        recommendedPlanId={recommendedPlanId}
       />
     </div>
   );

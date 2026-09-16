@@ -6,10 +6,12 @@ import { getEntitlements, planFor, type Entitlements } from "@/lib/billing";
 import type { Plan } from "@/lib/plans";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { StatusBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
 import { formatRelativeTime } from "@/lib/format";
 import { GettingStartedChecklist, type ChecklistItem } from "./getting-started-checklist";
 import { requiredChecklistItemsDone } from "@/lib/onboarding-checklist";
+import { anyNearLimit, usageMetricsFor } from "@/lib/plan-usage";
 import { vocabFor } from "@/lib/vocab";
 import type { Equipment, ServiceRequest } from "@/lib/types";
 
@@ -212,6 +214,21 @@ export default async function DashboardOverviewPage() {
 
   const plan = entitlements ? planFor(entitlements) : null;
   const usageLine = entitlements && plan ? buildUsageLine(entitlements, plan) : null;
+  // Limits visible before work (docs/QOL-CONTINUITY-BRIEF.md item 6): a
+  // usage card once any tracked metric crosses 80% of its plan limit, so
+  // growth toward a limit is visible well before the at-limit banners
+  // (equipment/locations pages) or assertCanAdd*()'s hard block kick in.
+  const usageStats =
+    entitlements && plan
+      ? usageMetricsFor({
+          kind: company.kind,
+          equipmentCount: entitlements.equipment_count,
+          memberCount: entitlements.member_count,
+          locationCount: entitlements.location_count,
+          plan,
+        })
+      : [];
+  const showUsageCard = anyNearLimit(usageStats);
 
   return (
     <div className="space-y-6">
@@ -220,6 +237,41 @@ export default async function DashboardOverviewPage() {
         <p className="text-muted-foreground">A quick snapshot of your account.</p>
         {usageLine && <p className="mt-1 text-sm text-muted-foreground">{usageLine}</p>}
       </div>
+
+      {showUsageCard && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardHeader>
+            <CardTitle className="text-base">Approaching your plan limit</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {usageStats
+              .filter((stat) => stat.nearLimit)
+              .map((stat) => (
+                <div key={stat.key} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>
+                      {stat.count} of {stat.limit} {stat.label}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {Math.round((stat.pct ?? 0) * 100)}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(100, (stat.pct ?? 0) * 100)}
+                    indicatorClassName={stat.atLimit ? "bg-destructive" : "bg-amber-500"}
+                  />
+                </div>
+              ))}
+            {profile.role === "owner" ? (
+              <Button size="sm" render={<Link href="/dashboard/settings/billing" />} nativeButton={false}>
+                View plans
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">Ask your account owner to upgrade the plan.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {!hasEquipment && !company.onboarding_dismissed_at && (
         <Card className="border-primary/30 bg-primary/5">
