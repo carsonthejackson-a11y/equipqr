@@ -93,6 +93,29 @@ export type TagStripMockProps = Omit<TagMockProps, "unit"> & {
   unit?: string;
 };
 
+export type TagMiniMockProps = {
+  /** Short code shown under the QR. */
+  code?: string;
+  className?: string;
+};
+
+/** 88px square minimal sticker: QR and short code only (the real 1" × 1" size — no company name or logo fits). */
+export function TagMiniMock({ code = "ABCD-2345", className }: TagMiniMockProps) {
+  return (
+    <div
+      aria-hidden="true"
+      className={cn(
+        "flex size-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] p-2 shadow-eq-md",
+        tileDefault,
+        className
+      )}
+    >
+      <FakeQr size={52} />
+      <div className="text-[8.5px] font-medium tracking-[0.02em]">{code}</div>
+    </div>
+  );
+}
+
 /** 176×88 strip label. */
 export function TagStripMock({ variant = "default", company, phone = "(214) 555-0142", unit = "Ice machine · Bar", className }: TagStripMockProps) {
   return (

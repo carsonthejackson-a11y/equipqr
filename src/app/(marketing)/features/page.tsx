@@ -27,14 +27,13 @@ import { Kicker, SectionHeader, headingClass } from "../_components/kicker";
 import { Panel } from "../_components/panel";
 import { Reveal } from "../_components/reveal";
 import { Section } from "../_components/section";
-import { TagMock, TagStripMock } from "../_components/tag-mock";
+import { TagMiniMock, TagMock, TagStripMock } from "../_components/tag-mock";
 import {
   AssistantMock,
   BatchMock,
   BrandingMock,
   GuideMock,
   HistoryMock,
-  InstructionTagMock,
   RequestEmailMock,
   RoutingMock,
 } from "./mocks";
@@ -105,30 +104,25 @@ const stickerLayouts = [
   {
     mock: <TagMock company="Metro Refrigeration" unit="Dish machine · Unit 3" />,
     name: "2 × 2 in · Square",
-    note: "Door panels, control housings. Largest QR: scans from across the line.",
-  },
-  {
-    mock: <InstructionTagMock />,
-    name: "2 × 2 in · Instruction",
-    note: "For customer-facing units. Three steps and your phone number on the tag itself.",
+    note: "The default. Door panels, control housings — largest QR, scans from across the line.",
   },
   {
     mock: <TagStripMock company="Metro Refrigeration" unit="Ice machine · Bar" />,
-    name: "1 × 2 in · Strip",
-    note: "Narrow trim, handles, cord tags, small countertop units.",
+    name: "3 × 2 in · Wide",
+    note: "The most room for your name and contact line, for units customers call about directly.",
   },
   {
-    mock: <TagStripMock variant="branded" company="Metro Refrigeration" />,
-    name: "1 × 2 in · Branded strip",
-    note: "Pro and above. Your logo, your wording, QR on the right.",
+    mock: <TagMiniMock />,
+    name: "1 × 1 in · Minimal",
+    note: "QR and short code only, for parts and trim too small for anything else.",
   },
 ];
 
 const stickerFacts = [
-  "Laminated polyester, permanent adhesive",
-  "Rated for heat, steam, and degreaser",
-  "Both sizes fit standard label sheets for self-printing",
+  "Every size fits standard label sheets for self-printing",
   "Layout set per equipment type, or per unit",
+  "We recommend weatherproof label stock for kitchens and wash-down areas",
+  "Print instantly — no ordering, no lead time",
 ];
 
 export default function FeaturesPage() {
@@ -329,7 +323,7 @@ export default function FeaturesPage() {
           >
             <p>
               Download a print-ready SVG or PNG the moment you add a unit, or print a batch of blank codes on a standard
-              label sheet before a route. Pro and above can order pre-printed batches.
+              label sheet before a route. Pro and above can generate and print batches ahead of time.
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-3 text-eq-text">
               <Icon icon={Scan} size={24} className="text-primary" />
@@ -349,11 +343,11 @@ export default function FeaturesPage() {
               <div className="max-w-[560px]">
                 <Kicker className="mb-[10px]">Sticker sizes</Kicker>
                 <h3 id="sizes-title" className={cn(headingClass["h3-row"], rowTitleClass)}>
-                  Two sizes, four layouts. Pick per equipment type.
+                  Three sizes to print yourself. Pick per equipment type.
                 </h3>
                 <p className="mt-3 text-[15px] leading-[1.6] text-eq-neutral-400">
                   {
-                    "A 2 × 2 in square for door panels and control housings, and a 1 × 2 in strip for narrow trim, handles, and cord tags. Every layout carries the QR code, who to call, and the unit. Printed on laminated polyester, so grease and the dish pit don't take them off."
+                    "A 2 × 2 in square for door panels and control housings, a 3 × 2 in size with more room for your name and number, and a 1 × 1 in minimal size for small parts and trim. Print any of them yourself, at true size, straight from the equipment page — no ordering, no waiting."
                   }
                 </p>
               </div>
