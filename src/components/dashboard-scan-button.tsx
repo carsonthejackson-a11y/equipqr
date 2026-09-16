@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { ScanLine } from "lucide-react";
 import { QrScanButton } from "@/components/qr-scan-button";
 import { Button } from "@/components/ui/button";
-import { normalizeQrCode } from "@/lib/short-code";
+import { normalizeShortCode } from "@/lib/short-code";
 
 /**
  * Q-50: a compact, icon-only Scan trigger for the mobile dashboard header —
@@ -19,7 +19,10 @@ export function DashboardScanButton() {
 
   return (
     <QrScanButton
-      onScan={(code) => router.push(`/e/${normalizeQrCode(code)}`)}
+      // An 8-character short code is normalized ("abcd-2345" → "ABCD2345");
+      // anything else (a legacy lowercase 24-hex token) passes through as-is,
+      // since uppercasing it would stop it resolving.
+      onScan={(code) => router.push(`/e/${encodeURIComponent(normalizeShortCode(code) ?? code.trim())}`)}
       trigger={
         <Button type="button" variant="outline" size="icon" className="size-11" aria-label="Scan QR code">
           <ScanLine className="size-5" />
