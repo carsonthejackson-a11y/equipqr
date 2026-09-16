@@ -4,7 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, MapPin, MessageSquare, MessageSquarePlus, Navigation, Phone, UserPlus } from "lucide-react";
+import {
+  ChevronDown,
+  Images,
+  Loader2,
+  MapPin,
+  MessageSquare,
+  MessageSquarePlus,
+  Navigation,
+  Phone,
+  UserPlus,
+} from "lucide-react";
 import { updateRequestStatus, addRequestNote, assignRequest } from "@/app/dashboard/requests/actions";
 import {
   REQUEST_STATUS_LABELS,
@@ -20,7 +30,7 @@ import { phoneHref } from "@/lib/branding";
 import { smsHref, telHref } from "@/lib/contact-links";
 import { firstNameOf, formatOnMyWaySms } from "@/lib/staff-scan";
 import { cn } from "@/lib/utils";
-import type { CompanyKind, RequestStatus, ServiceRequest } from "@/lib/types";
+import type { CompanyKind, MediaKind, RequestStatus, ServiceRequest } from "@/lib/types";
 import { CloseOutDialog } from "./close-out-dialog";
 import { sendOnMyWay } from "../staff-actions";
 
@@ -41,6 +51,7 @@ export function StaffRequestCard({
   companyName,
   technicianName,
   isLocked = false,
+  media = [],
 }: {
   qrToken: string;
   request: ServiceRequest;
@@ -54,11 +65,14 @@ export function StaffRequestCard({
   technicianName: string | null;
   /** C1-33: a locked company's staff can look, but every write action here is disabled. */
   isLocked?: boolean;
+  /** Q-48: signed URLs for this request's media (customer-submitted or a prior staff close-out attempt), fetched server-side by StaffScanView. */
+  media?: { url: string; caption: string | null; mediaType: MediaKind }[];
 }) {
   const router = useRouter();
   const [noteOpen, setNoteOpen] = useState(false);
   const [etaOpen, setEtaOpen] = useState(false);
   const [closeOutOpen, setCloseOutOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [noteBody, setNoteBody] = useState("");
   const [noteVisibleToCustomer, setNoteVisibleToCustomer] = useState(false);
   const [eta, setEta] = useState("30");
@@ -69,6 +83,7 @@ export function StaffRequestCard({
 
   const isAssignedToMe = request.assigned_to === staffUserId;
   const isOwnerKind = kind === "equipment_owner";
+  const hasDetails = media.length > 0 || !!request.ai_summary || request.troubleshooting_path.length > 0;
 
   async function handleStatusChange(status: RequestStatus) {
     setBusy("status");
@@ -141,6 +156,59 @@ export function StaffRequestCard({
       </div>
 
       <p className="line-clamp-3 text-sm">{request.description}</p>
+
+      {hasDetails && (
+        <button
+          type="button"
+          onClick={() => setDetailsOpen((v) => !v)}
+          aria-expanded={detailsOpen}
+          className="flex min-h-[44px] items-center gap-1.5 text-sm font-medium text-primary"
+        >
+          <Images className="size-4" aria-hidden />
+          {media.length > 0 ? `Photos (${media.length})` : "AI summary"}
+          <ChevronDown className={cn("size-4 transition-transform", detailsOpen && "rotate-180")} aria-hidden />
+        </button>
+      )}
+
+      {detailsOpen && hasDetails && (
+        <div className="space-y-3 rounded-lg border p-3 text-sm">
+          {media.length > 0 && (
+            <ul className="grid grid-cols-3 gap-2">
+              {media.map((item, index) => (
+                <li key={`${item.url}-${index}`}>
+                  <a href={item.url} target="_blank" rel="noreferrer">
+                    {/* Signed URL on the Supabase storage origin — not a next/image remote pattern. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.url}
+                      alt={item.caption ?? "Request photo"}
+                      className="aspect-square w-full rounded-lg border object-cover"
+                    />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+          {request.ai_summary && (
+            <div>
+              <p className="font-medium">AI summary</p>
+              <p className="whitespace-pre-wrap text-muted-foreground">{request.ai_summary}</p>
+            </div>
+          )}
+          {request.troubleshooting_path.length > 0 && (
+            <div>
+              <p className="font-medium">Troubleshooting path</p>
+              <ol className="space-y-1 text-muted-foreground">
+                {request.troubleshooting_path.map((entry, index) => (
+                  <li key={index}>
+                    {index + 1}. {entry.question} → <span className="text-foreground">{entry.answer}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
         <span>{request.contact_name}</span>
