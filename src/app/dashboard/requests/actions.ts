@@ -4,17 +4,22 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { requireActiveSubscription, getEntitlements } from "@/lib/billing";
-import { emitRequestActivity } from "@/lib/events";
-import { notifyRequesterOfStatus } from "@/lib/email/request-status";
+import { emitEquipmentEvent, emitRequestActivity } from "@/lib/events";
+import { brandingForEmail, buildRequestReceivedEmail, notifyRequesterOfStatus } from "@/lib/email/request-status";
 import { buildResolutionEmail } from "@/lib/email/resolution";
 import { sendEmail } from "@/lib/email/send";
+import { sendCompanyEmail } from "@/lib/email/company-email";
 import { publicEnv } from "@/lib/env";
+import { getRequestStatusUrl } from "@/lib/qr";
+import { vocabFor } from "@/lib/vocab";
+import { zonedWallTimeToUtcIso } from "@/lib/schedule";
 import {
   REQUEST_STATUS_LABELS,
   REQUEST_PRIORITY_LABELS,
   REQUEST_STATUS_ORDER,
   REQUEST_PRIORITY_ORDER,
 } from "@/components/status-badge";
+import { firstStaffRequestIssue, parseStaffRequestEquipmentQuery, staffRequestSchema } from "./staff-request";
 import type { Company, Equipment, Profile, RequestPriority, RequestStatus, ServiceRequest } from "@/lib/types";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -411,4 +416,261 @@ async function sendResolutionEmailTo(params: {
 }) {
   const { subject, html, text } = buildResolutionEmail(params);
   return sendEmail({ to: params.to, subject, html, text });
+}
+
+// ============================================================================
+// Log a phone-in request (Q-28, C1-26) — "New request" / "New work order" on
+// the inbox, equipment detail and customer detail. Kept as new, standalone
+// functions (createStaffRequest, searchEquipmentForRequest) rather than
+// folded into the actions above, per the brief: QoL-1 owns the
+// email-sending hunks already in this file, so this addition reuses their
+// builders (buildRequestReceivedEmail, brandingForEmail) instead of touching
+// notifyStatus()/closeServiceRequest()'s own email calls.
+// ============================================================================
+
+export type EquipmentSearchResult = {
+  id: string;
+  name: string;
+  serialNumber: string | null;
+  /** Free-text "location within site" (equipment.location) — distinct from location_id. */
+  location: string | null;
+  customerId: string | null;
+  customerName: string | null;
+};
+
+/**
+ * Unit search for the New-request picker: name/serial substring match, OR'd
+ * with an exact short-code match when the typed term looks like one (Q-31's
+ * "equipment search should match sticker short codes" rule, reused here).
+ * RLS scopes every lookup to the caller's own company. Returns at most 20
+ * matches, ordered by name.
+ */
+export async function searchEquipmentForRequest(term: string): Promise<EquipmentSearchResult[]> {
+  const parsed = parseStaffRequestEquipmentQuery(term);
+  if (!parsed.term && !parsed.shortCode) return [];
+
+  const supabase = await createClient();
+
+  let codeMatchIds: string[] = [];
+  if (parsed.shortCode) {
+    const { data: codes } = await supabase
+      .from("qr_codes")
+      .select("equipment_id")
+      .eq("short_code", parsed.shortCode)
+      .not("equipment_id", "is", null)
+      .returns<{ equipment_id: string | null }[]>();
+    codeMatchIds = (codes ?? []).flatMap((c) => (c.equipment_id ? [c.equipment_id] : []));
+  }
+
+  let query = supabase
+    .from("equipment")
+    .select("id, name, serial_number, location, customer_id")
+    .order("name")
+    .limit(20);
+
+  if (parsed.term) {
+    const escaped = parsed.term.replace(/[%_]/g, (m) => `\\${m}`).replace(/,/g, "");
+    const clauses = [`name.ilike.%${escaped}%`, `serial_number.ilike.%${escaped}%`];
+    if (codeMatchIds.length > 0) clauses.push(`id.in.(${codeMatchIds.join(",")})`);
+    query = query.or(clauses.join(","));
+  } else if (codeMatchIds.length > 0) {
+    query = query.in("id", codeMatchIds);
+  } else {
+    return [];
+  }
+
+  const { data: equipment } = await query.returns<
+    Pick<Equipment, "id" | "name" | "serial_number" | "location" | "customer_id">[]
+  >();
+  if (!equipment || equipment.length === 0) return [];
+
+  const customerIds = [...new Set(equipment.flatMap((e) => (e.customer_id ? [e.customer_id] : [])))];
+  const { data: customers } =
+    customerIds.length > 0
+      ? await supabase.from("customers").select("id, name").in("id", customerIds).returns<{ id: string; name: string }[]>()
+      : { data: [] as { id: string; name: string }[] };
+  const customerNameById = new Map((customers ?? []).map((c) => [c.id, c.name]));
+
+  return equipment.map((e) => ({
+    id: e.id,
+    name: e.name,
+    serialNumber: e.serial_number,
+    location: e.location,
+    customerId: e.customer_id,
+    customerName: e.customer_id ? (customerNameById.get(e.customer_id) ?? null) : null,
+  }));
+}
+
+export type StaffRequestContactDefaults = {
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+};
+
+/** Prefills the New-request sheet's contact fields once a unit is picked — the unit's own on-site contact first, falling back to its linked customer, mirroring resolveVisitContact()'s preference order for "log a visit" (src/lib/staff-scan.ts). */
+export async function getStaffRequestContactDefaults(equipmentId: string): Promise<StaffRequestContactDefaults> {
+  const supabase = await createClient();
+  const { profile } = await getCurrentProfile();
+
+  const { data: equipment } = await supabase
+    .from("equipment")
+    .select("contact_name, contact_phone, customer_id")
+    .eq("id", equipmentId)
+    .eq("company_id", profile.company_id)
+    .maybeSingle<Pick<Equipment, "contact_name" | "contact_phone" | "customer_id">>();
+
+  if (!equipment) return { contactName: "", contactEmail: "", contactPhone: "" };
+
+  let customer: { name: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null } | null = null;
+  if (equipment.customer_id) {
+    const { data } = await supabase
+      .from("customers")
+      .select("name, contact_name, contact_email, contact_phone")
+      .eq("id", equipment.customer_id)
+      .maybeSingle();
+    customer = data ?? null;
+  }
+
+  return {
+    contactName: equipment.contact_name?.trim() || customer?.contact_name?.trim() || customer?.name?.trim() || "",
+    contactEmail: customer?.contact_email?.trim() || "",
+    contactPhone: equipment.contact_phone?.trim() || customer?.contact_phone?.trim() || "",
+  };
+}
+
+export type CreateStaffRequestResult = { error: string } | { success: true; id: string; statusEmailSent: boolean };
+
+/**
+ * Logs a request from the office — a call, an email, someone stopping by —
+ * that has no public scan behind it. Mirrors createVisitRequest()'s
+ * ("log a visit", src/app/e/[qrToken]/staff-actions.ts) shape: `source:
+ * "staff"` (0020's RLS already allows a staff insert), the same
+ * request_submitted equipment event. Unlike that action, this one ALSO
+ * writes the customer-visible "Request received" activity row the public
+ * scan path writes and createVisitRequest doesn't — an office-logged
+ * request should show the same opening line on the customer's /r/<token>
+ * page as one they submitted themselves.
+ */
+export async function createStaffRequest(formData: FormData): Promise<CreateStaffRequestResult> {
+  const parsed = staffRequestSchema.safeParse({
+    equipmentId: formData.get("equipmentId"),
+    description: formData.get("description"),
+    contactName: formData.get("contactName"),
+    contactEmail: formData.get("contactEmail"),
+    contactPhone: formData.get("contactPhone"),
+    priority: formData.get("priority") || undefined,
+    scheduleDate: formData.get("scheduleDate"),
+    scheduleTime: formData.get("scheduleTime"),
+    sendStatusEmail: formData.get("sendStatusEmail") === "on",
+  });
+
+  if (!parsed.success) {
+    return { error: firstStaffRequestIssue(parsed.error) };
+  }
+  const input = parsed.data;
+
+  const supabase = await createClient();
+  const { profile, company } = await getCurrentProfile();
+
+  const { data: equipment } = await supabase
+    .from("equipment")
+    .select("*")
+    .eq("id", input.equipmentId)
+    .eq("company_id", profile.company_id)
+    .maybeSingle<Equipment>();
+
+  if (!equipment) {
+    return { error: "That unit couldn't be found" };
+  }
+
+  const scheduledFor = input.scheduleDate
+    ? zonedWallTimeToUtcIso(input.scheduleDate, input.scheduleTime || "09:00", company.timezone)
+    : null;
+
+  const { data: inserted, error } = await supabase
+    .from("service_requests")
+    .insert({
+      company_id: profile.company_id,
+      equipment_id: equipment.id,
+      customer_id: equipment.customer_id,
+      location_id: equipment.location_id,
+      description: input.description,
+      contact_name: input.contactName,
+      contact_email: input.contactEmail || null,
+      contact_phone: input.contactPhone || null,
+      status: scheduledFor ? "scheduled" : "new",
+      priority: input.priority,
+      source: "staff",
+      scheduled_for: scheduledFor,
+    })
+    .select("id, public_token")
+    .single<{ id: string; public_token: string }>();
+
+  if (error || !inserted) {
+    return { error: error?.message ?? "Couldn't log this request" };
+  }
+
+  const vocab = vocabFor(company.kind);
+  const loggedByFirstName = profile.full_name?.trim()?.split(" ")[0] || "staff";
+
+  await Promise.all([
+    emitEquipmentEvent(supabase, {
+      companyId: profile.company_id,
+      equipmentId: equipment.id,
+      kind: "request_submitted",
+      summary: `${vocab.requestSingular} logged by ${loggedByFirstName}`,
+      serviceRequestId: inserted.id,
+      actorKind: "staff",
+      actorUserId: profile.id,
+    }),
+    emitRequestActivity(supabase, {
+      companyId: profile.company_id,
+      serviceRequestId: inserted.id,
+      kind: "status_change",
+      visibility: "customer",
+      body: "Request received",
+      authorKind: "staff",
+      authorUserId: profile.id,
+    }),
+  ]);
+
+  let statusEmailSent = false;
+  if (input.sendStatusEmail && input.contactEmail) {
+    if (company.customer_updates_enabled) {
+      const entitlements = await getEntitlements();
+      const brand = brandingForEmail({
+        company,
+        planId: entitlements?.plan_id ?? null,
+        supabaseUrl: publicEnv.NEXT_PUBLIC_SUPABASE_URL,
+      });
+      const { subject, html, text } = buildRequestReceivedEmail({
+        brand,
+        equipmentName: equipment.name,
+        contactName: input.contactName,
+        statusUrl: getRequestStatusUrl(inserted.public_token),
+      });
+      const sent = await sendCompanyEmail({ company, to: input.contactEmail, subject, html, text });
+      statusEmailSent = sent.sent;
+    }
+
+    if (statusEmailSent) {
+      await emitRequestActivity(supabase, {
+        companyId: profile.company_id,
+        serviceRequestId: inserted.id,
+        kind: "email_sent",
+        visibility: "internal",
+        body: `Status link emailed to ${input.contactEmail}`,
+        metadata: { to: input.contactEmail },
+        authorKind: "system",
+        authorUserId: profile.id,
+      });
+    }
+  }
+
+  revalidateRequest(inserted.id);
+  revalidatePath(`/dashboard/equipment/${equipment.id}`);
+  if (equipment.customer_id) revalidatePath(`/dashboard/customers/${equipment.customer_id}`);
+  revalidatePath("/dashboard/today");
+
+  return { success: true, id: inserted.id, statusEmailSent };
 }
