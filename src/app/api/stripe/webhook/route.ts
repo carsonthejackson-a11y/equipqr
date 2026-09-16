@@ -159,6 +159,18 @@ async function upsertSubscription(
   // it exactly like an unmapped price: log it and ignore just the price,
   // not the whole event, rather than writing a plan the company's own kind
   // can never actually use (C1-39).
+  //
+  // IMPORTANT: this can only ever fire for an EXPLICIT mapping to the wrong
+  // kind — `if (planInfo)` below means an unmapped price (planInfo === null,
+  // e.g. one of the four owner prices before STRIPE_PRICE_SITE_* /
+  // STRIPE_PRICE_MULTI_SITE_* are set in production) never reaches this
+  // block at all, and behaves exactly as it did before this check existed:
+  // logged above, plan_id/interval left alone, nothing else about the event
+  // affected. Neither path ever blocks activation — get_company_entitlements()
+  // computes is_locked from subscriptions.status/trial_ends_at alone, never
+  // from plan_id, so a null plan_id just falls back to the kind's floor plan
+  // (starter/free) until a later event resolves it, rather than locking the
+  // account out.
   let kindMismatch = false;
   if (planInfo) {
     const companyKind = await resolveCompanyKind(companyId, admin);

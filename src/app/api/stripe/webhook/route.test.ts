@@ -208,4 +208,65 @@ describe("POST /api/stripe/webhook — plan kind guard (C1-39)", () => {
     expect(response.status).toBe(200);
     expect(admin.upsertCalls[0]).toMatchObject({ plan_id: "multi_site", interval: "month" });
   });
+
+  // Coordinator review: the kind guard must NEVER treat an unmapped price
+  // (e.g. one of the four owner prices before they're set in production) as
+  // a kind mismatch — only an explicit mapping to the OTHER kind's plan
+  // counts. These lock in that an unmapped price behaves exactly as it did
+  // before this guard existed: logged once, plan_id/interval left alone,
+  // event otherwise unaffected, 200 either way.
+  it("an unmapped price (matches no configured plan at all) is never treated as a kind mismatch", async () => {
+    const admin = fakeAdmin({
+      companyById: { "co-provider": { id: "co-provider", kind: "service_provider" } },
+      existing: { updated_at: "2020-01-01T00:00:00Z", stripe_subscription_id: "sub_old" },
+    });
+    createAdminClientMock.mockReturnValue({ from: admin.from });
+    constructEventMock.mockReturnValue(
+      subscriptionUpdatedEvent({
+        subscriptionId: "sub_5",
+        // Matches none of the STRIPE_PRICE_* env vars set in beforeEach —
+        // e.g. an owner price before STRIPE_PRICE_SITE_*/MULTI_SITE_* are
+        // configured in production, or any other stale/unknown price.
+        priceId: "price_totally_unconfigured",
+        companyId: "co-provider",
+      })
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { POST } = await import("./route");
+    const response = await POST(webhookRequest());
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ received: true });
+    expect(admin.upsertCalls).toHaveLength(1);
+    const row = admin.upsertCalls[0];
+    expect(row).not.toHaveProperty("plan_id");
+    expect(row).not.toHaveProperty("interval");
+    expect(row.status).toBe("active");
+    // Exactly the pre-existing "unmapped price" log — never the kind-mismatch one.
+    expect(errorSpy).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("doesn't match any configured STRIPE_PRICE_* env var")
+    );
+    errorSpy.mockRestore();
+  });
+
+  it("an unmapped price on a brand-new row falls back to null plan_id/interval, same as before this guard existed", async () => {
+    const admin = fakeAdmin({
+      companyById: { "co-owner": { id: "co-owner", kind: "equipment_owner" } },
+      existing: null,
+    });
+    createAdminClientMock.mockReturnValue({ from: admin.from });
+    constructEventMock.mockReturnValue(
+      subscriptionUpdatedEvent({ subscriptionId: "sub_6", priceId: "price_totally_unconfigured", companyId: "co-owner" })
+    );
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { POST } = await import("./route");
+    const response = await POST(webhookRequest());
+
+    expect(response.status).toBe(200);
+    expect(admin.upsertCalls[0]).toMatchObject({ plan_id: null, interval: null });
+    errorSpy.mockRestore();
+  });
 });
