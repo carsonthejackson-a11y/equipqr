@@ -69,13 +69,36 @@ export default async function DashboardOverviewPage() {
   const tomorrowStartIso = zonedWallTimeToUtcIso(addDaysToDateOnly(today, 1), "00:00", company.timezone);
   const pmDueByDate = addDaysToDateOnly(today, 7);
 
+  // Request-bucket counts run in their own batch: the bucket appliers are
+  // generic over PostgREST's filter-builder type, and inferring a single
+  // 20-element Promise.all tuple through them exceeds TypeScript's
+  // instantiation depth (TS2589). Each count shares its predicate with the
+  // inbox's own `?bucket=<key>` filter (REQUEST_BUCKETS,
+  // src/lib/request-queries.ts), so a card's number and the list its link
+  // opens can never drift.
+  const requestCountQuery = () => supabase.from("service_requests").select("*", { count: "exact", head: true });
+  const countOf = async (query: PromiseLike<{ count: number | null }>): Promise<number | null> => (await query).count;
+  const [
+    openRequestCount,
+    unassignedOpenCount,
+    urgentOpenCount,
+    unreadMessagesCount,
+    // "No vendor response yet" — open + dispatch_status sent/viewed.
+    noVendorResponseCount,
+    // Visits scheduled for today (company time) that are still open.
+    todayVisitCount,
+  ] = await Promise.all([
+    countOf(REQUEST_BUCKETS.open.apply(requestCountQuery())),
+    countOf(REQUEST_BUCKETS.unassigned.apply(requestCountQuery())),
+    countOf(REQUEST_BUCKETS.urgent.apply(requestCountQuery())),
+    countOf(REQUEST_BUCKETS.unreadMessages.apply(requestCountQuery())),
+    countOf(REQUEST_BUCKETS.awaitingVendor.apply(requestCountQuery())),
+    countOf(applyOpen(requestCountQuery()).gte("scheduled_for", todayStartIso).lt("scheduled_for", tomorrowStartIso)),
+  ]);
+
   const [
     { count: equipmentCount },
     { count: typeCount },
-    { count: openRequestCount },
-    { count: unassignedOpenCount },
-    { count: urgentOpenCount },
-    { count: unreadMessagesCount },
     { count: customerCount },
     { count: scanCount },
     { count: guideStepCount },
@@ -84,10 +107,6 @@ export default async function DashboardOverviewPage() {
     entitlements,
     { count: locationCount },
     { count: vendorCount },
-    // "No vendor response yet" mirrors the cron's own eligibility set
-    // (docs/OWNER-ROADMAP-BRIEF.md §2.2 dispatch_sla_check: status in
-    // ('sent', 'viewed')) — sent to the vendor but not yet acknowledged.
-    { count: noVendorResponseCount },
     // Truthful "printed" for the checklist (item 4): having a code LINKED to
     // a unit isn't "printed" — qr_codes.label_printed_at is only set once the
     // Print button, or a PNG/SVG download, actually fires (label/print-button.tsx,
@@ -96,10 +115,6 @@ export default async function DashboardOverviewPage() {
     // All-time, unlike the 30-day scanCount stat card above — a checklist
     // item should stay "done" once true, not flip back off after a month.
     { count: everScannedCount },
-    // Overview for daily use (item 5): visits scheduled for today, company
-    // time, still open. Provider-kind card only (below), but cheap enough
-    // to compute unconditionally.
-    { count: todayVisitCount },
     // PM schedules due within 7 days, including any already overdue — the
     // same "needs attention now" set the maintenance page's own
     // overdue/dueSoon badges draw from.
@@ -107,19 +122,6 @@ export default async function DashboardOverviewPage() {
   ] = await Promise.all([
     supabase.from("equipment").select("*", { count: "exact", head: true }),
     supabase.from("equipment_types").select("*", { count: "exact", head: true }),
-    // The four request buckets below share their predicate with the inbox's
-    // own `?bucket=<key>` filter (REQUEST_BUCKETS, src/lib/request-queries.ts)
-    // — the same applier builds this count and the link each card points
-    // to, so the number on the card and what the link shows can never drift.
-    REQUEST_BUCKETS.open.apply(supabase.from("service_requests").select("*", { count: "exact", head: true })),
-    REQUEST_BUCKETS.unassigned.apply(
-      supabase.from("service_requests").select("*", { count: "exact", head: true })
-    ),
-    REQUEST_BUCKETS.urgent.apply(supabase.from("service_requests").select("*", { count: "exact", head: true })),
-    // Next roadmap: two-way messaging unread counter (migration 0019).
-    REQUEST_BUCKETS.unreadMessages.apply(
-      supabase.from("service_requests").select("*", { count: "exact", head: true })
-    ),
     supabase.from("customers").select("*", { count: "exact", head: true }),
     supabase.from("scan_events").select("*", { count: "exact", head: true }).gte("scanned_at", thirtyDaysAgoIso),
     supabase.from("guide_steps").select("*", { count: "exact", head: true }),
@@ -137,21 +139,12 @@ export default async function DashboardOverviewPage() {
     getEntitlements(),
     supabase.from("locations").select("*", { count: "exact", head: true }).eq("active", true),
     supabase.from("vendors").select("*", { count: "exact", head: true }).eq("active", true),
-    // "No vendor response yet" — REQUEST_BUCKETS.awaitingVendor (open +
-    // dispatch_status sent/viewed): a stricter, canonical version of the
-    // hand-rolled dispatch_status-only query this replaced.
-    REQUEST_BUCKETS.awaitingVendor.apply(
-      supabase.from("service_requests").select("*", { count: "exact", head: true })
-    ),
     supabase
       .from("qr_codes")
       .select("*", { count: "exact", head: true })
       .not("equipment_id", "is", null)
       .not("label_printed_at", "is", null),
     supabase.from("scan_events").select("*", { count: "exact", head: true }),
-    applyOpen(supabase.from("service_requests").select("*", { count: "exact", head: true }))
-      .gte("scheduled_for", todayStartIso)
-      .lt("scheduled_for", tomorrowStartIso),
     supabase
       .from("maintenance_schedules")
       .select("*", { count: "exact", head: true })
