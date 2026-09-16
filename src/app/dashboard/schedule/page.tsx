@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { CalendarClock, ClipboardList, Wrench } from "lucide-react";
+import { CalendarClock, CalendarDays, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { PriorityBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
+import { VisitsMaintenanceTabs } from "./visits-maintenance-tabs";
 import {
   addDaysToDateOnly,
   dateKeyInTimeZone,
@@ -132,14 +134,15 @@ export default async function SchedulePage({
           <h1 className="text-2xl font-semibold">Schedule</h1>
           <p className="text-muted-foreground">Scheduled visits for the week, in {company.timezone}.</p>
         </div>
-        <Link
-          href="/dashboard/maintenance"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground hover:underline"
-        >
-          <Wrench className="size-4" />
-          Preventive maintenance
-        </Link>
+        {company.kind !== "equipment_owner" && (
+          <Button variant="outline" nativeButton={false} render={<Link href="/dashboard/today" />}>
+            <CalendarDays className="size-4" />
+            Today
+          </Button>
+        )}
       </div>
+
+      <VisitsMaintenanceTabs active="visits" />
 
       <ScheduleFilters weekStart={weekStart} today={today} members={members} />
 
