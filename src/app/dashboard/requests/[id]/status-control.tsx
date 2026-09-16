@@ -14,7 +14,24 @@ import type { RequestStatus } from "@/lib/types";
 import { updateRequestStatus } from "../actions";
 import { CancelRequestDialog } from "./cancel-request-dialog";
 
-export function StatusControl({ requestId, status }: { requestId: string; status: RequestStatus }) {
+export function StatusControl({
+  requestId,
+  status,
+  onResolveRequested,
+}: {
+  requestId: string;
+  status: RequestStatus;
+  /**
+   * QoL-4/Q-14: picking "Resolved" opens the close-out dialog instead of
+   * transitioning straight away, so a summary always gets captured.
+   * Optional and additive — when omitted, this keeps its old behaviour
+   * (updateRequestStatus() directly), so any other caller of this component
+   * isn't forced onto the new flow. The caller decides what "resolved"
+   * actually results in (requests/[id]/request-header-actions.tsx opens
+   * CloseRequestDialog).
+   */
+  onResolveRequested?: () => void;
+}) {
   const [isPending, startTransition] = useTransition();
   const [cancelOpen, setCancelOpen] = useState(false);
 
@@ -22,11 +39,14 @@ export function StatusControl({ requestId, status }: { requestId: string; status
     if (!value || value === status) return;
 
     // Canceling needs a reason, so it goes through its own dialog instead of
-    // firing straight away. Resolving is still allowed here (the DB trigger
-    // stamps resolved_at either way) even though the close-out dialog is the
-    // better path for leaving a summary.
+    // firing straight away.
     if (value === "canceled") {
       setCancelOpen(true);
+      return;
+    }
+
+    if (value === "resolved" && onResolveRequested) {
+      onResolveRequested();
       return;
     }
 

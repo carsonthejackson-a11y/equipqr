@@ -19,10 +19,13 @@ export function ActivityPanel({
   items,
   staffNameById,
   requestId,
+  hasContactEmail = true,
 }: {
   items: RequestActivity[];
   staffNameById: Map<string, string>;
   requestId: string;
+  /** C1-02: threaded through to AddNoteForm — see its own doc comment. */
+  hasContactEmail?: boolean;
 }) {
   const formRef = useRef<AddNoteFormHandle>(null);
 
@@ -42,7 +45,7 @@ export function ActivityPanel({
       </div>
       <ActivityFeed items={items} staffNameById={staffNameById} />
       <Separator />
-      <AddNoteForm ref={formRef} requestId={requestId} />
+      <AddNoteForm ref={formRef} requestId={requestId} hasContactEmail={hasContactEmail} />
     </div>
   );
 }

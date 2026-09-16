@@ -15,10 +15,19 @@ export type AddNoteFormHandle = {
   replyToCustomer: () => void;
 };
 
-export const AddNoteForm = forwardRef<AddNoteFormHandle, { requestId: string }>(function AddNoteForm(
-  { requestId },
-  ref
-) {
+export const AddNoteForm = forwardRef<
+  AddNoteFormHandle,
+  {
+    requestId: string;
+    /**
+     * C1-02: "Visible to customer — emails them too" is only true when
+     * there's actually a contact email on this request to send it to
+     * (owner-kind work orders routinely have none). Defaults to true so
+     * every other existing caller keeps its current copy.
+     */
+    hasContactEmail?: boolean;
+  }
+>(function AddNoteForm({ requestId, hasContactEmail = true }, ref) {
   const router = useRouter();
   const [body, setBody] = useState("");
   const [visibleToCustomer, setVisibleToCustomer] = useState(false);
@@ -49,7 +58,7 @@ export const AddNoteForm = forwardRef<AddNoteFormHandle, { requestId: string }>(
       return;
     }
 
-    toast.success(visibleToCustomer ? "Note added and emailed to the customer" : "Note added");
+    toast.success(visibleToCustomer && hasContactEmail ? "Note added and emailed to the customer" : "Note added");
     setBody("");
     setVisibleToCustomer(false);
     router.refresh();
@@ -73,7 +82,7 @@ export const AddNoteForm = forwardRef<AddNoteFormHandle, { requestId: string }>(
             onCheckedChange={(checked) => setVisibleToCustomer(checked === true)}
           />
           <Label htmlFor="visibleToCustomer" className="font-normal">
-            Visible to customer{visibleToCustomer ? " — emails them too" : ""}
+            Visible to customer{visibleToCustomer && hasContactEmail ? " — emails them too" : ""}
           </Label>
         </div>
         <Button type="submit" size="sm" disabled={submitting || !body.trim()}>
