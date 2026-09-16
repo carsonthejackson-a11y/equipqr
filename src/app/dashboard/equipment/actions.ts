@@ -319,15 +319,25 @@ export async function updateEquipment(
 }
 
 export async function deleteEquipment(id: string) {
-  // Technicians can edit a unit all day; retiring one from the system is an
-  // owner decision (the QR sticker in the field stops resolving).
+  // Technicians can edit a unit all day; deleting one from the system is an
+  // owner decision — see the delete dialog in ../[id]/edit-equipment-form.tsx
+  // for the true semantics a caller is shown before this runs
+  // (docs/QOL-CONTINUITY-BRIEF.md §2 / Q-13).
   const owner = await requireOwner();
   if (!owner) {
     return { error: "Only company owners can delete equipment." };
   }
 
   const supabase = await createClient();
-  // equipment_events / equipment_documents / qr_codes all cascade on delete.
+  // service_requests / equipment_events / equipment_documents all `on delete
+  // cascade` off equipment_id (supabase/migrations/0001_init.sql,
+  // 0013_now_roadmap_foundation.sql) — every request (and the signatures
+  // that live on it), timeline entry and document goes with the unit,
+  // permanently. qr_codes is the one exception: its equipment_id FK is
+  // `on delete set null` (0004_qr_code_pool.sql), so the sticker's row
+  // survives with equipment_id cleared — resolve_qr_code() then reports it
+  // as 'unclaimed' (status is untouched, so it's still 'active') rather than
+  // 'retired' or broken, exactly like a fresh pool code.
   const { error } = await supabase.from("equipment").delete().eq("id", id);
 
   if (error) {

@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { NewEquipmentTypeDialog } from "./new-type-dialog";
@@ -23,13 +25,20 @@ export default async function EquipmentTypesPage() {
             Reusable troubleshooting guide templates — one per model or category.
           </p>
         </div>
-        <NewEquipmentTypeDialog />
+        <Suspense fallback={<Button disabled>New equipment type</Button>}>
+          <NewEquipmentTypeDialog />
+        </Suspense>
       </div>
 
       {!types || types.length === 0 ? (
         <EmptyState
           icon={Wrench}
           message="No equipment types yet. Create one to start building a troubleshooting guide."
+          action={
+            <Button render={<Link href="/dashboard/equipment-types?new=1" />} nativeButton={false}>
+              Create your first type
+            </Button>
+          }
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

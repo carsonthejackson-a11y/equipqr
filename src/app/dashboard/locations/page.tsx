@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,13 +15,18 @@ import {
 import { EmptyState } from "@/components/empty-state";
 import { NewLocationDialog } from "./new-location-dialog";
 import type { Equipment, Location } from "@/lib/types";
+import { getCurrentProfile } from "@/lib/auth";
+import { getEntitlements, planFor } from "@/lib/billing";
+import { nextPlanUp, usageMetricsFor } from "@/lib/plan-usage";
 
 export default async function LocationsPage() {
   const supabase = await createClient();
+  const { profile, company } = await getCurrentProfile();
 
-  const [{ data: locations }, { data: equipment }] = await Promise.all([
+  const [{ data: locations }, { data: equipment }, entitlements] = await Promise.all([
     supabase.from("locations").select("*").order("name").returns<Location[]>(),
     supabase.from("equipment").select("id, location_id").returns<Pick<Equipment, "id" | "location_id">[]>(),
+    getEntitlements(),
   ]);
 
   const unitCountByLocation = new Map<string, number>();
@@ -28,6 +34,22 @@ export default async function LocationsPage() {
     if (!item.location_id) continue;
     unitCountByLocation.set(item.location_id, (unitCountByLocation.get(item.location_id) ?? 0) + 1);
   }
+
+  // Limits visible before work (docs/QOL-CONTINUITY-BRIEF.md item 6) — a
+  // no-op for service_provider companies, whose plans all have a null
+  // (unlimited) locationLimit.
+  const plan = entitlements ? planFor(entitlements) : null;
+  const locationsUsage =
+    entitlements && plan
+      ? usageMetricsFor({
+          kind: company.kind,
+          equipmentCount: entitlements.equipment_count,
+          memberCount: entitlements.member_count,
+          locationCount: entitlements.location_count,
+          plan,
+        }).find((s) => s.key === "locations")
+      : undefined;
+  const upgradeTarget = plan ? nextPlanUp(company.kind, plan.id) : null;
 
   return (
     <div className="space-y-6">
@@ -40,6 +62,27 @@ export default async function LocationsPage() {
         </div>
         <NewLocationDialog />
       </div>
+
+      {locationsUsage?.atLimit && (
+        <Alert variant="destructive">
+          <AlertTitle>
+            You&apos;ve reached the {locationsUsage.limit}-location limit of the {plan?.name} plan
+          </AlertTitle>
+          <AlertDescription>
+            {profile.role === "owner" ? (
+              <>
+                {upgradeTarget &&
+                  `Upgrade to ${upgradeTarget.name} for up to ${upgradeTarget.locationLimit} locations. `}
+                <Link href="/dashboard/settings/billing">
+                  {upgradeTarget ? "View plans" : "Manage billing"}
+                </Link>
+              </>
+            ) : (
+              "Ask your account owner to upgrade the plan to add more locations."
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       {!locations || locations.length === 0 ? (
         <EmptyState

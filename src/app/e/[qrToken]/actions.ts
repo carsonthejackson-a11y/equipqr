@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { assertCanAddEquipment } from "@/lib/billing";
 import { emitEquipmentEvent } from "@/lib/events";
@@ -35,15 +34,19 @@ function nullable(formData: FormData, key: string): string | null {
 /**
  * Scan-to-onboard (./onboard/onboard-flow.tsx): creates a brand-new unit from
  * the nameplate-prefilled (or hand-filled) form and claims this still-unclaimed
- * sticker to it in one step, then lands back on the staff scan view. Staff-only
- * — ./onboard/page.tsx already checked the caller is signed in as a member of
- * this code's company before rendering the form that posts here, but every
- * check is repeated here too since a server action is directly callable.
+ * sticker to it in one step. Staff-only — ./onboard/page.tsx already checked
+ * the caller is signed in as a member of this code's company before rendering
+ * the form that posts here, but every check is repeated here too since a
+ * server action is directly callable.
+ *
+ * Returns rather than redirects on success (docs/QOL-CONTINUITY-BRIEF.md item
+ * 3 / Q-55) so the client can offer "scan the next sticker" — carrying the
+ * type/customer just picked along — instead of always leaving the page.
  */
 export async function onboardEquipment(
   token: string,
   formData: FormData
-): Promise<{ error: string } | undefined> {
+): Promise<{ error: string } | { success: true; equipmentId: string }> {
   const name = text(formData, "name");
   const equipmentTypeId = text(formData, "equipmentTypeId");
   if (!name || !equipmentTypeId) {
@@ -153,5 +156,5 @@ export async function onboardEquipment(
     };
   }
 
-  redirect(`/e/${token}`);
+  return { success: true, equipmentId: equipment.id };
 }

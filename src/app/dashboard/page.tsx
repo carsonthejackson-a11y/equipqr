@@ -1,15 +1,21 @@
 import Link from "next/link";
-import { ScanLine } from "lucide-react";
+import { QrCode, ScanLine } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { getEntitlements, planFor, type Entitlements } from "@/lib/billing";
 import type { Plan } from "@/lib/plans";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatusBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
+import { Progress } from "@/components/ui/progress";
+import { StatusBadge } from "@/components/status-badge";
 import { formatRelativeTime } from "@/lib/format";
+import { addDaysToDateOnly, todayInTimeZone, zonedWallTimeToUtcIso } from "@/lib/schedule";
+import { applyOpen, REQUEST_BUCKETS } from "@/lib/request-queries";
 import { GettingStartedChecklist, type ChecklistItem } from "./getting-started-checklist";
+import { requiredChecklistItemsDone } from "@/lib/onboarding-checklist";
+import { anyNearLimit, usageMetricsFor } from "@/lib/plan-usage";
 import { vocabFor } from "@/lib/vocab";
-import type { Equipment, ServiceRequest } from "@/lib/types";
+import type { Customer, Location, Profile, ServiceRequest } from "@/lib/types";
 
 type MonthlyRequestRow = { created_at: string; resolved_at: string | null };
 
@@ -54,6 +60,14 @@ export default async function DashboardOverviewPage() {
   const vocab = vocabFor(company.kind);
 
   const { sixtyDaysAgoIso, thirtyDaysAgoIso, startOfThisMonth, startOfLastMonth } = getDateWindows();
+  // Overview for daily use (docs/QOL-CONTINUITY-BRIEF.md item 5): today's
+  // and the PM-due window's boundaries, in the company's own timezone
+  // (src/lib/schedule.ts — the same helpers src/app/dashboard/maintenance/page.tsx
+  // already uses for "due soon"), not the server's.
+  const today = todayInTimeZone(company.timezone);
+  const todayStartIso = zonedWallTimeToUtcIso(today, "00:00", company.timezone);
+  const tomorrowStartIso = zonedWallTimeToUtcIso(addDaysToDateOnly(today, 1), "00:00", company.timezone);
+  const pmDueByDate = addDaysToDateOnly(today, 7);
 
   const [
     { count: equipmentCount },
@@ -65,7 +79,6 @@ export default async function DashboardOverviewPage() {
     { count: customerCount },
     { count: scanCount },
     { count: guideStepCount },
-    { count: linkedQrCount },
     { data: recentRequests },
     { data: monthlyRequests },
     entitlements,
@@ -75,32 +88,41 @@ export default async function DashboardOverviewPage() {
     // (docs/OWNER-ROADMAP-BRIEF.md §2.2 dispatch_sla_check: status in
     // ('sent', 'viewed')) — sent to the vendor but not yet acknowledged.
     { count: noVendorResponseCount },
+    // Truthful "printed" for the checklist (item 4): having a code LINKED to
+    // a unit isn't "printed" — qr_codes.label_printed_at is only set once the
+    // Print button, or a PNG/SVG download, actually fires (label/print-button.tsx,
+    // equipment/[id]/qr/{png,svg}/route.ts).
+    { count: printedQrCount },
+    // All-time, unlike the 30-day scanCount stat card above — a checklist
+    // item should stay "done" once true, not flip back off after a month.
+    { count: everScannedCount },
+    // Overview for daily use (item 5): visits scheduled for today, company
+    // time, still open. Provider-kind card only (below), but cheap enough
+    // to compute unconditionally.
+    { count: todayVisitCount },
+    // PM schedules due within 7 days, including any already overdue — the
+    // same "needs attention now" set the maintenance page's own
+    // overdue/dueSoon badges draw from.
+    { count: pmDueCount },
   ] = await Promise.all([
     supabase.from("equipment").select("*", { count: "exact", head: true }),
     supabase.from("equipment_types").select("*", { count: "exact", head: true }),
-    supabase
-      .from("service_requests")
-      .select("*", { count: "exact", head: true })
-      .in("status", OPEN_REQUEST_STATUSES),
-    supabase
-      .from("service_requests")
-      .select("*", { count: "exact", head: true })
-      .in("status", OPEN_REQUEST_STATUSES)
-      .is("assigned_to", null),
-    supabase
-      .from("service_requests")
-      .select("*", { count: "exact", head: true })
-      .in("status", OPEN_REQUEST_STATUSES)
-      .in("priority", ["high", "urgent"]),
+    // The four request buckets below share their predicate with the inbox's
+    // own `?bucket=<key>` filter (REQUEST_BUCKETS, src/lib/request-queries.ts)
+    // — the same applier builds this count and the link each card points
+    // to, so the number on the card and what the link shows can never drift.
+    REQUEST_BUCKETS.open.apply(supabase.from("service_requests").select("*", { count: "exact", head: true })),
+    REQUEST_BUCKETS.unassigned.apply(
+      supabase.from("service_requests").select("*", { count: "exact", head: true })
+    ),
+    REQUEST_BUCKETS.urgent.apply(supabase.from("service_requests").select("*", { count: "exact", head: true })),
     // Next roadmap: two-way messaging unread counter (migration 0019).
-    supabase
-      .from("service_requests")
-      .select("*", { count: "exact", head: true })
-      .gt("unread_customer_messages", 0),
+    REQUEST_BUCKETS.unreadMessages.apply(
+      supabase.from("service_requests").select("*", { count: "exact", head: true })
+    ),
     supabase.from("customers").select("*", { count: "exact", head: true }),
     supabase.from("scan_events").select("*", { count: "exact", head: true }).gte("scanned_at", thirtyDaysAgoIso),
     supabase.from("guide_steps").select("*", { count: "exact", head: true }),
-    supabase.from("qr_codes").select("*", { count: "exact", head: true }).not("equipment_id", "is", null),
     supabase
       .from("service_requests")
       .select("*")
@@ -115,19 +137,67 @@ export default async function DashboardOverviewPage() {
     getEntitlements(),
     supabase.from("locations").select("*", { count: "exact", head: true }).eq("active", true),
     supabase.from("vendors").select("*", { count: "exact", head: true }).eq("active", true),
-    supabase.from("service_requests").select("*", { count: "exact", head: true }).in("dispatch_status", ["sent", "viewed"]),
+    // "No vendor response yet" — REQUEST_BUCKETS.awaitingVendor (open +
+    // dispatch_status sent/viewed): a stricter, canonical version of the
+    // hand-rolled dispatch_status-only query this replaced.
+    REQUEST_BUCKETS.awaitingVendor.apply(
+      supabase.from("service_requests").select("*", { count: "exact", head: true })
+    ),
+    supabase
+      .from("qr_codes")
+      .select("*", { count: "exact", head: true })
+      .not("equipment_id", "is", null)
+      .not("label_printed_at", "is", null),
+    supabase.from("scan_events").select("*", { count: "exact", head: true }),
+    applyOpen(supabase.from("service_requests").select("*", { count: "exact", head: true }))
+      .gte("scheduled_for", todayStartIso)
+      .lt("scheduled_for", tomorrowStartIso),
+    supabase
+      .from("maintenance_schedules")
+      .select("*", { count: "exact", head: true })
+      .eq("active", true)
+      .lte("next_due_on", pmDueByDate),
   ]);
 
-  const recentEquipmentIds = [...new Set((recentRequests ?? []).map((r) => r.equipment_id))];
-  const { data: recentEquipment } =
-    recentEquipmentIds.length > 0
-      ? await supabase
-          .from("equipment")
+  // Recent rows show customer (or location, owner kind), problem and
+  // assignee (item 5) — resolve just the ids the 5 recent rows reference,
+  // same one-more-round-trip pattern this replaced used for equipment names.
+  const recentCustomerIds = [
+    ...new Set((recentRequests ?? []).map((r) => r.customer_id).filter((id): id is string => !!id)),
+  ];
+  const recentLocationIds = [
+    ...new Set((recentRequests ?? []).map((r) => r.location_id).filter((id): id is string => !!id)),
+  ];
+  const recentAssigneeIds = [
+    ...new Set((recentRequests ?? []).map((r) => r.assigned_to).filter((id): id is string => !!id)),
+  ];
+
+  const [{ data: recentCustomers }, { data: recentLocations }, { data: recentAssignees }] = await Promise.all([
+    recentCustomerIds.length > 0
+      ? supabase
+          .from("customers")
           .select("id, name")
-          .in("id", recentEquipmentIds)
-          .returns<Pick<Equipment, "id" | "name">[]>()
-      : { data: [] as Pick<Equipment, "id" | "name">[] };
-  const equipmentNameById = new Map((recentEquipment ?? []).map((e) => [e.id, e.name]));
+          .in("id", recentCustomerIds)
+          .returns<Pick<Customer, "id" | "name">[]>()
+      : Promise.resolve({ data: [] as Pick<Customer, "id" | "name">[] }),
+    recentLocationIds.length > 0
+      ? supabase
+          .from("locations")
+          .select("id, name")
+          .in("id", recentLocationIds)
+          .returns<Pick<Location, "id" | "name">[]>()
+      : Promise.resolve({ data: [] as Pick<Location, "id" | "name">[] }),
+    recentAssigneeIds.length > 0
+      ? supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", recentAssigneeIds)
+          .returns<Pick<Profile, "id" | "full_name">[]>()
+      : Promise.resolve({ data: [] as Pick<Profile, "id" | "full_name">[] }),
+  ]);
+  const customerNameById = new Map((recentCustomers ?? []).map((c) => [c.id, c.name]));
+  const locationNameById = new Map((recentLocations ?? []).map((l) => [l.id, l.name]));
+  const assigneeNameById = new Map((recentAssignees ?? []).map((p) => [p.id, p.full_name]));
 
   // "This month" / "last month" / "resolved this month", counted in TS from
   // a single 60-day fetch rather than a dedicated RPC.
@@ -142,11 +212,12 @@ export default async function DashboardOverviewPage() {
   }
 
   const memberCount = entitlements?.member_count ?? 1;
+  const hasEquipment = (equipmentCount ?? 0) > 0;
   const checklistItems: ChecklistItem[] = [
     {
       key: "type",
       label: "Create an equipment type",
-      href: "/dashboard/equipment-types",
+      href: "/dashboard/equipment-types?new=1",
       done: (typeCount ?? 0) > 0,
     },
     {
@@ -158,14 +229,31 @@ export default async function DashboardOverviewPage() {
     {
       key: "equipment",
       label: "Add your first equipment",
-      href: "/dashboard/equipment",
-      done: (equipmentCount ?? 0) > 0,
+      href: "/dashboard/equipment?new=1",
+      done: hasEquipment,
     },
     {
       key: "qr",
+      // Truthful: a code merely being linked to a unit used to count here —
+      // now it takes an actual Print click or PNG/SVG download to check this
+      // off (label_printed_at), matching what the labels page itself shows.
       label: "Print or download a QR label",
       href: "/dashboard/equipment",
-      done: (equipmentCount ?? 0) > 0 && (linkedQrCount ?? 0) > 0,
+      done: (printedQrCount ?? 0) > 0,
+    },
+    {
+      key: "scan",
+      label: "Scan your sticker with your phone",
+      href: "/dashboard/equipment",
+      done: (everScannedCount ?? 0) > 0,
+    },
+    {
+      key: "phone",
+      // vocab-aware: the sticker's "Call {phone}" line is read by whoever
+      // scans it — a customer for a provider, a staff member for an owner.
+      label: `Add the phone number ${vocab.reporterNoun.toLowerCase()}s can call`,
+      href: "/dashboard/settings",
+      done: !!company.phone,
     },
     {
       key: "invite",
@@ -175,13 +263,26 @@ export default async function DashboardOverviewPage() {
       optional: true,
     },
   ];
-  // The optional "invite a teammate" item never gates the card away — it's a
-  // bonus, not a requirement to finish onboarding.
-  const requiredItemsDone = checklistItems.filter((i) => !i.optional).every((i) => i.done);
-  const showChecklist = !company.onboarding_dismissed_at && !requiredItemsDone;
+  const showChecklist =
+    !company.onboarding_dismissed_at && !requiredChecklistItemsDone(checklistItems);
 
   const plan = entitlements ? planFor(entitlements) : null;
   const usageLine = entitlements && plan ? buildUsageLine(entitlements, plan) : null;
+  // Limits visible before work (docs/QOL-CONTINUITY-BRIEF.md item 6): a
+  // usage card once any tracked metric crosses 80% of its plan limit, so
+  // growth toward a limit is visible well before the at-limit banners
+  // (equipment/locations pages) or assertCanAdd*()'s hard block kick in.
+  const usageStats =
+    entitlements && plan
+      ? usageMetricsFor({
+          kind: company.kind,
+          equipmentCount: entitlements.equipment_count,
+          memberCount: entitlements.member_count,
+          locationCount: entitlements.location_count,
+          plan,
+        })
+      : [];
+  const showUsageCard = anyNearLimit(usageStats);
 
   return (
     <div className="space-y-6">
@@ -191,12 +292,87 @@ export default async function DashboardOverviewPage() {
         {usageLine && <p className="mt-1 text-sm text-muted-foreground">{usageLine}</p>}
       </div>
 
+      {showUsageCard && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardHeader>
+            <CardTitle className="text-base">Approaching your plan limit</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {usageStats
+              .filter((stat) => stat.nearLimit)
+              .map((stat) => (
+                <div key={stat.key} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span>
+                      {stat.count} of {stat.limit} {stat.label}
+                    </span>
+                    <span className="text-muted-foreground">
+                      {Math.round((stat.pct ?? 0) * 100)}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(100, (stat.pct ?? 0) * 100)}
+                    indicatorClassName={stat.atLimit ? "bg-destructive" : "bg-amber-500"}
+                  />
+                </div>
+              ))}
+            {profile.role === "owner" ? (
+              <Button size="sm" render={<Link href="/dashboard/settings/billing" />} nativeButton={false}>
+                View plans
+              </Button>
+            ) : (
+              <p className="text-sm text-muted-foreground">Ask your account owner to upgrade the plan.</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {!hasEquipment && !company.onboarding_dismissed_at && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+            <div className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <QrCode className="size-6" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold">Get your first sticker live</h2>
+              <p className="max-w-md text-sm text-muted-foreground">
+                Three steps and a customer can scan a real sticker: add a unit, print its label,
+                then scan it yourself to see exactly what they&apos;ll see.
+              </p>
+            </div>
+            <ol className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:gap-6">
+              <li className="flex items-center gap-2">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                  1
+                </span>
+                Add a unit
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                  2
+                </span>
+                Print its sticker
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                  3
+                </span>
+                Scan it with your phone
+              </li>
+            </ol>
+            <Button render={<Link href="/dashboard/equipment?new=1" />} nativeButton={false} size="lg">
+              Add your first unit
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {isOwnerKind ? (
         // Owner-kind overview counts (docs/OWNER-ROADMAP-BRIEF.md §3.2): open
         // work orders, units, locations, vendors — customers/equipment-types/
         // scans don't carry their own card in this row for owner-kind.
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Link href="/dashboard/requests">
+          <Link href={REQUEST_BUCKETS.open.href}>
             <Card className="transition-colors hover:bg-accent/50">
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -263,7 +439,7 @@ export default async function DashboardOverviewPage() {
             </Card>
           </Link>
 
-          <Link href="/dashboard/requests">
+          <Link href={REQUEST_BUCKETS.open.href}>
             <Card className="transition-colors hover:bg-accent/50">
               <CardHeader>
                 <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -343,33 +519,71 @@ export default async function DashboardOverviewPage() {
           </CardContent>
         </Card>
 
-        <Link href="/dashboard/requests?assignee=unassigned">
+        <Card className="h-full">
+          <CardHeader>
+            <CardTitle>Needs attention</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Each stat links to its own REQUEST_BUCKETS href (item 5) —
+                one card used to link everything to the "unassigned" bucket
+                alone, which only matched the first of these three numbers. */}
+            <div className="grid grid-cols-3 gap-4">
+              <Link
+                href={REQUEST_BUCKETS.unassigned.href}
+                className="block rounded-md transition-colors hover:bg-accent/50"
+              >
+                <p className="text-2xl font-bold">{unassignedOpenCount ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Unassigned</p>
+              </Link>
+              <Link
+                href={REQUEST_BUCKETS.urgent.href}
+                className="block rounded-md transition-colors hover:bg-accent/50"
+              >
+                <p className="text-2xl font-bold">{urgentOpenCount ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Urgent / high priority</p>
+              </Link>
+              {/* Next roadmap: two-way messaging unread counter (append-only addition). */}
+              <Link
+                href={REQUEST_BUCKETS.unreadMessages.href}
+                className="block rounded-md transition-colors hover:bg-accent/50"
+              >
+                <p className="text-2xl font-bold">{unreadMessagesCount ?? 0}</p>
+                <p className="text-xs text-muted-foreground">Unread messages</p>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+
+        {!isOwnerKind && (
+          <Link href="/dashboard/today">
+            <Card className="h-full transition-colors hover:bg-accent/50">
+              <CardHeader>
+                <CardTitle>Today</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold">{todayVisitCount ?? 0}</p>
+                <p className="text-xs text-muted-foreground">
+                  {(todayVisitCount ?? 0) === 1 ? "visit" : "visits"} scheduled today
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
+
+        <Link href="/dashboard/maintenance">
           <Card className="h-full transition-colors hover:bg-accent/50">
             <CardHeader>
-              <CardTitle>Needs attention</CardTitle>
+              <CardTitle>PM due</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-2xl font-bold">{unassignedOpenCount ?? 0}</p>
-                  <p className="text-xs text-muted-foreground">Unassigned</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{urgentOpenCount ?? 0}</p>
-                  <p className="text-xs text-muted-foreground">Urgent / high priority</p>
-                </div>
-                {/* Next roadmap: two-way messaging unread counter (append-only addition). */}
-                <div>
-                  <p className="text-2xl font-bold">{unreadMessagesCount ?? 0}</p>
-                  <p className="text-xs text-muted-foreground">Unread messages</p>
-                </div>
-              </div>
+              <p className="text-3xl font-bold">{pmDueCount ?? 0}</p>
+              <p className="text-xs text-muted-foreground">due within 7 days</p>
             </CardContent>
           </Card>
         </Link>
 
         {isOwnerKind && (
-          <Link href="/dashboard/requests?dispatch=sent">
+          <Link href={REQUEST_BUCKETS.awaitingVendor.href}>
             <Card className="h-full transition-colors hover:bg-accent/50">
               <CardHeader>
                 <CardTitle>No vendor response</CardTitle>
@@ -394,24 +608,36 @@ export default async function DashboardOverviewPage() {
           <CardContent>
             {recentRequests && recentRequests.length > 0 ? (
               <ul className="divide-y">
-                {recentRequests.map((request) => (
-                  <li key={request.id}>
-                    <Link
-                      href={`/dashboard/requests/${request.id}`}
-                      className="flex items-center justify-between gap-3 py-2.5 text-sm transition-colors hover:text-foreground"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">
-                          {equipmentNameById.get(request.equipment_id) ?? "Unknown equipment"}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {formatRelativeTime(request.created_at)}
-                        </p>
-                      </div>
-                      <StatusBadge status={request.status} />
-                    </Link>
-                  </li>
-                ))}
+                {recentRequests.map((request) => {
+                  // Customer, problem and assignee (item 5) — owner kind
+                  // shows the location instead of a customer (requests
+                  // carry location_id, not customer_id, for that kind).
+                  const counterparty = isOwnerKind
+                    ? (request.location_id && locationNameById.get(request.location_id)) || "No location"
+                    : (request.customer_id && customerNameById.get(request.customer_id)) || "No customer";
+                  const problem = request.ai_summary || request.description;
+                  const assignee = request.assigned_to
+                    ? assigneeNameById.get(request.assigned_to) || "Assigned"
+                    : "Unassigned";
+
+                  return (
+                    <li key={request.id}>
+                      <Link
+                        href={`/dashboard/requests/${request.id}`}
+                        className="flex items-center justify-between gap-3 py-2.5 text-sm transition-colors hover:text-foreground"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium">{counterparty}</p>
+                          <p className="truncate text-xs text-muted-foreground">{problem}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {assignee} · {formatRelativeTime(request.created_at)}
+                          </p>
+                        </div>
+                        <StatusBadge status={request.status} />
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <p className="py-6 text-center text-sm text-muted-foreground">

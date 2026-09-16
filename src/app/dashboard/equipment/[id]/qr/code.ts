@@ -9,6 +9,8 @@ export type DownloadableCode = {
   publicUrl: string;
   /** "break-room-water-heater-abcd2345" — no extension. */
   fileName: string;
+  /** qr_codes.id — so the route can stamp label_printed_at (item 4: a PNG/SVG download counts as "printed" same as the Print button). */
+  codeId: string;
 };
 
 /**
@@ -38,15 +40,16 @@ export async function loadDownloadableCode(equipmentId: string): Promise<Downloa
 
   const { data: code } = await supabase
     .from("qr_codes")
-    .select("token, short_code")
+    .select("id, token, short_code")
     .eq("equipment_id", equipmentId)
     .eq("status", "active")
-    .maybeSingle<Pick<QrCode, "token" | "short_code">>();
+    .maybeSingle<Pick<QrCode, "id" | "token" | "short_code">>();
 
   if (!code) return null;
 
   return {
     publicUrl: getEquipmentPublicUrl(code.token),
     fileName: qrFileSlug(equipment.name, code.short_code),
+    codeId: code.id,
   };
 }
