@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { AlertTriangle, HardHat, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -139,7 +140,6 @@ export default async function EquipmentPage({
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilters = !!(q || typeFilter || customerFilter || locationFilter || statusFilter);
-  const noTypes = !equipmentTypes || equipmentTypes.length === 0;
 
   const currentParams = new URLSearchParams();
   if (q) currentParams.set("q", q);
@@ -171,43 +171,48 @@ export default async function EquipmentPage({
               Import CSV
             </Button>
           )}
-          <NewEquipmentDialog
-            equipmentTypes={equipmentTypes ?? []}
-            customers={customers ?? []}
-            customFields={customFields ?? []}
-            batchQrEnabled={batchQrEnabled}
-            kind={company.kind}
-            locations={locations ?? []}
-            vendors={vendors ?? []}
-            categoryDefaultVendors={categoryDefaultVendors ?? []}
-          />
+          <Suspense fallback={<Button disabled>New equipment</Button>}>
+            <NewEquipmentDialog
+              equipmentTypes={equipmentTypes ?? []}
+              customers={customers ?? []}
+              customFields={customFields ?? []}
+              batchQrEnabled={batchQrEnabled}
+              kind={company.kind}
+              locations={locations ?? []}
+              vendors={vendors ?? []}
+              categoryDefaultVendors={categoryDefaultVendors ?? []}
+            />
+          </Suspense>
         </div>
       </div>
 
-      {noTypes ? (
-        <EmptyState icon={HardHat} message="Create an equipment type first, then add equipment here." />
+      <EquipmentFilters
+        values={{ q, type: typeFilter, customer: customerFilter, location: locationFilter, status: statusFilter }}
+        equipmentTypes={equipmentTypes ?? []}
+        customers={customers ?? []}
+        kind={company.kind}
+        locations={locations ?? []}
+      />
+
+      {!equipment || equipment.length === 0 ? (
+        <EmptyState
+          icon={HardHat}
+          message={
+            hasFilters
+              ? "No equipment matches those filters."
+              : "No equipment yet. Add your first unit to generate its QR code."
+          }
+          action={
+            !hasFilters ? (
+              <Button render={<Link href="/dashboard/equipment?new=1" />} nativeButton={false}>
+                Add your first unit
+              </Button>
+            ) : undefined
+          }
+        />
       ) : (
         <>
-          <EquipmentFilters
-            values={{ q, type: typeFilter, customer: customerFilter, location: locationFilter, status: statusFilter }}
-            equipmentTypes={equipmentTypes ?? []}
-            customers={customers ?? []}
-            kind={company.kind}
-            locations={locations ?? []}
-          />
-
-          {!equipment || equipment.length === 0 ? (
-            <EmptyState
-              icon={HardHat}
-              message={
-                hasFilters
-                  ? "No equipment matches those filters."
-                  : "No equipment yet. Add your first unit to generate its QR code."
-              }
-            />
-          ) : (
-            <>
-              <Card className="overflow-x-auto">
+          <Card className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -331,8 +336,6 @@ export default async function EquipmentPage({
               </div>
             </>
           )}
-        </>
-      )}
     </div>
   );
 }
