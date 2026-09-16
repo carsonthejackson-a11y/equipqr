@@ -76,6 +76,10 @@ async function downscaleImage(file: File): Promise<File> {
 
 type SentState = {
   vendor: { name: string; phone: string | null } | null;
+  /** Whether a dispatch row was actually created — the confirmation only claims "Sent to {vendor}" when this is true (C1-30, Q-12). */
+  dispatched: boolean;
+  /** Whether the owner's own back office actually got a notification email. */
+  ownerNotified: boolean;
   publicToken: string;
   statusUrl: string;
 };
@@ -238,6 +242,8 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
         publicToken?: string;
         statusUrl?: string;
         vendor?: { name: string; phone: string | null } | null;
+        dispatched?: boolean;
+        ownerNotified?: boolean;
       };
 
       if (!response.ok) {
@@ -258,6 +264,8 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
 
       setSent({
         vendor: body.vendor ?? null,
+        dispatched: !!body.dispatched,
+        ownerNotified: !!body.ownerNotified,
         publicToken: body.publicToken ?? "",
         statusUrl: body.statusUrl ?? (body.publicToken ? `/r/${body.publicToken}` : ""),
       });
@@ -274,6 +282,8 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
       <OwnerConfirmation
         companyName={guide.company.name}
         vendor={sent.vendor}
+        dispatched={sent.dispatched}
+        ownerNotified={sent.ownerNotified}
         publicToken={sent.publicToken}
         statusUrl={sent.statusUrl}
       />
