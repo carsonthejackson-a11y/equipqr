@@ -26,6 +26,16 @@ describe("StatusBadge", () => {
     render(<StatusBadge status="resolved" />);
     expect(screen.getByText("Resolved")).toHaveClass("bg-emerald-500/15");
   });
+
+  it("uses the darker teal-800 text for the New badge, not text-primary (Q-26)", () => {
+    // text-primary alone (teal-700 in globals.css) is AA against white, but
+    // this badge's text sits on a lighter bg-primary/15 fill, not solid
+    // white — teal-800 keeps headroom rather than relying on --primary.
+    render(<StatusBadge status="new" />);
+    const badge = screen.getByText("New");
+    expect(badge).toHaveClass("text-teal-800");
+    expect(badge).not.toHaveClass("text-primary");
+  });
 });
 
 describe("REQUEST_STATUS_ORDER", () => {

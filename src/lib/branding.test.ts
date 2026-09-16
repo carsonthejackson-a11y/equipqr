@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_BRAND_COLOR, companyAssetUrl, isLightColor, phoneHref, resolveBranding } from "./branding";
+import {
+  DEFAULT_BRAND_COLOR,
+  MIN_AA_CONTRAST,
+  companyAssetUrl,
+  contrastRatio,
+  isLightColor,
+  phoneHref,
+  resolveBranding,
+} from "./branding";
 
 const company = {
   name: "Acme Espresso",
@@ -52,5 +60,31 @@ describe("helpers", () => {
   });
   it("returns null asset url for no path", () => {
     expect(companyAssetUrl("https://x.supabase.co", null)).toBeNull();
+  });
+});
+
+describe("contrastRatio", () => {
+  it("is 21 for black on white, 1 for identical colours", () => {
+    expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 0);
+    expect(contrastRatio("#0f766e", "#0f766e")).toBeCloseTo(1, 5);
+  });
+
+  it("is symmetric", () => {
+    expect(contrastRatio("#0f766e", "#ffffff")).toBeCloseTo(contrastRatio("#ffffff", "#0f766e")!, 5);
+  });
+
+  it("returns null for a malformed colour", () => {
+    expect(contrastRatio("teal", "#ffffff")).toBeNull();
+    expect(contrastRatio("#0f766e", "not-a-color")).toBeNull();
+  });
+
+  it("DEFAULT_BRAND_COLOR meets AA against white text", () => {
+    expect(contrastRatio(DEFAULT_BRAND_COLOR, "#ffffff")!).toBeGreaterThanOrEqual(MIN_AA_CONTRAST);
+  });
+
+  it("flags the old default (teal-600) as failing AA against white text", () => {
+    // Regression guard: #0d9488 is the color DEFAULT_BRAND_COLOR replaced
+    // because it fell short of AA (Q-26) — this must stay under the floor.
+    expect(contrastRatio("#0d9488", "#ffffff")!).toBeLessThan(MIN_AA_CONTRAST);
   });
 });

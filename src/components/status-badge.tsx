@@ -30,7 +30,10 @@ export const REQUEST_STATUS_ORDER: RequestStatus[] = [
 ];
 
 const requestStatusStyles: Record<RequestStatus, string> = {
-  new: "bg-primary/15 text-primary border-primary/20",
+  // Explicit teal-800 rather than text-primary: --primary (globals.css) is
+  // teal-700 strength for AA on buttons/links, but this badge's text sits on
+  // only a 15%-opacity fill, so it gets one shade darker for headroom (Q-26).
+  new: "bg-primary/15 text-teal-800 border-primary/20 dark:text-teal-400",
   in_progress: "bg-amber-500/15 text-amber-700 border-amber-500/20 dark:text-amber-400",
   scheduled: "bg-sky-500/15 text-sky-700 border-sky-500/20 dark:text-sky-400",
   on_hold: "bg-slate-500/15 text-slate-700 border-slate-500/20 dark:text-slate-300",

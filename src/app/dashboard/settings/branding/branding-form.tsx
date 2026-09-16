@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
-import { companyAssetUrl, phoneHref, resolveBranding } from "@/lib/branding";
+import { DEFAULT_BRAND_COLOR, MIN_AA_CONTRAST, companyAssetUrl, contrastRatio, phoneHref, resolveBranding } from "@/lib/branding";
 import type { Company } from "@/lib/types";
 import type { PlanId } from "@/lib/plans";
 import { removeCompanyLogo, setCompanyLogo, updateBranding } from "./actions";
@@ -36,7 +36,7 @@ export function BrandingForm({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPath, setLogoPath] = useState(company.logo_path);
-  const [brandColor, setBrandColor] = useState(company.brand_color ?? "#0d9488");
+  const [brandColor, setBrandColor] = useState(company.brand_color ?? DEFAULT_BRAND_COLOR);
   const [uploading, setUploading] = useState(false);
   const [savingColor, setSavingColor] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -129,6 +129,9 @@ export function BrandingForm({
   }
 
   const logoUrl = companyAssetUrl(supabaseUrl, logoPath);
+  const isValidHex = /^#[0-9a-fA-F]{6}$/.test(brandColor);
+  const whiteTextContrast = isValidHex ? contrastRatio(brandColor, "#ffffff") : null;
+  const lowContrast = whiteTextContrast !== null && whiteTextContrast < MIN_AA_CONTRAST;
 
   return (
     <div className="space-y-6">
@@ -211,7 +214,7 @@ export function BrandingForm({
                   <input
                     type="color"
                     aria-label="Brand color picker"
-                    value={/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#0d9488"}
+                    value={isValidHex ? brandColor : DEFAULT_BRAND_COLOR}
                     disabled={!entitled}
                     onChange={(e) => setBrandColor(e.target.value)}
                     className="size-9 shrink-0 cursor-pointer rounded border border-input bg-transparent p-1 disabled:cursor-not-allowed disabled:opacity-50"
@@ -226,11 +229,19 @@ export function BrandingForm({
                       value={brandColor}
                       disabled={!entitled}
                       onChange={(e) => setBrandColor(e.target.value)}
-                      placeholder="#0d9488"
+                      placeholder={DEFAULT_BRAND_COLOR}
+                      aria-describedby={lowContrast ? "brandColor-contrast-warning" : undefined}
                       className="font-mono"
                     />
                   </div>
                 </div>
+                {lowContrast && (
+                  <p id="brandColor-contrast-warning" className="text-sm text-amber-600 dark:text-amber-500">
+                    White text on this color is {whiteTextContrast!.toFixed(2)}:1 — under the 4.5:1 the guide text
+                    needs to stay readable. Customers with low vision or in bright sunlight may struggle to read
+                    it. Consider a darker shade.
+                  </p>
+                )}
                 <Button type="submit" size="sm" disabled={!entitled || savingColor}>
                   {savingColor ? "Saving…" : "Save color"}
                 </Button>
