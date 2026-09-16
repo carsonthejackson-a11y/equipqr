@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -18,9 +18,18 @@ import { createEquipmentType } from "./actions";
 
 export function NewEquipmentTypeDialog() {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const searchParams = useSearchParams();
+  // ?new=1 opens the dialog straight up — the Overview checklist links here
+  // instead of making its own copy of this form (docs/QOL-CONTINUITY-BRIEF.md
+  // item 4). Read once via lazy init so there's no open-then-flash on mount.
+  const [open, setOpen] = useState(() => searchParams.get("new") === "1");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("new") !== "1") return;
+    router.replace("/dashboard/equipment-types");
+  }, [searchParams, router]);
 
   async function handleSubmit(formData: FormData) {
     setSubmitting(true);
