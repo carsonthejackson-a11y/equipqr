@@ -20,6 +20,12 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { CompanyKind, PublicInvitation } from "@/lib/types";
 import { KindStep } from "@/components/kind-step";
+import { isRateLimitError } from "@/lib/auth-errors";
+
+// A generous, non-annoying cooldown on the resend button — not a security
+// control (Supabase enforces the real rate limit server-side), just a guard
+// against someone mashing the button before the first email can land.
+const RESEND_COOLDOWN_MS = 30_000;
 
 export function SignupForm() {
   const router = useRouter();
@@ -35,6 +41,10 @@ export function SignupForm() {
 
   const [serverError, setServerError] = useState<string | null>(null);
   const [checkEmail, setCheckEmail] = useState(false);
+  const [sentToEmail, setSentToEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [resendReady, setResendReady] = useState(false);
+  const [resendError, setResendError] = useState<string | null>(null);
   const [invite, setInvite] = useState<PublicInvitation | null>(null);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [loadingInvite, setLoadingInvite] = useState(!!inviteToken);
@@ -133,8 +143,33 @@ export function SignupForm() {
       router.push(inviteToken ? `/invite/${inviteToken}` : "/dashboard");
       router.refresh();
     } else {
+      setSentToEmail(values.email);
       setCheckEmail(true);
+      armResendCooldown();
     }
+  }
+
+  function armResendCooldown() {
+    setResendReady(false);
+    setTimeout(() => setResendReady(true), RESEND_COOLDOWN_MS);
+  }
+
+  async function handleResend() {
+    if (!sentToEmail) return;
+    setResending(true);
+    setResendError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.resend({ type: "signup", email: sentToEmail });
+    setResending(false);
+
+    // Same non-enumeration rule as the forgot-password flow: only a real
+    // rate limit is safe to show verbatim, since an "already confirmed" or
+    // "no such user" error would leak account existence.
+    if (error && isRateLimitError(error)) {
+      setResendError(error.message);
+      return;
+    }
+    armResendCooldown();
   }
 
   if (checkEmail) {
@@ -143,10 +178,24 @@ export function SignupForm() {
         <CardHeader>
           <CardTitle>Check your email</CardTitle>
           <CardDescription>
-            We sent you a confirmation link. Click it, then come back and log in.
+            We sent a confirmation link to {sentToEmail}. Click it, then come back and log in.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {resendError && (
+            <Alert variant="destructive">
+              <AlertDescription>{resendError}</AlertDescription>
+            </Alert>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={resending || !resendReady}
+            onClick={handleResend}
+          >
+            {resending ? "Sending…" : "Resend email"}
+          </Button>
           <Button render={<Link href="/login" />} nativeButton={false} className="w-full">
             Go to login
           </Button>
