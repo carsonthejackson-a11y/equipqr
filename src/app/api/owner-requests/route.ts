@@ -87,7 +87,6 @@ export async function POST(request: Request) {
       statusUrl: "",
       vendor: null,
       dispatched: false,
-      ownerNotified: false,
     });
   }
 
