@@ -108,12 +108,16 @@ export default async function EquipmentPage({
   // RLS ("Staff view own company qr codes"), so this needs no company filter.
   const codeTerm = q ? shortCodeSearchTerm(q) : "";
   const matchingCodeEquipmentIds: string[] = [];
-  if (codeTerm) {
+  // At least 4 characters (half a printed code) and at most 50 matches: a
+  // one-character term would otherwise match a large share of a big
+  // account's codes and turn into an or=() filter too long for the gateway.
+  if (codeTerm.length >= 4) {
     const { data: matchingCodes } = await supabase
       .from("qr_codes")
       .select("equipment_id")
       .ilike("short_code", `%${codeTerm}%`)
       .not("equipment_id", "is", null)
+      .limit(50)
       .returns<{ equipment_id: string | null }[]>();
     for (const code of matchingCodes ?? []) {
       if (code.equipment_id) matchingCodeEquipmentIds.push(code.equipment_id);
