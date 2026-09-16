@@ -10,9 +10,14 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getEntitlements } from "@/lib/billing";
 import { emitEquipmentEvent, emitRequestActivity } from "@/lib/events";
 import { notifyRequesterOfStatus } from "@/lib/email/request-status";
+import { buildAssigneeNotificationEmail } from "@/lib/email/assignment";
+import { sendEmail } from "@/lib/email/send";
 import { publicEnv } from "@/lib/env";
 import { formatZonedDateTime } from "@/lib/schedule";
-import type { Company, Equipment, ServiceRequest } from "@/lib/types";
+import { formatCompanyLongDateTime, DEFAULT_COMPANY_TIME_ZONE } from "@/lib/format";
+import { getEquipmentPublicUrl } from "@/lib/qr";
+import { pickBestCode } from "@/lib/qr-codes";
+import type { Company, CompanyMember, Customer, Equipment, Location, QrCode, ServiceRequest } from "@/lib/types";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -48,6 +53,101 @@ function revalidateRequest(id: string) {
   revalidatePath(`/dashboard/requests/${id}`);
   revalidatePath("/dashboard/schedule");
   revalidatePath("/dashboard");
+}
+
+/**
+ * Resolves the site/customer label, address and a staff-scan link for one
+ * request's equipment — everything buildAssigneeNotificationEmail() needs
+ * beyond the request/company fields the caller already has. Vocab-aware
+ * (customer for service_provider, location for equipment_owner — C1-44).
+ * Never throws; a lookup failure just means a thinner (still honest) email.
+ * Kept in sync with the identical helper in requests/actions.ts (QoL-4 owns
+ * that file save for its email hunks, so this one isn't shared across them).
+ */
+async function resolveAssigneeEmailContext(
+  supabase: SupabaseServerClient,
+  companyKind: Company["kind"],
+  equipmentId: string
+): Promise<{ siteName: string | null; address: string | null; staffScanUrl: string | null }> {
+  const [{ data: equipment }, { data: codes }] = await Promise.all([
+    supabase
+      .from("equipment")
+      .select("address, customer_id, location_id")
+      .eq("id", equipmentId)
+      .maybeSingle<Pick<Equipment, "address" | "customer_id" | "location_id">>(),
+    supabase
+      .from("qr_codes")
+      .select("token, status, equipment_id")
+      .eq("equipment_id", equipmentId)
+      .returns<Pick<QrCode, "token" | "status" | "equipment_id">[]>(),
+  ]);
+
+  let siteName: string | null = null;
+  let address = equipment?.address ?? null;
+
+  if (companyKind === "equipment_owner" && equipment?.location_id) {
+    const { data: location } = await supabase
+      .from("locations")
+      .select("name, address")
+      .eq("id", equipment.location_id)
+      .maybeSingle<Pick<Location, "name" | "address">>();
+    siteName = location?.name ?? null;
+    address = address || (location?.address ?? null);
+  } else if (equipment?.customer_id) {
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("name, address")
+      .eq("id", equipment.customer_id)
+      .maybeSingle<Pick<Customer, "name" | "address">>();
+    siteName = customer?.name ?? null;
+    address = address || (customer?.address ?? null);
+  }
+
+  const best = pickBestCode(codes ?? []);
+  const staffScanUrl = best ? getEquipmentPublicUrl(best.token) : null;
+
+  return { siteName, address, staffScanUrl };
+}
+
+/**
+ * Emails the ASSIGNED TECHNICIAN that their visit was scheduled/rescheduled
+ * (C1-44). Best-effort and silent on any failure, mirroring every other
+ * staff notification in this codebase.
+ */
+async function notifyAssigneeOfSchedule(
+  supabase: SupabaseServerClient,
+  ctx: RequestContext,
+  scheduledForIso: string
+): Promise<void> {
+  const assigneeId = ctx.request.assigned_to;
+  if (!assigneeId) return;
+
+  try {
+    const { data: members } = await supabase.rpc("get_company_members");
+    const assignee = ((members as CompanyMember[] | null) ?? []).find((m) => m.id === assigneeId);
+    if (!assignee) return;
+
+    const { siteName, address, staffScanUrl } = await resolveAssigneeEmailContext(
+      supabase,
+      ctx.company.kind,
+      ctx.request.equipment_id
+    );
+
+    const { subject, html, text } = buildAssigneeNotificationEmail({
+      reason: "scheduled",
+      technicianName: assignee.full_name,
+      equipmentName: ctx.equipmentName,
+      siteName,
+      address,
+      whenText: formatCompanyLongDateTime(scheduledForIso, ctx.company.timezone ?? DEFAULT_COMPANY_TIME_ZONE),
+      staffScanUrl,
+      requestUrl: `${publicEnv.NEXT_PUBLIC_APP_URL}/dashboard/requests/${ctx.request.id}`,
+    });
+
+    await sendEmail({ to: assignee.email, subject, html, text });
+  } catch (err) {
+    console.error("notifyAssigneeOfSchedule failed:", err);
+  }
 }
 
 export type ScheduleVisitInput = {
@@ -116,7 +216,7 @@ export async function scheduleVisit(requestId: string, input: ScheduleVisitInput
   });
 
   const entitlements = await getEntitlements();
-  await notifyRequesterOfStatus(supabase, {
+  const notified = await notifyRequesterOfStatus(supabase, {
     request: { ...ctx.request, scheduled_for: scheduledForIso },
     status: "scheduled",
     equipmentName: ctx.equipmentName,
@@ -126,8 +226,13 @@ export async function scheduleVisit(requestId: string, input: ScheduleVisitInput
     actorUserId: profile.id,
   });
 
+  // Tell the technician too (C1-44) — every reschedule, not just the first
+  // time, since a moved visit is exactly the kind of change they need to
+  // actually see before they show up at the old time.
+  await notifyAssigneeOfSchedule(supabase, ctx, scheduledForIso);
+
   revalidateRequest(requestId);
-  return { success: true };
+  return { success: true, notified };
 }
 
 export async function clearVisit(requestId: string) {
