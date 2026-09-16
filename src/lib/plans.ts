@@ -23,7 +23,7 @@ export type BillingInterval = "month" | "year";
 
 export type PlanFeatures = {
   aiChat: boolean;
-  /** Pre-printed sticker batches. Also globally gated by FEATURES.batchQr in src/lib/features.ts. */
+  /** Blank QR code batches, generated and printed by the company itself. Also globally gated by FEATURES.batchQr in src/lib/features.ts. */
   batchQr: boolean;
   branding: boolean;
   exportApi: boolean;
@@ -156,12 +156,12 @@ export const ownerPlans: Plan[] = [
       exportApi: false,
     },
     supportLabel: "Email support",
-    blurb: "For one site tracking equipment and taking service requests, at no cost.",
+    blurb: "For one site tracking equipment and taking work orders, at no cost.",
     highlights: [
       "Up to 10 pieces of equipment",
       "1 location",
       "Unlimited staff and vendor contacts",
-      "Service requests with photo & video",
+      "Work orders with photo & video",
       "Email support",
     ],
     kind: "equipment_owner",
@@ -182,12 +182,12 @@ export const ownerPlans: Plan[] = [
       exportApi: false,
     },
     supportLabel: "Priority email support",
-    blurb: "For one kitchen that wants AI troubleshooting and pre-printed QR batches.",
+    blurb: "For one kitchen that wants AI troubleshooting and blank QR code batches to print itself.",
     highlights: [
       "Up to 75 pieces of equipment",
       "1 location",
       "AI-drafted troubleshooting guides",
-      "Pre-printed QR code batches",
+      "Blank QR code batches to print yourself",
       "Priority email support",
     ],
     popular: true,
