@@ -27,3 +27,20 @@ describe("timingSafeEqualString (C1-53/C1-54)", () => {
     expect(timingSafeEqualString("Secret", "secret")).toBe(false);
   });
 });
+
+describe("isAuthorizedBearer", () => {
+  it("accepts only the exact Bearer secret", async () => {
+    const { isAuthorizedBearer } = await import("./timing-safe-equal");
+    expect(isAuthorizedBearer("Bearer s3cret", "s3cret")).toBe(true);
+    expect(isAuthorizedBearer("Bearer s3cret ", "s3cret")).toBe(false);
+    expect(isAuthorizedBearer("bearer s3cret", "s3cret")).toBe(false);
+    expect(isAuthorizedBearer("s3cret", "s3cret")).toBe(false);
+    expect(isAuthorizedBearer(null, "s3cret")).toBe(false);
+  });
+
+  it("never authorizes when no secret is configured", async () => {
+    const { isAuthorizedBearer } = await import("./timing-safe-equal");
+    expect(isAuthorizedBearer("Bearer ", "")).toBe(false);
+    expect(isAuthorizedBearer("Bearer undefined", undefined)).toBe(false);
+  });
+});

@@ -13,6 +13,7 @@ import { formatCompanyLongDateTime } from "@/lib/format";
 import { serverEnv } from "@/lib/env";
 import type { PlanId } from "@/lib/plans";
 import type { Company, Customer, Equipment, Location, Profile, QrCode, ServiceRequest } from "@/lib/types";
+import { isAuthorizedBearer } from "@/lib/timing-safe-equal";
 
 // Needs the Node runtime for the service-role admin client.
 export const runtime = "nodejs";
@@ -96,9 +97,9 @@ async function resolveAssigneeSiteContext(
  */
 export async function GET(request: Request) {
   const expected = serverEnv.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
 
-  if (!expected || authHeader !== `Bearer ${expected}`) {
+  // Constant-time comparison (C1-53/C1-54).
+  if (!isAuthorizedBearer(request.headers.get("authorization"), expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

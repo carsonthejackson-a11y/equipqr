@@ -4,6 +4,7 @@ import { buildTrialEndingEmail } from "@/lib/email/trial-ending";
 import { sendEmail } from "@/lib/email/send";
 import { serverEnv } from "@/lib/env";
 import type { CompanyKind } from "@/lib/types";
+import { isAuthorizedBearer } from "@/lib/timing-safe-equal";
 
 // Needs the Node runtime for the service-role admin client + auth admin API.
 export const runtime = "nodejs";
@@ -30,9 +31,9 @@ function daysLeft(iso: string): number {
  */
 export async function GET(request: Request) {
   const expected = serverEnv.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
 
-  if (!expected || authHeader !== `Bearer ${expected}`) {
+  // Constant-time comparison (C1-53/C1-54).
+  if (!isAuthorizedBearer(request.headers.get("authorization"), expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

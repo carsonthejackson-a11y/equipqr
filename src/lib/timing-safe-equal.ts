@@ -24,3 +24,14 @@ export function timingSafeEqualString(a: string, b: string): boolean {
   if (bufA.length !== bufB.length) return false;
   return timingSafeEqual(bufA, bufB);
 }
+
+/**
+ * True when `authorization` is exactly `Bearer <expected>`, compared in
+ * constant time. False when no secret is configured, so a missing
+ * CRON_SECRET can never authorize anything. Use for every cron route and the
+ * deep health check.
+ */
+export function isAuthorizedBearer(authorization: string | null, expected: string | undefined): boolean {
+  if (!expected || !authorization?.startsWith("Bearer ")) return false;
+  return timingSafeEqualString(authorization.slice("Bearer ".length), expected);
+}
