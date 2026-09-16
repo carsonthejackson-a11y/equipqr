@@ -16,6 +16,7 @@ import { validateResponses } from "@/lib/checklists";
 import type { ChecklistTemplate, Inspection, InspectionItem } from "@/lib/types";
 import { InspectionItemCard } from "./inspection-item-card";
 import { completeInspection, createFollowUpRequest, saveInspectionItems, startInspection } from "./actions";
+import { assertStaffUploadsAllowed } from "../staff-actions";
 
 type Step = "pick" | "run" | "signoff" | "done";
 
@@ -118,6 +119,14 @@ export function InspectFlow({
     if (!validation.valid) {
       setCompleteError(`Answer these required items first: ${validation.missingLabels.join(", ")}`);
       setStep("run");
+      return;
+    }
+
+    // C1-33: checked before the signature upload starts, not just inside
+    // completeInspection afterward — mirrors close-out-dialog.tsx.
+    const lockError = await assertStaffUploadsAllowed();
+    if (lockError) {
+      setCompleteError(lockError.error);
       return;
     }
 

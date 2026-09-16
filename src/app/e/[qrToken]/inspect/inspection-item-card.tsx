@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/client";
 import { downscaleToJpeg } from "@/lib/client-image";
 import { applyItemValue } from "@/lib/checklists";
+import { assertStaffUploadsAllowed } from "../staff-actions";
 import { cn } from "@/lib/utils";
 import type { InspectionItem } from "@/lib/types";
 
@@ -49,6 +50,16 @@ export function InspectionItemCard({
 
     setPhotoError(null);
     setUploading(true);
+
+    // C1-33: checked before this upload starts — same guard as
+    // close-out-dialog.tsx and inspect-flow.tsx's signature upload.
+    const lockError = await assertStaffUploadsAllowed();
+    if (lockError) {
+      setUploading(false);
+      setPhotoError(lockError.error);
+      return;
+    }
+
     // Snapshot a preview before the upload starts (not after): the technician
     // wants to confirm the shot is the right one, in focus, while it's still
     // uploading, not only once it succeeds.
