@@ -154,7 +154,7 @@ export default async function TodayPage() {
       )}
 
       {groups.assignedUnscheduled.length > 0 && (
-        <TodaySection title="Assigned to you, not yet scheduled" icon={ClipboardList}>
+        <TodaySection title="Your other open jobs" icon={ClipboardList}>
           {groups.assignedUnscheduled.map((req) => (
             <RequestCard
               key={req.id}

@@ -30,11 +30,11 @@ export type TodayRequest = {
 };
 
 export type TodayGroups<T extends TodayRequest = TodayRequest> = {
-  /** status "scheduled", scheduled sometime today (company time), earliest first. */
+  /** Any open status with a visit sometime today (company time), earliest first — including a visit already under way ("On my way" moves it to in_progress). */
   visitsToday: T[];
-  /** status "scheduled" but the scheduled time already passed (before today's start, company time) — visits a tech is now late for. */
+  /** Still status "scheduled" but the visit day already passed (company time) — visits nobody started. */
   overdueVisits: T[];
-  /** Open, assigned to `userId`, with no scheduled_for at all — "pick a time" work sitting on one person's plate. Highest priority first, then oldest first. */
+  /** Open work assigned to `userId` with no visit today: unscheduled requests, plus jobs already started on an earlier visit day (in_progress / on_hold). Highest priority first, then oldest first. */
   assignedUnscheduled: T[];
 };
 
@@ -63,22 +63,28 @@ export function groupTodayRequests<T extends TodayRequest>(
   const assignedUnscheduled: T[] = [];
 
   for (const req of requests) {
-    if (req.status === "scheduled" && req.scheduled_for) {
+    if (!(OPEN_REQUEST_STATUSES as readonly string[]).includes(req.status)) continue;
+
+    if (req.scheduled_for) {
       const day = dateKeyInTimeZone(req.scheduled_for, timeZone);
       if (day === today) {
+        // Any open status: tapping "On my way" moves a visit to in_progress,
+        // and it must not vanish from the tech's day when that happens.
         visitsToday.push(req);
       } else if (day < today) {
-        overdueVisits.push(req);
+        if (req.status === "scheduled") {
+          overdueVisits.push(req);
+        } else if (req.assigned_to === userId) {
+          // Started on an earlier visit day and still open (waiting on a
+          // part, say) — still on this tech's plate.
+          assignedUnscheduled.push(req);
+        }
       }
       // day > today: a future visit — Schedule's job, not Today's.
       continue;
     }
 
-    if (
-      req.assigned_to === userId &&
-      !req.scheduled_for &&
-      (OPEN_REQUEST_STATUSES as readonly string[]).includes(req.status)
-    ) {
+    if (req.assigned_to === userId) {
       assignedUnscheduled.push(req);
     }
   }

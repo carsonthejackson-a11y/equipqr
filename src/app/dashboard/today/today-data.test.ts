@@ -90,6 +90,31 @@ describe("groupTodayRequests", () => {
     expect(groups.assignedUnscheduled).toEqual([]);
   });
 
+  it("keeps a visit that's under way today in visitsToday (On my way moves it to in_progress)", () => {
+    const underWay = req({ status: "in_progress", scheduled_for: "2026-09-16T15:00:00.000Z", assigned_to: ME });
+    const onHold = req({ status: "on_hold", scheduled_for: "2026-09-16T18:00:00.000Z" });
+    const groups = groupTodayRequests([underWay, onHold], TODAY, TZ, ME);
+    expect(groups.visitsToday).toEqual([underWay, onHold]);
+    expect(groups.overdueVisits).toEqual([]);
+    expect(groups.assignedUnscheduled).toEqual([]);
+  });
+
+  it("treats a job started on an earlier visit day as still on its assignee's plate, not overdue", () => {
+    const mine = req({ status: "in_progress", scheduled_for: "2026-09-14T15:00:00.000Z", assigned_to: ME });
+    const someoneElses = req({ status: "on_hold", scheduled_for: "2026-09-14T15:00:00.000Z", assigned_to: "someone-else" });
+    const groups = groupTodayRequests([mine, someoneElses], TODAY, TZ, ME);
+    expect(groups.overdueVisits).toEqual([]);
+    expect(groups.visitsToday).toEqual([]);
+    expect(groups.assignedUnscheduled).toEqual([mine]);
+  });
+
+  it("never lists closed requests, even with a visit today", () => {
+    const resolvedToday = req({ status: "resolved", scheduled_for: "2026-09-16T15:00:00.000Z", assigned_to: ME });
+    const groups = groupTodayRequests([resolvedToday], TODAY, TZ, ME);
+    expect(groups.visitsToday).toEqual([]);
+    expect(groups.assignedUnscheduled).toEqual([]);
+  });
+
   it("orders visitsToday and overdueVisits earliest first", () => {
     const later = req({ status: "scheduled", scheduled_for: "2026-09-16T21:00:00.000Z" });
     const earlier = req({ status: "scheduled", scheduled_for: "2026-09-16T14:00:00.000Z" });

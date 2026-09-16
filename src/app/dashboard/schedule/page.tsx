@@ -46,7 +46,9 @@ export default async function SchedulePage({
   let scheduledQuery = supabase
     .from("service_requests")
     .select("*")
-    .eq("status", "scheduled")
+    // Every open status, not just "scheduled": "On my way" moves a visit to
+    // in_progress, and it must stay on the week it was booked for.
+    .in("status", OPEN_REQUEST_STATUSES)
     .gte("scheduled_for", rangeStartIso)
     .lt("scheduled_for", rangeEndIso)
     .order("scheduled_for", { ascending: true });
