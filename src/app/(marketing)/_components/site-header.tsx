@@ -78,6 +78,12 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2 max-[880px]:hidden">
+          <Link
+            href="/e"
+            className={cn(navLinkClass, "h-9 px-3 text-sm")}
+          >
+            Have a sticker code?
+          </Link>
           <Button
             variant="neutral"
             size="lg"
@@ -131,6 +137,13 @@ export function SiteHeader() {
           );
         })}
         <div className="mt-3 flex flex-col gap-2">
+          <Link
+            href="/e"
+            onClick={close}
+            className={cn(navLinkClass, "min-h-11 px-3 text-base")}
+          >
+            Have a sticker code?
+          </Link>
           <Button
             variant="neutral"
             size="xl"

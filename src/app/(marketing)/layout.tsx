@@ -38,8 +38,16 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         "flex min-h-svh flex-col text-eq-text"
       )}
     >
+      <a
+        href="#main-content"
+        className="sr-only focus-visible:not-sr-only focus-visible:fixed focus-visible:top-3 focus-visible:left-3 focus-visible:z-[100] focus-visible:rounded-md focus-visible:bg-eq-surface focus-visible:px-4 focus-visible:py-2 focus-visible:text-sm focus-visible:font-medium focus-visible:text-eq-text focus-visible:shadow-eq-md focus-visible:outline-2 focus-visible:outline-eq-accent"
+      >
+        Skip to content
+      </a>
       <SiteHeader />
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1">
+        {children}
+      </main>
       <SiteFooter />
     </div>
   );

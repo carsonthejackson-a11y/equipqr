@@ -15,6 +15,7 @@ const columns: { title: string; links: { href: string; label: string }[] }[] = [
       { href: "/restaurants", label: "For restaurants" },
       { href: "/faq", label: "FAQ" },
       { href: "/security", label: "Security" },
+      { href: "/e", label: "Have a sticker code?" },
     ],
   },
   {
