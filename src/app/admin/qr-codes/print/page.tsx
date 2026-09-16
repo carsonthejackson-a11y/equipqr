@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
+import { isPlatformAdmin } from "@/lib/auth";
 import { generateQrDataUrl, getEquipmentPublicUrl } from "@/lib/qr";
 import { PrintButton } from "@/app/dashboard/equipment/[id]/label/print-button";
 import type { Company, QrCode } from "@/lib/types";
@@ -10,6 +11,9 @@ export default async function PrintQrSheetPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
+  // Gate in the page too: the admin layout renders in parallel with it.
+  if (!(await isPlatformAdmin())) notFound();
+
   const { company: companyId } = await searchParams;
 
   if (!companyId) {

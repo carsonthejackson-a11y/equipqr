@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isPlatformAdmin } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +22,9 @@ export default async function AdminQrCodesPage({
 }: {
   searchParams: Promise<{ company?: string }>;
 }) {
+  // Gate in the page too: the admin layout renders in parallel with it.
+  if (!(await isPlatformAdmin())) notFound();
+
   const { company: companyId } = await searchParams;
   const supabase = await createClient();
 

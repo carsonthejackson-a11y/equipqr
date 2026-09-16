@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatCompanyDate } from "@/lib/format";
 import { daysBetween, earliestByCompany } from "@/lib/activation";
+import { isPlatformAdmin } from "@/lib/auth";
 import type { Company } from "@/lib/types";
 
 // Rows beyond this many (per source table, earliest-first) aren't considered
@@ -40,10 +42,17 @@ function renderMilestone(signedUpAt: string, at: string | undefined) {
 /**
  * Per-company activation funnel (docs/QOL-CONTINUITY-BRIEF.md item 12):
  * signed up -> first unit -> first label printed -> first scan -> first
- * scan-originated request. Gated by AdminLayout's is_platform_admin() check
- * above this, same as every other /admin page.
+ * scan-originated request. Gated by isPlatformAdmin() at the top of the
+ * page itself (the layout's check alone doesn't stop this page rendering).
  */
 export default async function AdminPage() {
+  // Gate here, not only in AdminLayout: the layout and this page render in
+  // parallel, so without this every visitor to /admin would still trigger
+  // the service-role scans below (the layout would just hide the result).
+  if (!(await isPlatformAdmin())) {
+    notFound();
+  }
+
   const supabase = await createClient();
 
   // companies and qr_codes both carry an explicit platform-admin RLS policy
