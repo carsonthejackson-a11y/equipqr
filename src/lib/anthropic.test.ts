@@ -195,6 +195,29 @@ describe("draftTroubleshootingGuide", () => {
       draftTroubleshootingGuide({ equipmentTypeName: "Fridge", description: "", commonIssues: "" })
     ).rejects.toThrow(/empty guide/i);
   });
+
+  it("system prompt hard-bans unsafe instructions and routes hazard symptoms to a stop-and-call escalation", async () => {
+    createMock.mockResolvedValue({
+      content: [{ type: "tool_use", input: { nodes: [{ temp_id: "n1", title: "Symptom?", instructions: "", is_root: true, options: [] }] } }],
+    });
+
+    const { draftTroubleshootingGuide } = await import("./anthropic");
+    await draftTroubleshootingGuide({ equipmentTypeName: "Water heater", description: "", commonIssues: "" });
+
+    const system = createMock.mock.calls[0][0].system as string;
+    // Never open it up, touch it, or defeat a safety device.
+    expect(system).toMatch(/open a panel or cover/i);
+    expect(system).toMatch(/bypass or reset a safety device/i);
+    // A hazard symptom terminates in a stop/keep clear/call escalation.
+    expect(system).toMatch(/gas smell/i);
+    expect(system).toMatch(/burning smell/i);
+    expect(system).toMatch(/smoke/i);
+    expect(system).toMatch(/sparking/i);
+    expect(system).toMatch(/steam leak/i);
+    expect(system).toMatch(/refrigerant leak/i);
+    expect(system).toMatch(/stop, keep clear/i);
+    expect(system).toMatch(/emergency services/i);
+  });
 });
 
 describe("generateChecklistDraft", () => {
@@ -287,5 +310,85 @@ describe("generateChecklistDraft", () => {
     await expect(
       generateChecklistDraft({ equipmentTypeName: "Fridge", equipmentTypeDescription: "", purpose: "" })
     ).rejects.toThrow(/empty checklist/i);
+  });
+
+  it("system prompt hard-bans unsafe checklist items and hazard investigation", async () => {
+    createMock.mockResolvedValue({
+      content: [{ type: "tool_use", input: { items: [{ label: "x", kind: "check", required: false, help: null }] } }],
+    });
+
+    const { generateChecklistDraft } = await import("./anthropic");
+    await generateChecklistDraft({ equipmentTypeName: "Fryer", equipmentTypeDescription: "", purpose: "" });
+
+    const system = createMock.mock.calls[0][0].system as string;
+    expect(system).toMatch(/electrical panel or enclosure/i);
+    expect(system).toMatch(/bypass or reset a safety device/i);
+    expect(system).toMatch(/licensed-trade tasks/i);
+    expect(system).toMatch(/gas smell/i);
+    expect(system).toMatch(/steam leak/i);
+    expect(system).toMatch(/refrigerant leak/i);
+    expect(system).toMatch(/stop, keep clear/i);
+    expect(system).toMatch(/emergency services/i);
+  });
+});
+
+describe("summarizeTroubleshootingPath", () => {
+  const createMock = vi.fn();
+
+  beforeEach(() => {
+    vi.resetModules();
+    createMock.mockReset();
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
+
+    vi.doMock("@anthropic-ai/sdk", () => ({
+      default: class MockAnthropic {
+        messages = { create: createMock };
+      },
+    }));
+  });
+
+  it("uses the cheap classifier model with a short timeout and one retry (Q-05: runs inline in the public submit request)", async () => {
+    createMock.mockResolvedValue({ content: [{ type: "text", text: "Tried resetting the breaker; still won't start." }] });
+
+    const { summarizeTroubleshootingPath } = await import("./anthropic");
+    const result = await summarizeTroubleshootingPath({
+      equipmentName: "Ice machine",
+      description: "Won't start",
+      path: [{ question: "Tried resetting?", answer: "Yes" }],
+    });
+
+    expect(result).toBe("Tried resetting the breaker; still won't start.");
+    expect(createMock).toHaveBeenCalledTimes(1);
+    const [params, options] = createMock.mock.calls[0];
+    expect(params.model).toBe("claude-haiku-4-5-20251001");
+    expect(options).toEqual({ timeout: 8_000, maxRetries: 1 });
+  });
+
+  it("returns null instead of throwing when the SDK call fails", async () => {
+    createMock.mockRejectedValue(new Error("network error"));
+
+    const { summarizeTroubleshootingPath } = await import("./anthropic");
+    const result = await summarizeTroubleshootingPath({
+      equipmentName: "Ice machine",
+      description: "Won't start",
+      path: [],
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("returns null when the model responds with no text block", async () => {
+    createMock.mockResolvedValue({ content: [{ type: "tool_use", input: {} }] });
+
+    const { summarizeTroubleshootingPath } = await import("./anthropic");
+    const result = await summarizeTroubleshootingPath({
+      equipmentName: "Ice machine",
+      description: "Won't start",
+      path: [],
+    });
+
+    expect(result).toBeNull();
   });
 });
