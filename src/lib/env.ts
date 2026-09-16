@@ -191,11 +191,11 @@ export function missingProductionEnvVars(): string[] {
  * is genuinely okay to launch without for a while, and a hard crash here
  * would be worse than the misconfiguration itself.
  *
- * Set ENV_GUARD_ENFORCE=true to make this throw instead. Thrown from
- * register(), that fails the server's startup entirely — the deploy never
- * comes up and Vercel keeps serving the previous working one — rather than
- * ever 500ing a live request on /e/* or anywhere else. That's an explicit,
- * opt-in choice for whoever runs that environment; it is never the default.
+ * It deliberately never throws. Next.js skips instrumentation's register()
+ * during `next build`, so a throw here couldn't fail a deploy — it would
+ * fire at runtime on every new server instance and take live requests down,
+ * sticker pages included. Watch `/api/health?deep=1` and Sentry instead;
+ * a deploy-time gate, if ever wanted, belongs in a prebuild script.
  */
 export async function checkProductionEnv(): Promise<void> {
   if (process.env.VERCEL_ENV !== "production") return;
@@ -215,7 +215,4 @@ export async function checkProductionEnv(): Promise<void> {
     }
   }
 
-  if (process.env.ENV_GUARD_ENFORCE === "true") {
-    throw new Error(message);
-  }
 }

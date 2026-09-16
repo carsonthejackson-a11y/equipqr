@@ -148,14 +148,13 @@ describe("checkProductionEnv (C1-53/C1-54)", () => {
     errorSpy.mockRestore();
   });
 
-  it("logs one structured error naming every missing var, but does not throw, when ENV_GUARD_ENFORCE is unset", async () => {
+  it("logs one structured error naming every missing var, but never throws", async () => {
     process.env.VERCEL_ENV = "production";
     delete process.env.NEXT_PUBLIC_APP_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.RESEND_API_KEY;
     delete process.env.RESEND_FROM_EMAIL;
     delete process.env.CRON_SECRET;
-    delete process.env.ENV_GUARD_ENFORCE;
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { checkProductionEnv } = await import("./env");
 
@@ -170,7 +169,7 @@ describe("checkProductionEnv (C1-53/C1-54)", () => {
     errorSpy.mockRestore();
   });
 
-  it('throws when ENV_GUARD_ENFORCE is "true" and something is missing', async () => {
+  it("does not throw even when a legacy ENV_GUARD_ENFORCE=true is still set", async () => {
     process.env.VERCEL_ENV = "production";
     setProductionReadyEnv();
     delete process.env.CRON_SECRET;
@@ -178,20 +177,10 @@ describe("checkProductionEnv (C1-53/C1-54)", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { checkProductionEnv } = await import("./env");
 
-    await expect(checkProductionEnv()).rejects.toThrow(/CRON_SECRET/);
-    errorSpy.mockRestore();
-  });
-
-  it('does not throw when ENV_GUARD_ENFORCE is any value other than the literal string "true"', async () => {
-    process.env.VERCEL_ENV = "production";
-    setProductionReadyEnv();
-    delete process.env.CRON_SECRET;
-    process.env.ENV_GUARD_ENFORCE = "1";
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const { checkProductionEnv } = await import("./env");
-
     await expect(checkProductionEnv()).resolves.toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledTimes(1);
     errorSpy.mockRestore();
+    delete process.env.ENV_GUARD_ENFORCE;
   });
 
   it("reports to Sentry when SENTRY_DSN is set", async () => {

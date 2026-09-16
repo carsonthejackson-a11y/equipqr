@@ -110,7 +110,6 @@ cp .env.local.example .env.local
 | `STRIPE_PORTAL_CONFIG_PROVIDER` / `STRIPE_PORTAL_CONFIG_OWNER` | No | Customer Portal configuration ids, one per company kind — see `docs/BILLING.md` §4 |
 | `SENTRY_DSN` | No — error tracking is a no-op without it | Sentry → Settings → Projects → your project → Client Keys (DSN) |
 | `CRON_SECRET` | No, but required for scheduled jobs and `/api/health?deep=1` to work | Any long random string, e.g. `openssl rand -hex 32` |
-| `ENV_GUARD_ENFORCE` | No | Set to `true` in production to make a misconfigured deploy fail startup instead of just logging — see "Operations" below |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | No | Shown to customers on public pages, if set |
 
 All of the above are validated by `src/lib/env.ts` (zod) on first server-side access — a
@@ -183,8 +182,8 @@ an unknown `/e/[qrToken]`, and `/api/health`. It never creates data.
   `?deep=1` with an `Authorization: Bearer <CRON_SECRET>` header for a fuller boolean-only
   config check (`productionReady`, and which specific integration is unconfigured) — 401s
   without a valid secret, never leaks a value. Same env guard `checkProductionEnv()` runs
-  automatically at server startup in production and logs (or, with `ENV_GUARD_ENFORCE=true`,
-  throws) if anything required is missing — see `src/lib/env.ts`.
+  automatically at server startup in production and logs (never throws) if anything required is
+  missing — see `src/lib/env.ts`.
 - **Error tracking**: Sentry (`@sentry/nextjs`) is wired for server, edge, and client
   runtimes (`src/instrumentation.ts`, `src/instrumentation-client.ts`, `sentry.server.config.ts`,
   `sentry.edge.config.ts`) plus friendly fallback UI (`src/app/error.tsx`,

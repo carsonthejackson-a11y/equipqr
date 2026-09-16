@@ -145,7 +145,6 @@ up:
 | `ANTHROPIC_API_KEY` | console.anthropic.com |
 | `STRIPE_*` (14 vars: secret key, webhook secret, 10 prices, 2 portal configs) | step 2 |
 | `CRON_SECRET` | any long random string — `openssl rand -hex 32` |
-| `ENV_GUARD_ENFORCE` | optional — `true` makes a misconfigured prod deploy fail startup instead of just logging; see README "Operations" |
 | `NEXT_PUBLIC_FEATURE_BATCH_QR` | optional — defaults to `true` (on); set `false` only to keep pre-printed sticker batches parked, see `docs/BATCH-QR.md` |
 | `SENTRY_DSN` | optional — see step 6 |
 
@@ -224,9 +223,8 @@ When all seven pass, flip Stripe to live keys — both plan sets — and you're 
   `docs/BATCH-QR.md`), scan-to-onboard nameplate photos, custom equipment fields, outbound
   webhooks + CSV export + a public v1 API (Business plan), a role-aware app shell (ordered nav,
   a live Requests badge, mobile scan + account access).
-- **Reliability:** typed env validation; a report-only production env guard that logs (and, with
-  `ENV_GUARD_ENFORCE=true`, fails startup) when a required var is missing or misconfigured in
-  production; `/api/health` plus an authenticated `/api/health?deep=1`; constant-time comparisons
+- **Reliability:** typed env validation; a report-only production env guard that logs (never fails requests) when a
+  required var is missing or misconfigured in production; `/api/health` plus an authenticated `/api/health?deep=1`; constant-time comparisons
   on the cron and deep-health-check secrets; Sentry (opt-in); an expanded unit test suite and
   browser smoke tests; a dedicated CI job that applies every migration to a throwaway database
   and runs SQL assertion suites (`db-smoke.yml`) alongside the existing lint/typecheck/build/e2e
