@@ -6,6 +6,8 @@ import { summarizeTroubleshootingPath } from "@/lib/anthropic";
 import { buildServiceRequestNotificationEmail } from "@/lib/email/service-request-notification";
 import { buildRequestReceivedEmail, brandingForEmail } from "@/lib/email/request-status";
 import { sendEmail } from "@/lib/email/send";
+import { sendCompanyEmail } from "@/lib/email/company-email";
+import { sanitizeEmailHeader } from "@/lib/email/layout";
 import { enforceRateLimits, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { getRequestStatusUrl } from "@/lib/qr";
@@ -135,22 +137,36 @@ async function sendStaffNotification(
   // Null when the RPC ran without the service-role key — see submitClient().
   if (!result.company_notification_email) return;
 
-  const dashboardUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/requests/${result.request_id}`;
+  try {
+    const dashboardUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/requests/${result.request_id}`;
 
-  const { subject, html, text } = buildServiceRequestNotificationEmail({
-    equipmentName: result.equipment_name,
-    contactName: body.contactName,
-    contactEmail: body.contactEmail,
-    contactPhone: body.contactPhone,
-    description: body.description,
-    mediaCount: body.media.length,
-    priority: REQUEST_PRIORITY_LABELS[body.priority],
-    aiSummary,
-    troubleshootingPath: body.troubleshootingPath,
-    dashboardUrl,
-  });
+    const { subject, html, text } = buildServiceRequestNotificationEmail({
+      equipmentName: result.equipment_name,
+      contactName: body.contactName,
+      contactEmail: body.contactEmail,
+      contactPhone: body.contactPhone,
+      description: body.description,
+      mediaCount: body.media.length,
+      priority: REQUEST_PRIORITY_LABELS[body.priority],
+      aiSummary,
+      troubleshootingPath: body.troubleshootingPath,
+      dashboardUrl,
+    });
 
-  await sendEmail({ to: result.company_notification_email, subject, html, text });
+    // Staff hitting "reply" should land in the requester's inbox, not
+    // bounce back to this notification's own sender — sanitized since a
+    // requester-typed address is untrusted input going straight into a raw
+    // email header (C1-43's other half).
+    await sendEmail({
+      to: result.company_notification_email,
+      subject,
+      html,
+      text,
+      replyTo: sanitizeEmailHeader(body.contactEmail) || undefined,
+    });
+  } catch (err) {
+    console.error("staff notification email failed:", err);
+  }
 }
 
 /**
@@ -187,7 +203,13 @@ async function sendRequesterReceipt(
       statusUrl,
     });
 
-    await sendEmail({ to: body.contactEmail, subject, html, text });
+    await sendCompanyEmail({
+      company: { name: result.company_name, notification_email: result.company_notification_email },
+      to: body.contactEmail,
+      subject,
+      html,
+      text,
+    });
   } catch (err) {
     console.error("request received email failed:", err);
   }
