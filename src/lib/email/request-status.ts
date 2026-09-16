@@ -1,11 +1,13 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { renderEmail, renderEmailText, escapeHtml, type EmailBrand } from "./layout";
-import { sendEmail } from "./send";
+import { sendCompanyEmail } from "./company-email";
 import { resolveBranding } from "@/lib/branding";
 import { getRequestStatusUrl } from "@/lib/qr";
 import { emitRequestActivity } from "@/lib/events";
 import { REQUEST_STATUS_LABELS } from "@/components/status-badge";
+import { formatCompanyLongDateTime, DEFAULT_COMPANY_TIME_ZONE } from "@/lib/format";
+import { vocabFor, type Vocab } from "@/lib/vocab";
 import type { CompanyPublicProfile, RequestStatus, ServiceRequest } from "@/lib/types";
 import type { PlanId } from "@/lib/plans";
 
@@ -72,6 +74,32 @@ export function buildRequestReceivedEmail({
   return { subject, html, text };
 }
 
+/**
+ * "Your request is in the queue" / "A technician is working on your
+ * request" etc. — vocab-aware (C1-05) so an owner-kind reporter who added an
+ * email on `/r/` reads "work order" / "vendor" instead of provider wording.
+ * `when` is already formatted in the company zone with a zone label
+ * (C1-23/Q-01) — see {@link buildRequestStatusUpdateEmail}.
+ */
+function statusLineFor(status: RequestStatus, vocab: Vocab, when: string | null): string {
+  const request = vocab.requestSingular.toLowerCase();
+  const assignee = vocab.assigneeNoun.toLowerCase();
+  switch (status) {
+    case "new":
+      return `Your ${request} is in the queue.`;
+    case "in_progress":
+      return `A ${assignee} is working on your ${request}.`;
+    case "scheduled":
+      return when ? `A visit is scheduled for ${when}.` : "A visit has been scheduled.";
+    case "on_hold":
+      return `Your ${request} is on hold for now.`;
+    case "resolved":
+      return `Your ${request} has been resolved.`;
+    case "canceled":
+      return `Your ${request} has been canceled.`;
+  }
+}
+
 export function buildRequestStatusUpdateEmail({
   brand,
   equipmentName,
@@ -80,6 +108,8 @@ export function buildRequestStatusUpdateEmail({
   statusUrl,
   note,
   scheduledFor,
+  timeZone,
+  vocab = vocabFor(undefined),
 }: {
   brand: RequestEmailBranding;
   equipmentName: string;
@@ -90,27 +120,30 @@ export function buildRequestStatusUpdateEmail({
   note?: string | null;
   /** ISO timestamp of a scheduled visit, if any. */
   scheduledFor?: string | null;
+  /**
+   * The company's own IANA zone (`companies.timezone`) — a scheduled visit's
+   * time is rendered in THIS zone with a zone abbreviation, never the
+   * server process's own timezone (C1-23/Q-01: this email used to render in
+   * server UTC with no zone label). Required so a caller can't silently
+   * forget it; pass `DEFAULT_COMPANY_TIME_ZONE` if the company row genuinely
+   * has none.
+   */
+  timeZone: string;
+  /** service_provider vs equipment_owner nouns (C1-05) — defaults to provider wording for callers that haven't resolved a company kind. */
+  vocab?: Vocab;
 }): { subject: string; html: string; text: string } {
   const label = REQUEST_STATUS_LABELS[status];
   const subject = `${equipmentName}: ${label.toLowerCase()}`;
   const greeting = contactName ? `Hi ${escapeHtml(contactName)},` : "Hi there,";
-  const when = scheduledFor ? new Date(scheduledFor).toLocaleString("en-US", { dateStyle: "full", timeStyle: "short" }) : null;
-
-  const statusLine: Record<RequestStatus, string> = {
-    new: "Your request is in the queue.",
-    in_progress: "A technician is working on your request.",
-    scheduled: when ? `A visit is scheduled for ${when}.` : "A visit has been scheduled.",
-    on_hold: "Your request is on hold for now.",
-    resolved: "Your request has been resolved.",
-    canceled: "Your request has been canceled.",
-  };
+  const when = scheduledFor ? formatCompanyLongDateTime(scheduledFor, timeZone) : null;
+  const line = statusLineFor(status, vocab, when);
 
   const html = renderEmail({
     heading: `Update: ${label}`,
     brand,
     bodyHtml: [
       `<p>${greeting}</p>`,
-      `<p>Status update on your service request for <strong>${escapeHtml(equipmentName)}</strong>: ${escapeHtml(statusLine[status])}</p>`,
+      `<p>Status update on your ${escapeHtml(vocab.requestSingular.toLowerCase())} for <strong>${escapeHtml(equipmentName)}</strong>: ${escapeHtml(line)}</p>`,
       note ? `<p style="margin:12px 0;white-space:pre-wrap;">${escapeHtml(note)}</p>` : "",
       brand.phone ? `<p style="margin:16px 0 0;color:#64748b;">Questions? Call ${escapeHtml(brand.phone)}.</p>` : "",
     ].join(""),
@@ -121,7 +154,7 @@ export function buildRequestStatusUpdateEmail({
   const text = renderEmailText({
     heading: `Hi ${contactName || "there"},`,
     lines: [
-      `Status update on your service request for ${equipmentName}: ${statusLine[status]}`,
+      `Status update on your ${vocab.requestSingular.toLowerCase()} for ${equipmentName}: ${line}`,
       note ? `\n${note}` : undefined,
       brand.phone ? `Questions? Call ${brand.phone}.` : undefined,
     ],
@@ -135,8 +168,16 @@ export function buildRequestStatusUpdateEmail({
 /**
  * One-call "tell the requester their request changed" used by dashboard
  * actions. Respects companies.customer_updates_enabled, skips silently when
- * the requester left no email, records an `email_sent` activity row on
- * success, and never throws. Pass the RLS-scoped server client.
+ * the requester left no email, sends through sendCompanyEmail() so the
+ * envelope is "{Company} via EquipQR" with Reply-To the company's own inbox
+ * (C1-43), records an `email_sent` activity row on success, and never
+ * throws. Pass the RLS-scoped server client.
+ *
+ * Returns whether an email actually went out — `false` covers "opted out",
+ * "no email on file" and "Resend declined the send" alike, so a caller can
+ * show an honest "Customer notified" only when this is `true` (C1-31/Q-03).
+ * Keep this signature in mind before changing it: QoL-2a's staff-scan
+ * toasts and QoL-4's dashboard toasts are both meant to read this.
  */
 export async function notifyRequesterOfStatus(
   supabase: SupabaseClient,
@@ -144,7 +185,7 @@ export async function notifyRequesterOfStatus(
     request: Pick<ServiceRequest, "id" | "company_id" | "contact_name" | "contact_email" | "public_token" | "scheduled_for">;
     status: RequestStatus;
     equipmentName: string;
-    company: CompanyPublicProfile & { customer_updates_enabled: boolean };
+    company: CompanyPublicProfile & { customer_updates_enabled: boolean; notification_email: string | null };
     planId: PlanId | null | undefined;
     supabaseUrl: string;
     note?: string | null;
@@ -164,9 +205,17 @@ export async function notifyRequesterOfStatus(
       statusUrl: getRequestStatusUrl(request.public_token),
       note: params.note,
       scheduledFor: request.scheduled_for,
+      timeZone: company.timezone ?? DEFAULT_COMPANY_TIME_ZONE,
+      vocab: vocabFor(company.kind),
     });
 
-    const sent = await sendEmail({ to: request.contact_email, subject, html, text });
+    const { sent } = await sendCompanyEmail({
+      company: { name: company.name, notification_email: company.notification_email },
+      to: request.contact_email,
+      subject,
+      html,
+      text,
+    });
     if (sent) {
       await emitRequestActivity(supabase, {
         companyId: request.company_id,
