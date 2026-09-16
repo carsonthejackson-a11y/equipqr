@@ -1,9 +1,17 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { MessageSquare, Search } from "lucide-react";
+import { MessageSquare, Search, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -43,7 +51,9 @@ export function RequestFilters({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
+  const bucket = searchParams.get("bucket");
   const status = searchParams.get("status") ?? "open";
   const priority = searchParams.get("priority") ?? ALL_PRIORITIES;
   const assignee = searchParams.get("assignee") ?? ALL_ASSIGNEES;
@@ -68,6 +78,12 @@ export function RequestFilters({
       }
     }
     params.delete("page");
+    // A bucket link (e.g. an Overview "Unassigned" card) is a fixed
+    // predicate (REQUEST_BUCKETS) that the discrete status/priority/assignee
+    // params below can't express — see src/lib/request-queries.ts. Touching
+    // any of those params here means the person is filtering by hand, so
+    // drop `bucket` rather than silently combining two different queries.
+    if (!("bucket" in updates)) params.delete("bucket");
     startTransition(() => {
       router.replace(`${pathname}?${params.toString()}`);
     });
@@ -98,43 +114,21 @@ export function RequestFilters({
     ...Object.fromEntries(DISPATCH_STATUS_ORDER.map((s) => [s, DISPATCH_STATUS_LABELS[s]])),
   };
 
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {STATUS_CHIPS.map((chip) => (
-          <button
-            key={chip.value}
-            type="button"
-            onClick={() => setParams({ status: chip.value === "open" ? null : chip.value })}
-            className={cn(
-              "rounded-full border px-3 py-1 text-sm transition-colors",
-              status === chip.value
-                ? "border-primary bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent"
-            )}
-          >
-            {chip.label}
-          </button>
-        ))}
-      </div>
+  const activeFilterCount =
+    (priority !== ALL_PRIORITIES ? 1 : 0) +
+    (assignee !== ALL_ASSIGNEES ? 1 : 0) +
+    (kind === "equipment_owner" && dispatch !== ALL_DISPATCH ? 1 : 0) +
+    (hasMessages ? 1 : 0);
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search description, contact, equipment…"
-            className="pl-8"
-          />
-        </div>
-
+  function fields(): ReactNode {
+    return (
+      <>
         <Select
           value={priority}
           onValueChange={(value) => value && setParams({ priority: value === ALL_PRIORITIES ? null : value })}
           items={priorityItems}
         >
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full sm:w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -151,7 +145,7 @@ export function RequestFilters({
           onValueChange={(value) => value && setParams({ assignee: value === ALL_ASSIGNEES ? null : value })}
           items={assigneeItems}
         >
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full sm:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -169,7 +163,7 @@ export function RequestFilters({
             onValueChange={(value) => value && setParams({ dispatch: value === ALL_DISPATCH ? null : value })}
             items={dispatchItems}
           >
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-full sm:w-48">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -186,7 +180,7 @@ export function RequestFilters({
           type="button"
           onClick={() => setParams({ messages: hasMessages ? null : "1" })}
           className={cn(
-            "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
+            "flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors",
             hasMessages
               ? "border-primary bg-primary text-primary-foreground"
               : "text-muted-foreground hover:bg-accent"
@@ -195,6 +189,73 @@ export function RequestFilters({
           <MessageSquare className="size-3.5" />
           Has customer messages
         </button>
+      </>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {bucket && (
+          <button
+            type="button"
+            onClick={() => setParams({ bucket: null, status: null })}
+            className="flex items-center gap-1.5 rounded-full border border-primary bg-primary/10 px-3 py-1 text-sm text-primary hover:bg-primary/15"
+          >
+            Filtered view · Clear
+          </button>
+        )}
+        {STATUS_CHIPS.map((chip) => (
+          <button
+            key={chip.value}
+            type="button"
+            onClick={() => setParams({ status: chip.value === "open" ? null : chip.value })}
+            className={cn(
+              "rounded-full border px-3 py-1 text-sm transition-colors",
+              !bucket && status === chip.value
+                ? "border-primary bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent"
+            )}
+          >
+            {chip.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search description, contact, equipment, ref…"
+            className="pl-8"
+          />
+        </div>
+
+        {/* Desktop/tablet: filters inline. */}
+        <div className="hidden flex-wrap items-center gap-2 md:flex">{fields()}</div>
+
+        {/* Phone: filters collapse into a sheet so they don't eat the first screen (Q-30). */}
+        <div className="md:hidden">
+          <Button type="button" variant="outline" size="sm" onClick={() => setFiltersOpen(true)} className="gap-1.5">
+            <SlidersHorizontal className="size-4" />
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </Button>
+          <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+            <DialogContent className="sm:max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Filters</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-3">{fields()}</div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setFiltersOpen(false)}>
+                  Done
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
     </div>
   );

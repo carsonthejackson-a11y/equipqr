@@ -160,3 +160,40 @@ export const REQUEST_BUCKETS: Record<RequestBucketKey, RequestBucket> = {
     href: "/dashboard/requests?bucket=awaitingVendor",
   },
 };
+
+// ---------------------------------------------------------------------------
+// Reference-code search (QoL-4 / Q-07). The inbox's free-text search covers
+// description/contact/equipment but never `service_requests.public_token`,
+// so the short reference a customer is told to quote on the phone
+// ("D858-8364", derived from their token by requestReference() in
+// src/lib/public-request.ts) can't be looked up from the dashboard. These two
+// pure helpers let the inbox recognise a typed reference and turn it into the
+// same 8-char lowercase prefix requestReference() derives, for a
+// `public_token.ilike.<prefix>%` OR-clause alongside the existing search
+// terms — see requests/page.tsx.
+// ---------------------------------------------------------------------------
+
+/**
+ * True when `term` is shaped like a request reference: 8 alphanumeric
+ * characters, optionally grouped 4-4 by a dash, case-insensitive —
+ * e.g. "D858-8364", "d8588364", "D8588364". Whitespace around the term is
+ * ignored. Mirrors the pattern from Q-07's proposed fix exactly.
+ */
+export function looksLikeRequestReference(term: string): boolean {
+  return /^[A-Za-z0-9]{4}-?[A-Za-z0-9]{4}$/.test(term.trim());
+}
+
+/**
+ * The lowercase, dash-stripped 8-character prefix to match against
+ * `public_token` for a typed reference — the inverse of
+ * requestReference()'s uppercase 4-4 grouping (public tokens are UUIDs, whose
+ * first 8 characters are always the hex digits before the first hyphen, so a
+ * plain prefix match against the raw column is correct — no need to strip
+ * hyphens out of `public_token` itself). Only meaningful when
+ * {@link looksLikeRequestReference} is true for the same input; callers
+ * should check that first rather than assuming every search term is a
+ * reference.
+ */
+export function requestReferenceSearchPrefix(term: string): string {
+  return term.trim().replace(/-/g, "").toLowerCase();
+}
