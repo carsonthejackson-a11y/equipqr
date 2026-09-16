@@ -176,7 +176,7 @@ export default async function EquipmentLabelPage({
                   {shortCode}
                 </p>
                 <p className="leading-tight text-neutral-600" style={{ fontSize: "0.062in" }}>
-                  or enter this code at {host}
+                  or enter this code at {host}/e
                 </p>
               </div>
             </div>
