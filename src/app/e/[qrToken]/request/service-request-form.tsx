@@ -257,19 +257,19 @@ export function ServiceRequestForm({
             {branding.phone && (
               <a
                 href={phoneHref("tel", branding.phone)}
-                className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl border text-base font-medium"
+                className="flex min-h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border text-base font-medium"
               >
-                <Phone className="size-5" aria-hidden />
-                Call us
+                <Phone className="size-5 shrink-0" aria-hidden />
+                <span className="truncate">Call {branding.companyName}</span>
               </a>
             )}
             {branding.smsNumber && (
               <a
                 href={phoneHref("sms", branding.smsNumber)}
-                className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl border text-base font-medium"
+                className="flex min-h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border text-base font-medium"
               >
-                <MessageSquare className="size-5" aria-hidden />
-                Text us
+                <MessageSquare className="size-5 shrink-0" aria-hidden />
+                <span className="truncate">Text {branding.companyName}</span>
               </a>
             )}
           </div>

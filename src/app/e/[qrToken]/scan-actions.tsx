@@ -52,10 +52,10 @@ function ActionRow({
       <span className="shrink-0" aria-hidden>
         {icon}
       </span>
-      <span className="flex-1">
-        <span className="block text-base leading-tight font-semibold">{title}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-base leading-tight font-semibold">{title}</span>
         {subtitle && (
-          <span className={cn("block text-sm leading-tight", primary ? "opacity-80" : "text-muted-foreground")}>
+          <span className={cn("block truncate text-sm leading-tight", primary ? "opacity-80" : "text-muted-foreground")}>
             {subtitle}
           </span>
         )}
@@ -151,7 +151,7 @@ export function ScanActions({
         <ActionRow
           href={phoneHref("tel", branding.phone)}
           icon={<Phone className="size-5" />}
-          title="Call us"
+          title={`Call ${branding.companyName}`}
           subtitle={branding.phone}
         />
       )}
@@ -160,7 +160,7 @@ export function ScanActions({
         <ActionRow
           href={phoneHref("sms", branding.smsNumber)}
           icon={<MessageSquare className="size-5" />}
-          title="Text us"
+          title={`Text ${branding.companyName}`}
           subtitle={branding.smsNumber}
         />
       )}

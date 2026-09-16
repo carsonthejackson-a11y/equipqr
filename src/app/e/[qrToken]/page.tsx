@@ -215,6 +215,11 @@ export default async function EquipmentGuidePage({
 
         <div className="space-y-1">
           <h1 className="text-2xl leading-tight font-semibold">{guide.equipment.name}</h1>
+          {/* Owner-kind pages are the company's own equipment — there's no
+              third party to name here (Q-56). */}
+          {guide.company.kind !== "equipment_owner" && (
+            <p className="text-sm text-muted-foreground">Serviced by {guide.company.name}.</p>
+          )}
           <p className="text-muted-foreground">
             {[guide.equipment_type.name, makeModel].filter(Boolean).join(" · ")}
           </p>
