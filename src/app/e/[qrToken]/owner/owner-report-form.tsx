@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useHydrated } from "@/lib/use-hydrated";
 import { Camera, Images, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   firstErrorField,
   HAZARD_WARNING,
   hasDraftContent,
+  isReportDraftFresh,
   hasHazardLanguage,
   MAX_DESCRIPTION_LENGTH,
   MAX_MEDIA_ITEMS,
@@ -46,10 +48,11 @@ const SOMETHING_ELSE = "Something else";
 const FIELD_ORDER = ["problem", "contactName"] as const;
 type FieldName = (typeof FIELD_ORDER)[number];
 
+// Only the problem and urgency — never who is reporting. Kitchen devices are
+// shared, and a restored name or phone would send the vendor to the wrong
+// person (see REPORT_DRAFT_MAX_AGE_MS).
 type ReportDraft = {
   description: string;
-  contactName: string;
-  reporterPhone: string;
   priority: PriorityChoice;
 };
 
@@ -57,19 +60,20 @@ type ReportDraft = {
 function readInitialDraft(qrToken: string): ReportDraft | null {
   if (typeof window === "undefined") return null;
   try {
-    const draft = parseReportDraft(localStorage.getItem(reportDraftStorageKey(qrToken)));
+    const key = reportDraftStorageKey(qrToken);
+    const draft = parseReportDraft(localStorage.getItem(key));
     if (!draft) return null;
-    const textFields = {
-      description: draft.description ?? "",
-      contactName: draft.contactName ?? "",
-      reporterPhone: draft.reporterPhone ?? "",
-    };
-    if (!hasDraftContent(textFields)) return null;
+    if (!isReportDraftFresh(draft, Date.now())) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    const description = draft.description ?? "";
+    if (!hasDraftContent({ description })) return null;
     const priority =
       draft.priority && OWNER_PRIORITY_CHOICES.some((c) => c.value === draft.priority)
         ? (draft.priority as PriorityChoice)
         : DEFAULT_PRIORITY_CHOICE;
-    return { ...textFields, priority };
+    return { description, priority };
   } catch {
     return null;
   }
@@ -172,8 +176,9 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
   const [initialDraft] = useState(() => readInitialDraft(qrToken));
   const [description, setDescription] = useState(initialDraft?.description ?? "");
   const [priority, setPriority] = useState<PriorityChoice>(initialDraft?.priority ?? DEFAULT_PRIORITY_CHOICE);
-  const [contactName, setContactName] = useState(initialDraft?.contactName ?? "");
-  const [reporterPhone, setReporterPhone] = useState(initialDraft?.reporterPhone ?? "");
+  const [contactName, setContactName] = useState("");
+  const [reporterPhone, setReporterPhone] = useState("");
+  const hydrated = useHydrated();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
@@ -211,21 +216,20 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
   }, []);
 
   // Keep the draft current as the visitor types (Q-54), cleared once there's
-  // no meaningful text left to save. Symptom chips aren't persisted — the
-  // reduced scope is "text fields and urgency".
+  // no meaningful text left to save. Symptom chips aren't persisted, and
+  // neither is anything identifying the reporter.
   useEffect(() => {
     try {
       const key = reportDraftStorageKey(qrToken);
-      const textFields = { description, contactName, reporterPhone };
-      if (hasDraftContent(textFields)) {
-        localStorage.setItem(key, JSON.stringify({ ...textFields, priority }));
+      if (hasDraftContent({ description })) {
+        localStorage.setItem(key, JSON.stringify({ description, priority, savedAt: new Date().toISOString() }));
       } else {
         localStorage.removeItem(key);
       }
     } catch {
       /* best effort */
     }
-  }, [description, contactName, reporterPhone, priority, qrToken]);
+  }, [description, priority, qrToken]);
 
   function toggleSymptom(chip: string) {
     setError(null);
@@ -410,13 +414,13 @@ export function OwnerReportForm({ qrToken, guide }: { qrToken: string; guide: Eq
         </Alert>
       )}
 
-      {hazardDetected && (
+      {hydrated && hazardDetected && (
         <Alert variant="destructive">
           <AlertDescription>{HAZARD_WARNING}</AlertDescription>
         </Alert>
       )}
 
-      {restoredDraft && (
+      {hydrated && restoredDraft && (
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
           <span>Restored your draft.</span>
           <button

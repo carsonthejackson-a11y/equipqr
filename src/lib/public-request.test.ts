@@ -501,3 +501,25 @@ describe("isOwnedUploadPath (mirrors assert_submission_media_ok in migration 002
     expect(isOwnedUploadPath(`${token}/2f1c-photo.jpg`, token)).toBe(true);
   });
 });
+
+describe("isReportDraftFresh", () => {
+  const now = Date.parse("2026-09-16T18:00:00.000Z");
+
+  it("accepts a draft saved within the last 12 hours", async () => {
+    const { isReportDraftFresh } = await import("./public-request");
+    expect(isReportDraftFresh({ description: "leaking", savedAt: "2026-09-16T08:30:00.000Z" }, now)).toBe(true);
+  });
+
+  it("rejects a draft older than 12 hours, one with no timestamp, and garbage timestamps", async () => {
+    const { isReportDraftFresh } = await import("./public-request");
+    expect(isReportDraftFresh({ description: "leaking", savedAt: "2026-09-15T17:59:00.000Z" }, now)).toBe(false);
+    expect(isReportDraftFresh({ description: "leaking" }, now)).toBe(false);
+    expect(isReportDraftFresh({ description: "leaking", savedAt: "yesterday" }, now)).toBe(false);
+    expect(isReportDraftFresh(null, now)).toBe(false);
+  });
+
+  it("rejects a draft stamped in the future (clock skew or tampering)", async () => {
+    const { isReportDraftFresh } = await import("./public-request");
+    expect(isReportDraftFresh({ description: "leaking", savedAt: "2026-09-16T19:00:00.000Z" }, now)).toBe(false);
+  });
+});

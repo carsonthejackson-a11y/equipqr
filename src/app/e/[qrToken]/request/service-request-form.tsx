@@ -14,6 +14,7 @@ import {
   firstErrorField,
   HAZARD_WARNING,
   hasDraftContent,
+  isReportDraftFresh,
   hasHazardLanguage,
   MAX_DESCRIPTION_LENGTH,
   MAX_MEDIA_ITEMS,
@@ -26,6 +27,7 @@ import {
   type PriorityChoice,
 } from "@/lib/public-request";
 import { cn } from "@/lib/utils";
+import { useHydrated } from "@/lib/use-hydrated";
 
 // Field order the form renders in, for scroll-to-first-error (Q-58).
 const FIELD_ORDER = ["description", "contactName", "contactPhone", "contactEmail"] as const;
@@ -33,11 +35,11 @@ type FieldName = (typeof FIELD_ORDER)[number];
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Only the problem and urgency — never who is reporting. These forms run on
+// shared café devices, and a restored name or phone would file the next
+// person's report under someone else (see REPORT_DRAFT_MAX_AGE_MS).
 type ReportDraft = {
   description: string;
-  contactName: string;
-  contactEmail: string;
-  contactPhone: string;
   priority: PriorityChoice;
 };
 
@@ -45,20 +47,20 @@ type ReportDraft = {
 function readInitialDraft(qrToken: string): ReportDraft | null {
   if (typeof window === "undefined") return null;
   try {
-    const draft = parseReportDraft(localStorage.getItem(reportDraftStorageKey(qrToken)));
+    const key = reportDraftStorageKey(qrToken);
+    const draft = parseReportDraft(localStorage.getItem(key));
     if (!draft) return null;
-    const textFields = {
-      description: draft.description ?? "",
-      contactName: draft.contactName ?? "",
-      contactEmail: draft.contactEmail ?? "",
-      contactPhone: draft.contactPhone ?? "",
-    };
-    if (!hasDraftContent(textFields)) return null;
+    if (!isReportDraftFresh(draft, Date.now())) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    const description = draft.description ?? "";
+    if (!hasDraftContent({ description })) return null;
     const priority =
       draft.priority && PRIORITY_CHOICES.some((c) => c.value === draft.priority)
         ? (draft.priority as PriorityChoice)
         : DEFAULT_PRIORITY_CHOICE;
-    return { ...textFields, priority };
+    return { description, priority };
   } catch {
     return null;
   }
@@ -140,9 +142,10 @@ export function ServiceRequestForm({
   const [initialDraft] = useState(() => readInitialDraft(qrToken));
   const [description, setDescription] = useState(initialDraft?.description ?? "");
   const [priority, setPriority] = useState<PriorityChoice>(initialDraft?.priority ?? DEFAULT_PRIORITY_CHOICE);
-  const [contactName, setContactName] = useState(initialDraft?.contactName ?? "");
-  const [contactEmail, setContactEmail] = useState(initialDraft?.contactEmail ?? "");
-  const [contactPhone, setContactPhone] = useState(initialDraft?.contactPhone ?? "");
+  const [contactName, setContactName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const hydrated = useHydrated();
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<FieldName, string>>>({});
@@ -185,16 +188,15 @@ export function ServiceRequestForm({
   useEffect(() => {
     try {
       const key = reportDraftStorageKey(qrToken);
-      const textFields = { description, contactName, contactEmail, contactPhone };
-      if (hasDraftContent(textFields)) {
-        localStorage.setItem(key, JSON.stringify({ ...textFields, priority }));
+      if (hasDraftContent({ description })) {
+        localStorage.setItem(key, JSON.stringify({ description, priority, savedAt: new Date().toISOString() }));
       } else {
         localStorage.removeItem(key);
       }
     } catch {
       /* best effort */
     }
-  }, [description, contactName, contactEmail, contactPhone, priority, qrToken]);
+  }, [description, priority, qrToken]);
 
   function getTroubleshootingPath(): PathEntry[] {
     try {
@@ -393,13 +395,13 @@ export function ServiceRequestForm({
         </Alert>
       )}
 
-      {hazardDetected && (
+      {hydrated && hazardDetected && (
         <Alert variant="destructive">
           <AlertDescription>{HAZARD_WARNING}</AlertDescription>
         </Alert>
       )}
 
-      {restoredDraft && (
+      {hydrated && restoredDraft && (
         <div className="flex items-center justify-between gap-2 rounded-lg border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
           <span>Restored your draft.</span>
           <button

@@ -224,6 +224,26 @@ export function parseReportDraft(raw: string | null): Record<string, string> | n
   }
 }
 
+/**
+ * How long an unsent report draft is kept on a device. Short on purpose:
+ * report forms run on shared kitchen and café devices, so a draft is only
+ * the problem description and urgency — never the reporter's name, phone or
+ * email — and it expires the same day.
+ */
+export const REPORT_DRAFT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/** Whether a stored draft is recent enough to restore. A draft with no (or an unreadable) `savedAt` comes from an older version of the form and is treated as stale. */
+export function isReportDraftFresh(
+  draft: Record<string, string> | null,
+  nowMs: number,
+  maxAgeMs: number = REPORT_DRAFT_MAX_AGE_MS
+): boolean {
+  if (!draft?.savedAt) return false;
+  const savedMs = Date.parse(draft.savedAt);
+  if (Number.isNaN(savedMs)) return false;
+  return nowMs - savedMs >= 0 && nowMs - savedMs <= maxAgeMs;
+}
+
 /** Whether a parsed draft actually has anything worth restoring — an object of all-blank fields isn't a draft. */
 export function hasDraftContent(draft: Record<string, string> | null): boolean {
   return !!draft && Object.values(draft).some((v) => v.trim().length > 0);
