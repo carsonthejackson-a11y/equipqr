@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { planFromStripePriceId } from "@/lib/plans";
+import { getPlan, planFromStripePriceId } from "@/lib/plans";
+import type { CompanyKind } from "@/lib/types";
 
 // Raw-body signature verification requires the Node.js runtime (the Edge
 // runtime doesn't give us the exact bytes Stripe signed).
@@ -67,6 +68,18 @@ async function resolveCompanyId(
     .maybeSingle<{ id: string }>();
 
   return data?.id ?? null;
+}
+
+async function resolveCompanyKind(
+  companyId: string,
+  admin: ReturnType<typeof createAdminClient>
+): Promise<CompanyKind | null> {
+  const { data } = await admin
+    .from("companies")
+    .select("kind")
+    .eq("id", companyId)
+    .maybeSingle<{ kind: CompanyKind }>();
+  return data?.kind ?? null;
 }
 
 // PostgREST surfaces a Postgres foreign-key violation as code 23503. On
@@ -139,14 +152,35 @@ async function upsertSubscription(
     );
   }
 
-  // An unmapped price must never null out a paying customer's plan: keep the
-  // columns out of the payload entirely so the upsert leaves them untouched.
-  // Only a brand-new row (nothing to preserve) falls back to nulls.
-  const planColumns = planInfo
-    ? { plan_id: planInfo.planId, interval: planInfo.interval }
-    : existing
-      ? {}
-      : { plan_id: null, interval: null };
+  // The two plan sets are kind-specific (createCheckoutSession() already
+  // guards against this at checkout time), so a price that resolves to a
+  // plan for the OTHER kind means something went around that guard — a
+  // subscription edited by hand in the Stripe dashboard, most likely. Treat
+  // it exactly like an unmapped price: log it and ignore just the price,
+  // not the whole event, rather than writing a plan the company's own kind
+  // can never actually use (C1-39).
+  let kindMismatch = false;
+  if (planInfo) {
+    const companyKind = await resolveCompanyKind(companyId, admin);
+    const planKind = getPlan(planInfo.planId).kind;
+    if (companyKind && planKind !== companyKind) {
+      kindMismatch = true;
+      console.error(
+        `Stripe webhook: price ${priceId} (subscription ${subscription.id}) resolves to the "${planInfo.planId}" plan (kind "${planKind}"), but company ${companyId} is kind "${companyKind}" — ignoring the price and leaving plan_id/interval as they are`
+      );
+    }
+  }
+
+  // An unmapped price, or one for the wrong company kind, must never null
+  // out a paying customer's plan: keep the columns out of the payload
+  // entirely so the upsert leaves them untouched. Only a brand-new row
+  // (nothing to preserve) falls back to nulls.
+  const planColumns =
+    planInfo && !kindMismatch
+      ? { plan_id: planInfo.planId, interval: planInfo.interval }
+      : existing
+        ? {}
+        : { plan_id: null, interval: null };
 
   const { error } = await admin.from("subscriptions").upsert(
     {

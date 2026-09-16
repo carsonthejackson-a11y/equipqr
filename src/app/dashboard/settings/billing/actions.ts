@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { getPlan, getStripePriceId, isPlanId, type BillingInterval, type PlanId } from "@/lib/plans";
 import { isLiveSubscriptionStatus } from "@/lib/billing";
+import { serverEnv } from "@/lib/env";
 import type { CompanyKind } from "@/lib/types";
 
 type OwnerCompanyResult =
@@ -187,11 +188,22 @@ export async function createPortalSession() {
   }
 
   const stripe = getStripe();
+  // Each kind has its own set of sellable plans (docs/OWNER-ROADMAP-BRIEF.md
+  // §3.4.1), so the portal's own "switch plan" list must match — a provider
+  // company must never be offered owner prices in the portal, or vice versa
+  // (C1-39). Falls back to the account's default configuration when the
+  // matching env var isn't set yet, same as before this existed.
+  const configuration =
+    company.kind === "equipment_owner"
+      ? serverEnv.STRIPE_PORTAL_CONFIG_OWNER
+      : serverEnv.STRIPE_PORTAL_CONFIG_PROVIDER;
+
   let portalSession;
   try {
     portalSession = await stripe.billingPortal.sessions.create({
       customer: company.stripe_customer_id,
       return_url: `${base}/dashboard/settings/billing`,
+      ...(configuration ? { configuration } : {}),
     });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Could not open the billing portal" };

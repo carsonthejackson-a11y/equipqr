@@ -38,6 +38,12 @@ const serverEnvSchema = z.object({
   ANTHROPIC_API_KEY: optionalString(),
   STRIPE_SECRET_KEY: optionalString(),
   STRIPE_WEBHOOK_SECRET: optionalString(),
+  // Per-kind Customer Portal configurations (scripts/stripe-setup.mjs can
+  // create both — see its "Owner customer portal" step). Unset means
+  // createPortalSession() omits `configuration` and Stripe falls back to
+  // the account's own default portal configuration (C1-39).
+  STRIPE_PORTAL_CONFIG_PROVIDER: optionalString(),
+  STRIPE_PORTAL_CONFIG_OWNER: optionalString(),
   SENTRY_DSN: optionalString(),
   // Shared secret for Vercel Cron -> src/app/api/cron/*. Unset means those
   // routes reject every request (fail closed), not that the cron is skipped.
