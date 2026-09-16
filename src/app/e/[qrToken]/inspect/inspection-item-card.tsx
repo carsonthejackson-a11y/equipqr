@@ -31,6 +31,12 @@ export function InspectionItemCard({
   const [uploading, setUploading] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Q-52: a thumbnail from the local object URL the moment a photo is picked,
+  // the same way the report forms and the close-out dialog already do — so a
+  // technician can spot a blurry/wrong shot before finishing the inspection.
+  // Only covers photos added THIS session: one already saved from a previous
+  // session has no local file to preview, so it keeps the "Photo saved" text.
+  const [previewsByPath, setPreviewsByPath] = useState<Record<string, string>>({});
 
   function setNote(note: string) {
     onChange({ ...item, response: { ...item.response, note: note || null } });
@@ -43,6 +49,10 @@ export function InspectionItemCard({
 
     setPhotoError(null);
     setUploading(true);
+    // Snapshot a preview before the upload starts (not after): the technician
+    // wants to confirm the shot is the right one, in focus, while it's still
+    // uploading, not only once it succeeds.
+    const previewUrl = URL.createObjectURL(file);
     try {
       const blob = await downscaleToJpeg(file);
       const path = `${companyId}/inspections/${inspectionId}/${crypto.randomUUID()}.jpg`;
@@ -52,11 +62,13 @@ export function InspectionItemCard({
         .upload(path, blob, { contentType: "image/jpeg" });
       if (error) throw new Error(error.message);
 
+      setPreviewsByPath((current) => ({ ...current, [path]: previewUrl }));
       onChange({
         ...item,
         response: { ...item.response, photo_paths: [...item.response.photo_paths, path] },
       });
     } catch (cause) {
+      URL.revokeObjectURL(previewUrl);
       setPhotoError(cause instanceof Error ? cause.message : "Couldn't upload that photo.");
     } finally {
       setUploading(false);
@@ -64,6 +76,15 @@ export function InspectionItemCard({
   }
 
   function removePhoto(path: string) {
+    setPreviewsByPath((current) => {
+      const next = { ...current };
+      const url = next[path];
+      if (url) {
+        URL.revokeObjectURL(url);
+        delete next[path];
+      }
+      return next;
+    });
     onChange({
       ...item,
       response: { ...item.response, photo_paths: item.response.photo_paths.filter((p) => p !== path) },
@@ -164,9 +185,19 @@ export function InspectionItemCard({
               <div className="grid grid-cols-3 gap-2">
                 {item.response.photo_paths.map((path) => (
                   <div key={path} className="relative aspect-square overflow-hidden rounded-lg border bg-muted">
-                    <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
-                      Photo added
-                    </div>
+                    {previewsByPath[path] ? (
+                      // Local object URL from the picker — nothing to optimise.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={previewsByPath[path]}
+                        alt="Inspection photo"
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex size-full items-center justify-center text-xs text-muted-foreground">
+                        Photo saved
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => removePhoto(path)}
