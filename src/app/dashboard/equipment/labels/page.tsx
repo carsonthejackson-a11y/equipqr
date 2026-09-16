@@ -12,9 +12,9 @@ export const metadata = { title: "Label sheets" };
 export default async function LabelSheetsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ notfound?: string }>;
+  searchParams: Promise<{ notfound?: string; customer?: string }>;
 }) {
-  const { notfound } = await searchParams;
+  const { notfound, customer: initialCustomerId } = await searchParams;
   const supabase = await createClient();
 
   const [{ data: equipment }, { data: codes }, { data: customers }] = await Promise.all([
@@ -71,7 +71,7 @@ export default async function LabelSheetsPage({
           message="No equipment has an active QR code yet. Add a unit — or assign it a code — and it'll show up here."
         />
       ) : (
-        <LabelSheetBuilder rows={rows} customers={customerOptions} />
+        <LabelSheetBuilder rows={rows} customers={customerOptions} initialCustomerId={initialCustomerId} />
       )}
     </div>
   );
