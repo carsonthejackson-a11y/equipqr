@@ -35,12 +35,33 @@ export type CloseRequestExistingMedia = {
 export function CloseRequestDialog({
   request,
   existingMedia,
+  open: openProp,
+  onOpenChange: onOpenChangeProp,
+  triggerLabel,
+  editTriggerLabel,
 }: {
   request: ServiceRequest;
   existingMedia?: CloseRequestExistingMedia;
+  /**
+   * QoL-4/Q-14 (additive, controlled-component prop — internals below are
+   * still QoL-2a's): lets a caller open this dialog itself, e.g.
+   * request-header-actions.tsx opening it when "Resolved" is picked from
+   * the status control, instead of the customer picking up a generic
+   * "resolved" email with no summary. Omit both props for the original
+   * self-contained trigger+dialog behaviour — this stays fully backward
+   * compatible.
+   */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Overrides the trigger button's not-yet-closed label (default "Close out request") — e.g. owner-kind "Mark fixed" (C1-02/Q-60). */
+  triggerLabel?: string;
+  /** Overrides the trigger button's already-closed label (default "Edit close-out"). */
+  editTriggerLabel?: string;
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = openProp ?? internalOpen;
+  const setOpen = onOpenChangeProp ?? setInternalOpen;
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sendEmail, setSendEmail] = useState(!!request.contact_email);
@@ -74,7 +95,7 @@ export function CloseRequestDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={<Button variant={alreadyClosed ? "outline" : "default"}>
-          {alreadyClosed ? "Edit close-out" : "Close out request"}
+          {alreadyClosed ? (editTriggerLabel ?? "Edit close-out") : (triggerLabel ?? "Close out request")}
         </Button>}
       />
       <DialogContent>

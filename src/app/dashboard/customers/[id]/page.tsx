@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Mail, Navigation, Phone, Printer, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyContext } from "@/lib/company-context";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -12,8 +15,10 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge, OPEN_REQUEST_STATUSES } from "@/components/status-badge";
 import { BackLink } from "@/components/back-link";
+import { mapsHref, telHref } from "@/lib/contact-links";
 import type { Customer, Equipment, ServiceRequest } from "@/lib/types";
 import { EditCustomerForm } from "./edit-customer-form";
+import { NewRequestSheet } from "../../requests/new-request-sheet";
 
 export default async function CustomerDetailPage({
   params,
@@ -22,6 +27,7 @@ export default async function CustomerDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  const ctx = await getCompanyContext();
 
   const { data: customer } = await supabase
     .from("customers")
@@ -62,13 +68,74 @@ export default async function CustomerDetailPage({
   ]);
 
   const equipmentById = new Map((equipment ?? []).map((e) => [e.id, e]));
+  const presetUnits = (equipment ?? []).map((e) => ({ id: e.id, name: e.name }));
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="space-y-3">
         <BackLink href="/dashboard/customers" label="Back to customers" />
-        <h1 className="text-2xl font-semibold">{customer.name}</h1>
-        <p className="text-muted-foreground">Customer details and linked equipment.</p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          {/* Q-38: read-only — editing lives behind EditCustomerForm's own toggle below. */}
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-semibold">{customer.name}</h1>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+              {customer.address && (
+                <a
+                  href={mapsHref(customer.address)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-1.5 text-primary hover:underline"
+                >
+                  <Navigation className="size-3.5" />
+                  {customer.address}
+                </a>
+              )}
+              {customer.contact_phone && (
+                <a
+                  href={telHref(customer.contact_phone)}
+                  className="flex items-center gap-1.5 text-primary hover:underline"
+                >
+                  <Phone className="size-3.5" />
+                  {customer.contact_phone}
+                </a>
+              )}
+              {customer.contact_email && (
+                <a
+                  href={`mailto:${customer.contact_email}`}
+                  className="flex items-center gap-1.5 text-primary hover:underline"
+                >
+                  <Mail className="size-3.5" />
+                  {customer.contact_email}
+                </a>
+              )}
+              {!customer.address && !customer.contact_phone && !customer.contact_email && (
+                <p className="text-muted-foreground">No address or contact details on file.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {presetUnits.length > 0 && <NewRequestSheet kind={ctx.kind} presetUnits={presetUnits} />}
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<Link href={`/dashboard/equipment?customer=${customer.id}`} />}
+            >
+              <Wrench className="size-4" />
+              Add equipment
+            </Button>
+            {presetUnits.length > 0 && (
+              <Button
+                variant="outline"
+                nativeButton={false}
+                render={<Link href={`/dashboard/equipment/labels?customer=${customer.id}`} />}
+              >
+                <Printer className="size-4" />
+                Print stickers
+              </Button>
+            )}
+          </div>
+        </div>
       </div>
 
       <EditCustomerForm customer={customer} />
@@ -157,7 +224,7 @@ export default async function CustomerDetailPage({
                     <TableCell className="max-w-xs truncate text-muted-foreground">
                       {req.description}
                     </TableCell>
-                    <TableCell>{new Date(req.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell>{ctx.fmt.date(req.created_at)}</TableCell>
                     <TableCell>
                       <StatusBadge status={req.status} />
                     </TableCell>

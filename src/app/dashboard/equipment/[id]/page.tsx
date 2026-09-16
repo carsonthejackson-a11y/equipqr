@@ -21,6 +21,7 @@ import { Documents } from "./documents";
 import { Timeline } from "./timeline";
 import { QrSection } from "./qr-section";
 import { MaintenanceCard } from "./maintenance-card";
+import { NewRequestSheet } from "../../requests/new-request-sheet";
 
 /** One "Make · Model" style line, skipping the bits that aren't filled in. */
 function joinMeta(parts: (string | null | undefined)[]): string | null {
@@ -82,48 +83,55 @@ export default async function EquipmentDetailPage({
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="space-y-3">
         <BackLink href="/dashboard/equipment" label="Back to equipment" />
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold">{equipment.name}</h1>
-          <EquipmentStatusBadge status={equipment.status} />
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-semibold">{equipment.name}</h1>
+              <EquipmentStatusBadge status={equipment.status} />
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
+              <span>{equipmentType?.name ?? "Unknown type"}</span>
+              {customer && (
+                <>
+                  <span aria-hidden>·</span>
+                  <Link
+                    href={`/dashboard/customers/${customer.id}`}
+                    className="underline underline-offset-2 hover:text-foreground"
+                  >
+                    {customer.name}
+                  </Link>
+                </>
+              )}
+              {makeModel && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>{makeModel}</span>
+                </>
+              )}
+              {equipment.serial_number && (
+                <>
+                  <span aria-hidden>·</span>
+                  <span className="font-mono text-sm">S/N {equipment.serial_number}</span>
+                </>
+              )}
+            </div>
+            {customDetails.length > 0 && (
+              <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                {customDetails.map(({ def, value }) => (
+                  <div key={def.id} className="flex gap-1">
+                    <dt className="text-muted-foreground">{def.label}:</dt>
+                    <dd>{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+
+          {/* Q-28/C1-26: log a request for this exact unit with no search step. */}
+          <NewRequestSheet kind={company.kind} initialEquipment={{ id: equipment.id, name: equipment.name }} />
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground">
-          <span>{equipmentType?.name ?? "Unknown type"}</span>
-          {customer && (
-            <>
-              <span aria-hidden>·</span>
-              <Link
-                href={`/dashboard/customers/${customer.id}`}
-                className="underline underline-offset-2 hover:text-foreground"
-              >
-                {customer.name}
-              </Link>
-            </>
-          )}
-          {makeModel && (
-            <>
-              <span aria-hidden>·</span>
-              <span>{makeModel}</span>
-            </>
-          )}
-          {equipment.serial_number && (
-            <>
-              <span aria-hidden>·</span>
-              <span className="font-mono text-sm">S/N {equipment.serial_number}</span>
-            </>
-          )}
-        </div>
-        {customDetails.length > 0 && (
-          <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {customDetails.map(({ def, value }) => (
-              <div key={def.id} className="flex gap-1">
-                <dt className="text-muted-foreground">{def.label}:</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">

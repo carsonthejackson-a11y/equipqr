@@ -48,13 +48,24 @@ const NO_CUSTOMER = "__none__";
 export function LabelSheetBuilder({
   rows,
   customers,
+  initialCustomerId,
 }: {
   rows: LabelRow[];
   customers: { id: string; name: string }[];
+  /**
+   * Q-38/Q-39: arriving from a customer page's "Print stickers" link
+   * (`?customer=<id>`) filters straight to that customer's units and
+   * pre-selects all of them, so the next step is just "Download PDF" —
+   * only meaningful the first time this mounts, hence a lazy initial
+   * state rather than an effect that re-syncs on every prop change.
+   */
+  initialCustomerId?: string;
 }) {
   const [templateId, setTemplateId] = useState<LabelTemplateId>(DEFAULT_LABEL_TEMPLATE_ID);
-  const [customerFilter, setCustomerFilter] = useState(ALL_CUSTOMERS);
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [customerFilter, setCustomerFilter] = useState(initialCustomerId ?? ALL_CUSTOMERS);
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(initialCustomerId ? rows.filter((row) => row.customerId === initialCustomerId).map((row) => row.codeId) : [])
+  );
   const [downloading, setDownloading] = useState(false);
 
   const visibleRows = useMemo(() => {
