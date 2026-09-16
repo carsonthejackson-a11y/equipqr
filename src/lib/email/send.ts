@@ -33,6 +33,44 @@ export function extractFromAddress(fromValue: string): string {
 }
 
 /**
+ * Formats an RFC 5322 `From` value from a display name and an address.
+ *
+ * Company names are user-typed ("Smith & Sons, LLC", "Café Bella"), and an
+ * unquoted comma, semicolon, colon, @ or parenthesis is not a valid display
+ * name — a provider may reject the whole send. So:
+ * - plain printable ASCII is wrapped in quotes, with `\` and `"` escaped;
+ * - anything non-ASCII becomes RFC 2047 encoded-words (`=?UTF-8?B?…?=`),
+ *   split so no word exceeds 75 characters and no UTF-8 character is cut;
+ * - CR/LF and other control characters are dropped first, so the result can
+ *   never start a second header line.
+ */
+export function formatFromHeader(displayName: string, address: string): string {
+  const name = displayName.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!name) return address;
+
+  if (/^[\x20-\x7e]*$/.test(name)) {
+    return `"${name.replace(/(["\\])/g, "\\$1")}" <${address}>`;
+  }
+
+  // 45 bytes → 60 base64 characters; with the 12-character "=?UTF-8?B??="
+  // wrapper each encoded-word stays within RFC 2047's 75-character limit.
+  const MAX_BYTES_PER_WORD = 45;
+  const words: string[] = [];
+  let chunk = "";
+  for (const char of name) {
+    if (Buffer.byteLength(chunk + char, "utf8") > MAX_BYTES_PER_WORD) {
+      words.push(chunk);
+      chunk = "";
+    }
+    chunk += char;
+  }
+  if (chunk) words.push(chunk);
+
+  const encoded = words.map((word) => `=?UTF-8?B?${Buffer.from(word, "utf8").toString("base64")}?=`).join(" ");
+  return `${encoded} <${address}>`;
+}
+
+/**
  * Sends one transactional email via Resend. No-ops with a console.warn when
  * RESEND_API_KEY/RESEND_FROM_EMAIL aren't configured, and never throws —
  * every caller in this app treats email as best-effort (a failed send must
@@ -53,7 +91,7 @@ export async function sendEmail({ to, subject, html, text, replyTo, fromName }: 
 
   // Without fromName this is `fromEmail` unchanged — every existing caller
   // (none of which pass fromName) sends exactly as before.
-  const from = fromName ? `${fromName} <${extractFromAddress(fromEmail)}>` : fromEmail;
+  const from = fromName ? formatFromHeader(fromName, extractFromAddress(fromEmail)) : fromEmail;
 
   try {
     const resend = new Resend(apiKey);

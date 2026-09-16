@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // fix as api-auth.test.ts.
 vi.mock("server-only", () => ({}));
 
-import { extractFromAddress, sendEmail } from "./send";
+import { extractFromAddress, formatFromHeader, sendEmail } from "./send";
 
 describe("extractFromAddress", () => {
   it("returns a bare address unchanged", () => {
@@ -19,6 +19,60 @@ describe("extractFromAddress", () => {
   it("trims surrounding whitespace either way", () => {
     expect(extractFromAddress("  notify@equipqr.co  ")).toBe("notify@equipqr.co");
     expect(extractFromAddress("EquipQR < notify@equipqr.co >")).toBe("notify@equipqr.co");
+  });
+});
+
+describe("formatFromHeader", () => {
+  const address = "notify@equipqr.co";
+
+  it("quotes a plain ASCII display name", () => {
+    expect(formatFromHeader("Bluebonnet Espresso via EquipQR", address)).toBe(
+      '"Bluebonnet Espresso via EquipQR" <notify@equipqr.co>'
+    );
+  });
+
+  it("keeps commas, @ and parentheses inside the quotes", () => {
+    expect(formatFromHeader("Smith & Sons, LLC (Dallas) @ Deep Ellum via EquipQR", address)).toBe(
+      '"Smith & Sons, LLC (Dallas) @ Deep Ellum via EquipQR" <notify@equipqr.co>'
+    );
+  });
+
+  it("escapes backslashes and double quotes", () => {
+    expect(formatFromHeader('Joe\\s "Best" Repair', address)).toBe('"Joe\\\\s \\"Best\\" Repair" <notify@equipqr.co>');
+  });
+
+  it("encodes non-ASCII names as RFC 2047 encoded-words that round-trip", () => {
+    const header = formatFromHeader("Café Bella via EquipQR", address);
+    expect(header.endsWith(" <notify@equipqr.co>")).toBe(true);
+    const words = header.replace(" <notify@equipqr.co>", "").split(" ");
+    for (const word of words) {
+      expect(word).toMatch(/^=\?UTF-8\?B\?[A-Za-z0-9+/=]+\?=$/);
+      expect(word.length).toBeLessThanOrEqual(75);
+    }
+    const decoded = words
+      .map((word) => Buffer.from(word.slice("=?UTF-8?B?".length, -2), "base64").toString("utf8"))
+      .join("");
+    expect(decoded).toBe("Café Bella via EquipQR");
+  });
+
+  it("splits long non-ASCII names without cutting a character", () => {
+    const name = "Ñandú Café & Crêperie — Espresso Service Ñ via EquipQR";
+    const header = formatFromHeader(name, address);
+    const words = header.replace(" <notify@equipqr.co>", "").split(" ");
+    expect(words.length).toBeGreaterThan(1);
+    const decoded = words
+      .map((word) => Buffer.from(word.slice("=?UTF-8?B?".length, -2), "base64").toString("utf8"))
+      .join("");
+    expect(decoded).toBe(name);
+  });
+
+  it("drops CR/LF so a name can never start a new header line", () => {
+    const header = formatFromHeader("Acme\r\nBcc: victim@example.com", address);
+    expect(header).not.toMatch(/[\r\n]/);
+  });
+
+  it("falls back to the bare address for an empty name", () => {
+    expect(formatFromHeader("   ", address)).toBe(address);
   });
 });
 
