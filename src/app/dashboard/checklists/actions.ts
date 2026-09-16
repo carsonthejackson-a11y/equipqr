@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
-import { getEntitlements, hasFeature } from "@/lib/billing";
+import { getEntitlements, hasFeature, requireActiveSubscription } from "@/lib/billing";
 import { generateChecklistDraft } from "@/lib/anthropic";
 import { checklistItemsSchema, newItemId } from "@/lib/checklists";
 import { serverEnv } from "@/lib/env";
+import { RATE_LIMITS, checkRateLimit } from "@/lib/rate-limit";
 import type { ChecklistItem } from "@/lib/types";
 
 function parseItems(raw: string): { items: ChecklistItem[] } | { error: string } {
@@ -143,6 +144,10 @@ export async function deleteChecklistTemplate(id: string) {
  * the company's plan includes `aiChat`), since this is the same Anthropic
  * spend on a staff-only surface. Assigns real ids via newItemId() so the
  * editor can treat the result exactly like any other ChecklistItem[].
+ *
+ * Also checks the trial/subscription lock and a per-company rate limit
+ * (C1-37) — draftGuideWithAI() (equipment-types/actions.ts) mirrors this
+ * exact gating.
  */
 export async function generateChecklistDraftAction(
   formData: FormData
@@ -155,9 +160,20 @@ export async function generateChecklistDraftAction(
     return { error: "AI drafting isn't configured for this environment" };
   }
 
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return { error: lockError.error };
+  }
+
   const entitlements = await getEntitlements();
   if (!hasFeature(entitlements, "aiChat")) {
     return { error: "AI drafting isn't available on your plan. Upgrade to Pro to use it." };
+  }
+
+  const { company } = await getCurrentProfile();
+  const withinLimit = await checkRateLimit(`checklist-draft:company:${company.id}`, RATE_LIMITS.aiDraftPerCompany);
+  if (!withinLimit) {
+    return { error: "Too many AI drafts recently — please wait a bit and try again." };
   }
 
   try {
