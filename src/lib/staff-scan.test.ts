@@ -4,6 +4,7 @@ import {
   buildStaffSignaturePath,
   clampEtaMinutes,
   firstNameOf,
+  formatCloseOutSummarySms,
   formatOnMyWayNote,
   formatOnMyWaySms,
   isOwnedStaffMediaPath,
@@ -115,6 +116,20 @@ describe("formatOnMyWaySms", () => {
   it("falls back to generic names when either is blank", () => {
     expect(formatOnMyWaySms("", "", "Bluebonnet")).toBe(
       "Hi there, this is Your technician from Bluebonnet — I'm on my way."
+    );
+  });
+});
+
+describe("formatCloseOutSummarySms", () => {
+  it("includes the customer's first name, the company name and the status link", () => {
+    expect(formatCloseOutSummarySms("Dana Lee", "Bluebonnet Espresso Service", "https://equipqr.app/r/abc123")).toBe(
+      "Hi Dana, here's a summary from Bluebonnet Espresso Service for your service visit: https://equipqr.app/r/abc123"
+    );
+  });
+
+  it("falls back to a generic name when blank", () => {
+    expect(formatCloseOutSummarySms("", "Bluebonnet", "https://equipqr.app/r/abc123")).toBe(
+      "Hi there, here's a summary from Bluebonnet for your service visit: https://equipqr.app/r/abc123"
     );
   });
 });

@@ -22,12 +22,15 @@ export function LogVisitCard({
   qrToken,
   equipmentId,
   companyId,
+  companyName,
   hasOpenRequests = false,
   isLocked = false,
 }: {
   qrToken: string;
   equipmentId: string;
   companyId: string;
+  /** For the close-out success screen's "Text {name} a summary" SMS fallback (Q-54). */
+  companyName: string;
   /** True while the unit has open requests: the button is hidden, an in-progress close-out is not. */
   hasOpenRequests?: boolean;
   /** C1-33: a locked company can't start a new close-out flow. */
@@ -86,8 +89,11 @@ export function LogVisitCard({
           qrToken={qrToken}
           requestId={pending.requestId}
           companyId={companyId}
+          companyName={companyName}
           defaultContactName={pending.contactName}
           defaultEmail={pending.contactEmail}
+          contactPhone={pending.contactPhone}
+          publicToken={pending.publicToken}
           onClosedOut={() => setPending(null)}
         />
       )}

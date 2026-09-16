@@ -88,6 +88,22 @@ export function formatOnMyWaySms(customerName: string, technicianName: string, c
 }
 
 // ----------------------------------------------------------------------------
+// Close-out summary SMS fallback (Q-54)
+// ----------------------------------------------------------------------------
+//
+// The close-out success screen offers "Text {name} a summary" whenever the
+// close-out didn't end up emailing the customer (toggle off, no address on
+// file, or the send failed) — same tech's-own-phone `sms:` pattern as the
+// "On my way" fallback above. `statusUrl` is the caller-built absolute
+// `/r/<publicToken>` link: this file is pure and has no env/base-URL access.
+
+/** `smsHref`-ready body for the close-out success screen's SMS fallback. */
+export function formatCloseOutSummarySms(customerName: string, companyName: string, statusUrl: string): string {
+  const customerFirst = firstNameOf(customerName, "there");
+  return `Hi ${customerFirst}, here's a summary from ${companyName} for your service visit: ${statusUrl}`;
+}
+
+// ----------------------------------------------------------------------------
 // Close-out validation
 // ----------------------------------------------------------------------------
 

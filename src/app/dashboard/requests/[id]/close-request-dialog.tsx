@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
@@ -17,6 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  clearCloseOutDraft,
+  isCloseOutDirty,
+  readCloseOutDraft,
+  writeCloseOutDraft,
+  type CloseOutFields,
+} from "@/lib/close-out-draft";
 import type { ServiceRequest } from "@/lib/types";
 import { closeServiceRequest } from "../actions";
 
@@ -43,9 +50,57 @@ export function CloseRequestDialog({
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [sendEmail, setSendEmail] = useState(!!request.contact_email);
+  const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
   const alreadyClosed = request.status === "resolved";
+  // Q-04/Q-51: same localStorage draft + dirty-check machinery as the phone
+  // close-out flow (close-out-draft.ts) — reopening this to edit an
+  // already-closed request starts from what was ACTUALLY saved
+  // (resolution_summary/resolution_recommendations), so that, not blank, is
+  // the "pristine" baseline for "is there unsaved work?" below.
+  const [initialDraft] = useState(() => readCloseOutDraft(request.id));
+  const [summary, setSummary] = useState(initialDraft?.summary ?? request.resolution_summary ?? "");
+  const [recommendations, setRecommendations] = useState(
+    initialDraft?.recommendations ?? request.resolution_recommendations ?? ""
+  );
+  const [sendEmail, setSendEmail] = useState(initialDraft?.sendEmail ?? !!request.contact_email);
+  const [emailTo, setEmailTo] = useState(initialDraft?.emailTo || request.contact_email || "");
+  const skipDraftWrite = useRef(false);
+
+  useEffect(() => {
+    if (skipDraftWrite.current) {
+      skipDraftWrite.current = false;
+      return;
+    }
+    writeCloseOutDraft(request.id, { summary, recommendations, signedByName: "", sendEmail, emailTo });
+  }, [request.id, summary, recommendations, sendEmail, emailTo]);
+
+  const pristineFields: CloseOutFields = {
+    summary: request.resolution_summary ?? "",
+    recommendations: request.resolution_recommendations ?? "",
+    signedByName: "",
+    photoCount: 0,
+    hasSignature: false,
+  };
+  const currentFields: CloseOutFields = {
+    summary,
+    recommendations,
+    signedByName: "",
+    photoCount: 0,
+    hasSignature: false,
+  };
+
+  function resetToSaved() {
+    skipDraftWrite.current = true;
+    clearCloseOutDraft(request.id);
+    setSummary(request.resolution_summary ?? "");
+    setRecommendations(request.resolution_recommendations ?? "");
+    setSendEmail(!!request.contact_email);
+    setEmailTo(request.contact_email ?? "");
+    setError(null);
+    setConfirmDiscardOpen(false);
+    setOpen(false);
+  }
 
   async function handleSubmit(formData: FormData) {
     setSubmitting(true);
@@ -66,18 +121,62 @@ export function CloseRequestDialog({
       toast.success("Closed");
     }
 
+    skipDraftWrite.current = true;
+    clearCloseOutDraft(request.id);
+    setConfirmDiscardOpen(false);
     setOpen(false);
     router.refresh();
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next, eventDetails) => {
+        if (next) {
+          setOpen(true);
+          return;
+        }
+        if (submitting) {
+          eventDetails.cancel();
+          return;
+        }
+        if (confirmDiscardOpen) {
+          eventDetails.cancel();
+          return;
+        }
+        if (isCloseOutDirty(currentFields, pristineFields)) {
+          eventDetails.cancel();
+          setConfirmDiscardOpen(true);
+          return;
+        }
+        setOpen(false);
+      }}
+    >
       <DialogTrigger
         render={<Button variant={alreadyClosed ? "outline" : "default"}>
           {alreadyClosed ? "Edit close-out" : "Close out request"}
         </Button>}
       />
       <DialogContent>
+        {confirmDiscardOpen ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Discard your changes?</DialogTitle>
+              <DialogDescription>
+                The summary and recommendations you edited here haven&apos;t been saved.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setConfirmDiscardOpen(false)}>
+                Keep editing
+              </Button>
+              <Button type="button" variant="destructive" onClick={resetToSaved}>
+                Discard
+              </Button>
+            </DialogFooter>
+          </>
+        ) : (
+        <>
         <DialogHeader>
           <DialogTitle>Close out request</DialogTitle>
           <DialogDescription>
@@ -120,7 +219,8 @@ export function CloseRequestDialog({
               id="summary"
               name="summary"
               rows={4}
-              defaultValue={request.resolution_summary ?? ""}
+              value={summary}
+              onChange={(e) => setSummary(e.target.value)}
               placeholder="What did you do to fix this?"
               required
             />
@@ -131,7 +231,8 @@ export function CloseRequestDialog({
               id="recommendations"
               name="recommendations"
               rows={3}
-              defaultValue={request.resolution_recommendations ?? ""}
+              value={recommendations}
+              onChange={(e) => setRecommendations(e.target.value)}
               placeholder="Anything the customer should keep an eye on or plan for?"
             />
           </div>
@@ -154,7 +255,8 @@ export function CloseRequestDialog({
                   id="emailTo"
                   name="emailTo"
                   type="email"
-                  defaultValue={request.contact_email ?? ""}
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
                   placeholder="customer@example.com"
                 />
               </div>
@@ -166,6 +268,8 @@ export function CloseRequestDialog({
             </Button>
           </DialogFooter>
         </form>
+        </>
+        )}
       </DialogContent>
     </Dialog>
   );

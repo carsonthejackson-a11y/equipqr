@@ -411,8 +411,11 @@ export function StaffRequestCard({
         qrToken={qrToken}
         requestId={request.id}
         companyId={companyId}
+        companyName={companyName}
         defaultContactName={request.contact_name}
         defaultEmail={request.contact_email}
+        contactPhone={request.contact_phone}
+        publicToken={request.public_token}
       />
     </div>
   );

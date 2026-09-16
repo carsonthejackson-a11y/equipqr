@@ -367,6 +367,7 @@ export async function StaffScanView({
           qrToken={qrToken}
           equipmentId={guide.equipment.id}
           companyId={guide.company.id}
+          companyName={guide.company.name}
           hasOpenRequests={!!openRequests && openRequests.length > 0}
           isLocked={isLocked}
         />
