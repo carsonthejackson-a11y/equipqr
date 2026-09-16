@@ -43,12 +43,21 @@ export function ResetPasswordForm() {
     setSubmitting(true);
     const supabase = createClient();
     const { error: updateError } = await supabase.auth.updateUser({ password });
-    setSubmitting(false);
 
     if (updateError) {
+      setSubmitting(false);
       setError(updateError.message);
       return;
     }
+
+    // A reset is often prompted by a suspected compromise — end every other
+    // session (other devices, a stolen refresh token) and keep this one.
+    // Best effort: the password change itself already succeeded.
+    const { error: signOutError } = await supabase.auth.signOut({ scope: "others" });
+    if (signOutError) {
+      console.error("reset-password: failed to sign out other sessions:", signOutError.message);
+    }
+    setSubmitting(false);
 
     toast.success("Password updated");
     router.push("/dashboard");

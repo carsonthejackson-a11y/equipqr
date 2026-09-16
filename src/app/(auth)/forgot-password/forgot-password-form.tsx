@@ -39,7 +39,11 @@ const RESEND_COOLDOWN_MS = 30_000;
 async function requestReset(email: string): Promise<string | null> {
   const supabase = createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/reset-password`,
+    // Via /auth/confirm so both Supabase template styles work: the
+    // recommended token_hash template links there directly, and the default
+    // {{ .ConfirmationURL }} template redirects there with a PKCE `?code=`
+    // (same-browser only), which the route exchanges for a session.
+    redirectTo: `${window.location.origin}/auth/confirm?next=/reset-password`,
   });
   return error && isRateLimitError(error) ? error.message : null;
 }

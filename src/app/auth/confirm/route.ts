@@ -24,6 +24,21 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = safeNext(searchParams.get("next"));
+  const code = searchParams.get("code");
+
+  // PKCE redirect (Supabase's default {{ .ConfirmationURL }} templates): the
+  // verify endpoint sends the browser back here with `?code=`. Exchanging it
+  // only works in the browser that requested the email (the code verifier is
+  // a cookie there), which is why LAUNCH.md recommends token_hash templates.
+  if (code && !tokenHash) {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      return NextResponse.redirect(`${origin}${next}`);
+    }
+    const codeFailurePath = next === "/reset-password" ? "/forgot-password" : "/login";
+    return NextResponse.redirect(`${origin}${codeFailurePath}?expired=1`);
+  }
 
   if (tokenHash && type) {
     const supabase = await createClient();

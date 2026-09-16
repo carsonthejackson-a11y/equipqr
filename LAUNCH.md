@@ -34,6 +34,10 @@ confirmation, password reset, and invite email a real customer needs would silen
 In Supabase → Authentication → Emails → SMTP Settings, enable "Custom SMTP" and point it at
 Resend (host `smtp.resend.com`, port `587`, username `resend`, password = your `RESEND_API_KEY`),
 sending from the `equipqr.co` address verified in 0.1.
+Then in Authentication → Email Templates, set **Reset Password** to link to
+`{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (like Confirm signup, but
+`type=recovery`). The default `{{ .ConfirmationURL }}` template only works when the reset link is
+opened in the same browser that requested it; the token-hash link works from any device.
 **Verify:** there's no dashboard indicator that actually proves this works — 0.3 below is the
 real verification. Don't skip it.
 
@@ -165,8 +169,10 @@ behavior) fails CI instead of failing on your production database.
 - Authentication → URL Configuration: Site URL = `https://equipqr.co`; add
   `https://equipqr.co/**` to Redirect URLs (and any preview-deployment domains you use).
 - Authentication → Email Templates: the confirm-signup template must link to
-  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup` (see README §Deploying).
-  If your current signups already work in production, this is done.
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=signup` (see README §Deploying),
+  and the Reset Password template to
+  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery` (Gate 0.2). Working
+  signups don't prove the reset template is set — check it separately.
 
 ## 6. Optional but recommended
 
