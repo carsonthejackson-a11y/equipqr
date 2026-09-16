@@ -31,7 +31,7 @@ import {
   resolveVisitContact,
   validateCloseOut,
 } from "@/lib/staff-scan";
-import { REQUEST_STATUS_LABELS } from "@/components/status-badge";
+import { CLOSED_REQUEST_STATUSES, REQUEST_STATUS_LABELS } from "@/components/status-badge";
 import type { Customer, Equipment, ServiceRequest } from "@/lib/types";
 
 type ActionResult<T = unknown> = { error: string } | ({ success: true } & T);
@@ -108,6 +108,11 @@ export async function sendOnMyWay(
   const request = await loadOwnedRequest(supabase, requestId, profile.company_id);
   if (!request) {
     return { error: "Service request not found" };
+  }
+  // A stale page or a direct call must not reassign a closed job or email
+  // its customer that someone is on the way.
+  if ((CLOSED_REQUEST_STATUSES as readonly string[]).includes(request.status)) {
+    return { error: "This request is already closed" };
   }
 
   const eta = clampEtaMinutes(etaMinutes);

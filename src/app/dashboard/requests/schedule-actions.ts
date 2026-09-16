@@ -117,10 +117,13 @@ async function resolveAssigneeEmailContext(
 async function notifyAssigneeOfSchedule(
   supabase: SupabaseServerClient,
   ctx: RequestContext,
-  scheduledForIso: string
+  scheduledForIso: string,
+  actorUserId: string
 ): Promise<void> {
   const assigneeId = ctx.request.assigned_to;
-  if (!assigneeId) return;
+  // No email about your own booking — a solo owner assigned to every job
+  // would otherwise get one each time they schedule a visit.
+  if (!assigneeId || assigneeId === actorUserId) return;
 
   try {
     const { data: members } = await supabase.rpc("get_company_members");
@@ -229,7 +232,7 @@ export async function scheduleVisit(requestId: string, input: ScheduleVisitInput
   // Tell the technician too (C1-44) — every reschedule, not just the first
   // time, since a moved visit is exactly the kind of change they need to
   // actually see before they show up at the old time.
-  await notifyAssigneeOfSchedule(supabase, ctx, scheduledForIso);
+  await notifyAssigneeOfSchedule(supabase, ctx, scheduledForIso, profile.id);
 
   revalidateRequest(requestId);
   return { success: true, notified };

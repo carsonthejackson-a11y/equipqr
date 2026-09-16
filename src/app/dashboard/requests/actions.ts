@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { requireActiveSubscription, getEntitlements } from "@/lib/billing";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { emitEquipmentEvent, emitRequestActivity } from "@/lib/events";
 import {
   notifyRequesterOfStatus,
@@ -20,7 +21,7 @@ import { getEquipmentPublicUrl, getRequestStatusUrl } from "@/lib/qr";
 import { pickBestCode } from "@/lib/qr-codes";
 import { vocabFor } from "@/lib/vocab";
 import { formatCompanyLongDateTime, DEFAULT_COMPANY_TIME_ZONE } from "@/lib/format";
-import { zonedWallTimeToUtcIso } from "@/lib/schedule";
+import { formatZonedDateTime, zonedWallTimeToUtcIso } from "@/lib/schedule";
 import {
   REQUEST_STATUS_LABELS,
   REQUEST_PRIORITY_LABELS,
@@ -612,8 +613,12 @@ export async function searchEquipmentForRequest(term: string): Promise<Equipment
     .limit(20);
 
   if (parsed.term) {
-    const escaped = parsed.term.replace(/[%_]/g, (m) => `\\${m}`).replace(/,/g, "");
-    const clauses = [`name.ilike.%${escaped}%`, `serial_number.ilike.%${escaped}%`];
+    // Quoted PostgREST values: commas, parentheses and quotes in a unit name
+    // ("Fryer (left)") can't break out of the or=() expression. % and _ are
+    // escaped so they match literally.
+    const pattern = `%${parsed.term.replace(/[%_\\]/g, (m) => `\\${m}`)}%`;
+    const quoted = `"${pattern.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+    const clauses = [`name.ilike.${quoted}`, `serial_number.ilike.${quoted}`];
     if (codeMatchIds.length > 0) clauses.push(`id.in.(${codeMatchIds.join(",")})`);
     query = query.or(clauses.join(","));
   } else if (codeMatchIds.length > 0) {
@@ -712,6 +717,13 @@ export async function createStaffRequest(formData: FormData): Promise<CreateStaf
   }
   const input = parsed.data;
 
+  // Same lock rule as the other staff paths that create requests
+  // (createVisitRequest, sendOnMyWay, closeOutFromScan).
+  const lockError = await requireActiveSubscription();
+  if (lockError) {
+    return lockError;
+  }
+
   const supabase = await createClient();
   const { profile, company } = await getCurrentProfile();
 
@@ -777,9 +789,40 @@ export async function createStaffRequest(formData: FormData): Promise<CreateStaf
     }),
   ]);
 
+  if (scheduledFor) {
+    // Same visit bookkeeping as scheduleVisit(): a timeline entry (which
+    // also feeds the visit.scheduled webhook) and a customer-visible
+    // activity row. Duration uses the column default (60 minutes).
+    const when = formatZonedDateTime(scheduledFor, company.timezone);
+    await Promise.all([
+      emitEquipmentEvent(supabase, {
+        companyId: profile.company_id,
+        equipmentId: equipment.id,
+        kind: "visit_scheduled",
+        summary: `Visit scheduled for ${when}`,
+        details: { service_request_id: inserted.id, scheduled_for: scheduledFor, duration_minutes: 60 },
+        serviceRequestId: inserted.id,
+        actorUserId: profile.id,
+      }),
+      emitRequestActivity(supabase, {
+        companyId: profile.company_id,
+        serviceRequestId: inserted.id,
+        kind: "status_change",
+        visibility: "customer",
+        body: `Visit scheduled for ${when}`,
+        authorKind: "staff",
+        authorUserId: profile.id,
+      }),
+    ]);
+  }
+
   let statusEmailSent = false;
   if (input.sendStatusEmail && input.contactEmail) {
-    if (company.customer_updates_enabled) {
+    const withinEmailLimit = await checkRateLimit(
+      `staff-request-email:${profile.company_id}`,
+      RATE_LIMITS.staffRequestEmailPerCompany
+    );
+    if (company.customer_updates_enabled && withinEmailLimit) {
       const entitlements = await getEntitlements();
       const brand = brandingForEmail({
         company,
