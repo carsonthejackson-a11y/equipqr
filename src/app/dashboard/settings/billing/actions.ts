@@ -198,12 +198,35 @@ export async function createPortalSession() {
       ? serverEnv.STRIPE_PORTAL_CONFIG_OWNER
       : serverEnv.STRIPE_PORTAL_CONFIG_PROVIDER;
 
+  const returnUrl = `${base}/dashboard/settings/billing`;
+
+  // An owner-kind company with no owner portal configuration must not land
+  // in the account's default portal: its "switch plan" list holds provider
+  // prices, so an owner could move to Business ($199) and the webhook's kind
+  // guard would keep them on Kitchen entitlements. Until
+  // STRIPE_PORTAL_CONFIG_OWNER is set, owners only get the payment-method
+  // flow (and a redirect straight back), never plan switching.
+  const restrictToPaymentMethod = company.kind === "equipment_owner" && !configuration;
+  if (restrictToPaymentMethod) {
+    console.warn(
+      "billing portal: STRIPE_PORTAL_CONFIG_OWNER is not set; owner-kind portal limited to payment method updates"
+    );
+  }
+
   let portalSession;
   try {
     portalSession = await stripe.billingPortal.sessions.create({
       customer: company.stripe_customer_id,
-      return_url: `${base}/dashboard/settings/billing`,
+      return_url: returnUrl,
       ...(configuration ? { configuration } : {}),
+      ...(restrictToPaymentMethod
+        ? {
+            flow_data: {
+              type: "payment_method_update" as const,
+              after_completion: { type: "redirect" as const, redirect: { return_url: returnUrl } },
+            },
+          }
+        : {}),
     });
   } catch (err) {
     return { error: err instanceof Error ? err.message : "Could not open the billing portal" };
