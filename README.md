@@ -127,8 +127,9 @@ are hidden and the app is otherwise unaffected.
 `service_provider` (the original model) or `equipment_owner` — restaurants, cafes, and other
 businesses that own the equipment they track instead of servicing other people's. Owner-kind
 companies subscribe to a separate Free/Site/Multi-site plan set (see `docs/BILLING.md` §6) and
-are never locked out — a lapsed owner company just drops to the Free tier's limits. Set
-`NEXT_PUBLIC_FEATURE_OWNER_ACCOUNTS=false` to hide this while it's still landing.
+are never locked out — a lapsed owner company just drops to the Free tier's limits. This is
+unconditional now; the `FEATURES.ownerAccounts` flag that used to gate it while it was landing
+was removed as dead code (C1-42).
 
 ### 4. Run it
 
