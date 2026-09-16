@@ -262,64 +262,25 @@ describe("drainWebhookDeliveries", () => {
     errorSpy.mockRestore();
   });
 
-  describe("entitlement re-check at use time (C1-36)", () => {
-    it("skips deliveries for a locked company or one downgraded off webhooks, and still sends for an entitled one", async () => {
-      const { drainWebhookDeliveries } = await import("./webhooks");
-      const rows = [
-        delivery({ id: "d-locked", endpoint_id: "e1", company_id: "locked-co" }),
-        delivery({ id: "d-downgraded", endpoint_id: "e1", company_id: "downgraded-co" }),
-        delivery({ id: "d-ok", endpoint_id: "e1", company_id: "ok-co" }),
-      ];
-      const endpoints: EndpointRow[] = [{ id: "e1", url: "https://ok.example/h", secret, is_active: true }];
-      const admin = fakeAdmin(rows, endpoints, {
-        "locked-co": { plan_id: "business", is_trialing: false, is_locked: true },
-        "downgraded-co": { plan_id: "starter", is_trialing: false, is_locked: false },
-        "ok-co": ENTITLED_FLAGS,
-      });
-      const { impl, calls } = fakeFetch(() => new Response("", { status: 200 }));
-
-      const result = await drainWebhookDeliveries(admin.client, { limit: 10, fetchImpl: impl });
-
-      // Only the entitled company's delivery actually reached the network.
-      expect(calls).toHaveLength(1);
-
-      const finishes = admin.rpc.mock.calls.filter(([fn]) => fn === "finish_webhook_delivery").map(([, args]) => args);
-      expect(finishes).toEqual(
-        expect.arrayContaining([
-          {
-            p_delivery_id: "d-locked",
-            p_response_status: null,
-            p_error: "Skipped: company is not entitled to webhook deliveries",
-          },
-          {
-            p_delivery_id: "d-downgraded",
-            p_response_status: null,
-            p_error: "Skipped: company is not entitled to webhook deliveries",
-          },
-          { p_delivery_id: "d-ok", p_response_status: 200, p_error: null },
-        ])
-      );
-      expect(result.delivered).toBe(1);
-      expect(result.failed).toBe(2);
+  it("delivers regardless of plan state and never re-checks entitlement in the drain (skips would burn retries)", async () => {
+    const { drainWebhookDeliveries } = await import("./webhooks");
+    const rows = [
+      delivery({ id: "d-locked", endpoint_id: "e1", company_id: "locked-co" }),
+      delivery({ id: "d-ok", endpoint_id: "e1", company_id: "ok-co" }),
+    ];
+    const endpoints: EndpointRow[] = [{ id: "e1", url: "https://ok.example/h", secret, is_active: true }];
+    const admin = fakeAdmin(rows, endpoints, {
+      "locked-co": { plan_id: "business", is_trialing: false, is_locked: true },
     });
+    const { impl, calls } = fakeFetch(() => new Response("", { status: 200 }));
 
-    it("checks entitlement once per company per drain, not once per row", async () => {
-      const { drainWebhookDeliveries } = await import("./webhooks");
-      const rows = [
-        delivery({ id: "r1", endpoint_id: "e1", company_id: "co-1" }),
-        delivery({ id: "r2", endpoint_id: "e1", company_id: "co-1" }),
-        delivery({ id: "r3", endpoint_id: "e1", company_id: "co-1" }),
-      ];
-      const endpoints: EndpointRow[] = [{ id: "e1", url: "https://ok.example/h", secret, is_active: true }];
-      const admin = fakeAdmin(rows, endpoints, { "co-1": ENTITLED_FLAGS });
-      const { impl, calls } = fakeFetch(() => new Response("", { status: 200 }));
+    const result = await drainWebhookDeliveries(admin.client, { limit: 10, fetchImpl: impl });
 
-      await drainWebhookDeliveries(admin.client, { limit: 10, fetchImpl: impl });
-
-      expect(calls).toHaveLength(3);
-      const planFlagsCalls = admin.rpc.mock.calls.filter(([fn]) => fn === "get_company_plan_flags");
-      expect(planFlagsCalls).toHaveLength(1);
-    });
+    expect(calls).toHaveLength(2);
+    expect(result.delivered).toBe(2);
+    expect(result.failed).toBe(0);
+    const planFlagsCalls = admin.rpc.mock.calls.filter(([fn]) => fn === "get_company_plan_flags");
+    expect(planFlagsCalls).toHaveLength(0);
   });
 });
 

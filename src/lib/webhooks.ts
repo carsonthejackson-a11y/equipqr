@@ -11,7 +11,6 @@ import {
   WEBHOOK_TIMEOUT_MS,
   buildSignatureHeader,
 } from "@/lib/webhook-signing";
-import { getCompanyPlanFlagsWithClient, planFlagsAllow, type CompanyPlanFlags } from "@/lib/billing";
 import type { WebhookDelivery } from "@/lib/types";
 
 // The deliverer for outbound webhooks (Business plan). Migration 0022 fills
@@ -227,18 +226,15 @@ export async function drainWebhookDeliveries(
   const deadline = options.deadlineMs ? Date.now() + options.deadlineMs : null;
   const outOfTime = () => deadline !== null && Date.now() >= deadline;
 
-  // Re-check entitlement at USE time (C1-36): a downgraded or lapsed-trial
-  // company's endpoints must stop receiving deliveries, not just stop being
-  // creatable. Cached per company for this one drain call — a batch cron run
-  // can carry many rows for the same company, and this must not turn into a
-  // duplicate get_company_plan_flags round trip per row.
-  const planFlagsCache = new Map<string, CompanyPlanFlags | null>();
-  const isEntitled = async (companyId: string): Promise<boolean> => {
-    if (!planFlagsCache.has(companyId)) {
-      planFlagsCache.set(companyId, await getCompanyPlanFlagsWithClient(admin, companyId));
-    }
-    return planFlagsAllow(planFlagsCache.get(companyId) ?? null, "exportApi");
-  };
+  // No plan/lock re-check here, on purpose. The API (src/lib/api-auth.ts)
+  // re-checks entitlement on every call, but a delivery can't be deferred
+  // without a schema change: finishing it as "skipped" would spend its
+  // retries (claim_webhook_deliveries increments attempts), lose it for good
+  // within hours, and after 20 skips auto-disable the endpoint so it stays
+  // off even once the customer pays again — a declined renewal card
+  // (past_due counts as locked) would be enough. Until a migration either
+  // stops enqueueing for non-entitled companies or defers rows without
+  // counting a failure, deliveries keep flowing for queued events.
 
   const runOne = async (delivery: WebhookDelivery) => {
     const endpoint = endpointById.get(delivery.endpoint_id);
@@ -250,12 +246,6 @@ export async function drainWebhookDeliveries(
       // Disabled after we queued this — don't keep knocking. Mark it failed
       // via a null status so the log says why.
       outcome = { ok: false, status: null, error: "Endpoint is disabled" };
-    } else if (!(await isEntitled(delivery.company_id))) {
-      // Locked or downgraded off the webhooks feature since this was queued.
-      // Same "mark failed with a reason" treatment as a disabled endpoint —
-      // the row's own backoff schedule and 20-failure auto-disable apply, so
-      // an account that never resubscribes doesn't retry forever.
-      outcome = { ok: false, status: null, error: "Skipped: company is not entitled to webhook deliveries" };
     } else {
       outcome = await attemptDelivery(delivery, endpoint, options.fetchImpl);
     }

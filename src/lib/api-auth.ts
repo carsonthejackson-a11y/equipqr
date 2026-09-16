@@ -94,7 +94,19 @@ export async function authenticateApiRequest(
     };
   }
 
-  // Re-check entitlement at USE time, not just at key-creation time (C1-36):
+  const withinLimit = await checkRateLimit(`api:${keyHash.slice(0, 16)}`, RATE_LIMITS.apiKey);
+  if (!withinLimit) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: "Rate limit exceeded." },
+        { status: 429, headers: { "Retry-After": String(RATE_LIMITS.apiKey.windowSeconds) } }
+      ),
+    };
+  }
+
+  // Re-check entitlement at USE time (after the rate limiter, so throttled
+  // calls don't also cost a plan lookup) — not just at key-creation time (C1-36):
   // a key issued while the company was on Business keeps working forever
   // otherwise, even after a downgrade or a lapsed trial. One extra RPC per
   // request (not per row/entity it goes on to touch), and it fails OPEN like
@@ -109,17 +121,6 @@ export async function authenticateApiRequest(
             "This account's plan no longer includes API access — ask the account owner to check Billing.",
         },
         { status: 402 }
-      ),
-    };
-  }
-
-  const withinLimit = await checkRateLimit(`api:${keyHash.slice(0, 16)}`, RATE_LIMITS.apiKey);
-  if (!withinLimit) {
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { error: "Rate limit exceeded." },
-        { status: 429, headers: { "Retry-After": String(RATE_LIMITS.apiKey.windowSeconds) } }
       ),
     };
   }
