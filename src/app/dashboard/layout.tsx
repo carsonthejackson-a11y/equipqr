@@ -1,11 +1,15 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { CircleUserRound } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { DashboardNav } from "@/components/dashboard-nav";
 import { DashboardTopNav } from "@/components/dashboard-topnav";
+import { DashboardScanButton } from "@/components/dashboard-scan-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { LogoMark } from "@/components/logo";
+import { Button } from "@/components/ui/button";
 import { LockedScreen } from "@/components/billing/locked-screen";
 import { TrialBanner } from "@/components/billing/trial-banner";
 import { getEntitlements } from "@/lib/billing";
@@ -95,12 +99,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/onboarding");
   }
 
-  const [{ data: company }, { data: isAdmin }, entitlements, headerList] = await Promise.all([
-    supabase.from("companies").select("*").eq("id", profile.company_id).maybeSingle<Company>(),
-    supabase.rpc("is_platform_admin"),
-    getEntitlements(),
-    headers(),
-  ]);
+  const [{ data: company }, { data: isAdmin }, entitlements, headerList, { count: requestsBadgeCount }] =
+    await Promise.all([
+      supabase.from("companies").select("*").eq("id", profile.company_id).maybeSingle<Company>(),
+      supabase.rpc("is_platform_admin"),
+      getEntitlements(),
+      headers(),
+      // Q-32: the Requests/Work Orders nav badge — same predicate for both
+      // company kinds, since /dashboard/requests and its service_requests
+      // rows are the same underlying data either way (dashboard-nav-links.ts
+      // just labels the link differently per kind). RLS already scopes this
+      // to the caller's own company, matching every other count query below.
+      supabase
+        .from("service_requests")
+        .select("*", { count: "exact", head: true })
+        .or("status.eq.new,unread_customer_messages.gt.0"),
+    ]);
 
   // Best-effort, idempotent welcome email — only ever sent once (guarded by
   // companies.welcome_email_sent_at) and only on the request that actually
@@ -141,8 +155,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect(OWNER_ONBOARDING_PATH);
   }
 
+  const badgeCount = requestsBadgeCount ?? 0;
+
   return (
     <div className="flex min-h-svh">
+      {/* Q-64: first focusable element, invisible until it has focus. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-lg focus:ring-2 focus:ring-ring"
+      >
+        Skip to main content
+      </a>
       <aside className="hidden w-60 shrink-0 border-r bg-muted/20 p-4 md:flex md:flex-col md:justify-between print:hidden">
         <div>
           <div className="mb-6 flex items-center gap-2 px-3">
@@ -152,7 +175,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <p className="truncate text-xs text-muted-foreground">{profile.full_name}</p>
             </div>
           </div>
-          <DashboardNav isAdmin={!!isAdmin} role={profile.role} kind={kind} />
+          <DashboardNav isAdmin={!!isAdmin} role={profile.role} kind={kind} requestsBadgeCount={badgeCount} />
         </div>
         <SignOutButton />
       </aside>
@@ -162,11 +185,29 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <LogoMark className="size-7 text-primary" />
             <p className="font-semibold">{company?.name ?? "EquipQR"}</p>
           </div>
-          <SignOutButton />
+          {/*
+            Q-49/Q-50: Sign out moved to Settings > Account (every role can
+            reach it there even though Team/Billing/Settings stay owner-only
+            in the nav below) — this header now carries Scan and a direct
+            link to that page instead.
+          */}
+          <div className="flex items-center gap-1.5">
+            <DashboardScanButton />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-11"
+              aria-label="Account"
+              nativeButton={false}
+              render={<Link href="/dashboard/settings/account" />}
+            >
+              <CircleUserRound className="size-5" />
+            </Button>
+          </div>
         </header>
-        <DashboardTopNav isAdmin={!!isAdmin} role={profile.role} kind={kind} />
-        {trialDaysLeft !== null && !onBillingPage && <TrialBanner daysLeft={trialDaysLeft} />}
-        <main className="p-6">
+        <DashboardTopNav isAdmin={!!isAdmin} role={profile.role} kind={kind} requestsBadgeCount={badgeCount} />
+        {trialDaysLeft !== null && !onBillingPage && <TrialBanner daysLeft={trialDaysLeft} role={profile.role} />}
+        <main id="main-content" className="p-6">
           {isLocked ? <LockedScreen isOwner={profile.role === "owner"} /> : children}
         </main>
       </div>
@@ -188,6 +229,7 @@ async function sendWelcomeEmailOnce(
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const { subject, html, text } = buildWelcomeEmail({
       companyName: company.name,
+      kind: company.kind,
       recipientName,
       dashboardUrl: `${appUrl}/dashboard`,
     });

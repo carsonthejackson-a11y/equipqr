@@ -89,7 +89,10 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.6 0.118 184.704);
+  /* teal-700 strength (~#00786f), not the teal-600 --chart-1/--sidebar-primary still use for
+     icons and fills: white-on-primary was 3.50:1 and primary-as-text was 3.66:1, both under
+     WCAG AA's 4.5:1 (Q-26). This value is 5.16:1 white-on-primary and 5.39:1 as text on white. */
+  --primary: oklch(0.511 0.096 186.391);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);

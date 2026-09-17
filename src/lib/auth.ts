@@ -54,3 +54,22 @@ export async function requireOwner(): Promise<CurrentProfile | null> {
   }
   return result;
 }
+
+// For platform-admin pages and routes under /admin. The admin layout's own
+// check is not enough on its own: Next.js renders a layout and its page in
+// parallel, so a page that queries data (especially with the service-role
+// client) must gate itself before the first query. Returns true only for a
+// signed-in platform admin.
+export async function isPlatformAdmin(): Promise<boolean> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data: isAdmin, error } = await supabase.rpc("is_platform_admin");
+  if (error) {
+    console.error("isPlatformAdmin: is_platform_admin RPC failed:", error.message);
+    return false;
+  }
+  return isAdmin === true;
+}

@@ -11,10 +11,18 @@ import { OnboardFlow } from "./onboard-flow";
 // but the one that owns it, see docs/NEXT-ROADMAP-BRIEF.md).
 export default async function OnboardPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ qrToken: string }>;
+  // ?type=/&customer= — carried over from the previous sticker by the "scan
+  // next sticker" loop on this same page (docs/QOL-CONTINUITY-BRIEF.md item
+  // 3 / Q-55). Anything that doesn't resolve to a real, same-company row
+  // below is silently dropped by OnboardFlow's own combobox lookups, so no
+  // validation is needed here beyond "is it a string".
+  searchParams: Promise<{ type?: string; customer?: string }>;
 }) {
   const { qrToken } = await params;
+  const { type: prefillTypeId, customer: prefillCustomerId } = await searchParams;
 
   if (!FEATURES.batchQr) {
     notFound();
@@ -66,6 +74,8 @@ export default async function OnboardPage({
         token={qrToken}
         equipmentTypes={equipmentTypes ?? []}
         customers={customers ?? []}
+        initialTypeId={prefillTypeId ?? ""}
+        initialCustomerId={prefillCustomerId ?? ""}
       />
     </div>
   );

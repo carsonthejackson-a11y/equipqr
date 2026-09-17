@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -81,7 +81,13 @@ export async function POST(request: Request) {
   // Honeypot: report success without touching the database so a bot doesn't
   // learn it was caught.
   if (body.website) {
-    return NextResponse.json({ id: "", publicToken: "", statusUrl: "", vendor: null, dispatched: false });
+    return NextResponse.json({
+      id: "",
+      publicToken: "",
+      statusUrl: "",
+      vendor: null,
+      dispatched: false,
+    });
   }
 
   const writer = await submitClient();
@@ -107,35 +113,24 @@ export async function POST(request: Request) {
 
   const result = data as OwnerSubmitResult;
   const statusUrl = getRequestStatusUrl(result.public_token);
-
-  const aiSummary = await summarizeTroubleshootingPath({
-    equipmentName: result.equipment_name,
-    description,
-    path: body.symptoms.map((s) => ({ question: "Symptom", answer: s })),
-  });
-
-  if (aiSummary) {
-    // Anon has no RLS update grant on service_requests — same reasoning as
-    // the provider route: this goes through a security-definer RPC keyed on
-    // id + the public token we were just handed.
-    const supabase = await createClient();
-    const { error: summaryError } = await supabase.rpc("set_request_ai_summary", {
-      p_request_id: result.request_id,
-      p_public_token: result.public_token,
-      p_summary: aiSummary,
-    });
-    if (summaryError) {
-      console.error("set_request_ai_summary failed:", summaryError.message);
-    }
-  }
-
   const priorityLabel = REQUEST_PRIORITY_LABELS[body.priority];
 
-  if (result.dispatch_id && result.dispatch_token && result.vendor_email && result.vendor) {
-    await sendVendorDispatchEmail(writer, result, body, description);
-  }
+  // Anon has no RLS update grant on service_requests — same reasoning as the
+  // provider route: the AI summary goes through a security-definer RPC keyed
+  // on id + the public token we were just handed, rather than a direct
+  // table write.
+  const supabase = await createClient();
 
-  await sendOwnerNotificationEmail(result, body, description, priorityLabel);
+  // The request (and any dispatch) is already safely recorded at this
+  // point, so none of this needs to sit in front of the response the form
+  // is waiting on (Q-05): the AI summary (an Anthropic call), its RPC
+  // write, the vendor dispatch email and the owner notification email are
+  // all best-effort and deferred to run after the response is sent.
+  // `supabase`/`writer` were both created above (not inside this callback),
+  // so they carry no unread request-scoped state into it.
+  after(async () => {
+    await runPostSubmitWork(supabase, writer, result, body, description, priorityLabel);
+  });
 
   return NextResponse.json({
     id: result.request_id,
@@ -148,6 +143,42 @@ export async function POST(request: Request) {
     vendor: result.vendor ? { name: result.vendor.name, phone: result.vendor.phone } : null,
     dispatched: !!result.dispatch_id,
   });
+}
+
+async function runPostSubmitWork(
+  supabase: SupabaseClient,
+  writer: SupabaseClient,
+  result: OwnerSubmitResult,
+  body: OwnerServiceRequestInput,
+  description: string,
+  priorityLabel: string
+): Promise<void> {
+  const aiSummary = await summarizeTroubleshootingPath({
+    equipmentName: result.equipment_name,
+    description,
+    path: body.symptoms.map((s) => ({ question: "Symptom", answer: s })),
+  });
+
+  if (aiSummary) {
+    // summarizeTroubleshootingPath() never throws (returns null on any
+    // failure) and .rpc() resolves an { error } rather than throwing, so
+    // nothing here needs its own try/catch to keep the two sends below from
+    // being skipped.
+    const { error: summaryError } = await supabase.rpc("set_request_ai_summary", {
+      p_request_id: result.request_id,
+      p_public_token: result.public_token,
+      p_summary: aiSummary,
+    });
+    if (summaryError) {
+      console.error("set_request_ai_summary failed:", summaryError.message);
+    }
+  }
+
+  if (result.dispatch_id && result.dispatch_token && result.vendor_email && result.vendor) {
+    await sendVendorDispatchEmail(writer, result, body, description);
+  }
+
+  await sendOwnerNotificationEmail(result, body, description, priorityLabel);
 }
 
 type EquipmentExtra = {
@@ -244,14 +275,21 @@ async function sendVendorDispatchEmail(
   }
 }
 
+/**
+ * Best-effort notification to the owner's own back office. Returns whether
+ * `sendEmail()` actually reported success — QoL-2b's confirmation screen
+ * only claims "{company} was notified" when this is true (C1-30, Q-12), the
+ * same "senders report truthfully" contract QoL-1 uses elsewhere (never
+ * `void`, so a caller can't accidentally assume silence means it worked).
+ */
 async function sendOwnerNotificationEmail(
   result: OwnerSubmitResult,
   body: OwnerServiceRequestInput,
   description: string,
   priorityLabel: string
-): Promise<void> {
+): Promise<boolean> {
   // Null when the RPC ran without the service-role key — see submitClient().
-  if (!result.company_notification_email) return;
+  if (!result.company_notification_email) return false;
 
   try {
     if (result.dispatch_id && result.vendor) {
@@ -268,22 +306,23 @@ async function sendOwnerNotificationEmail(
         vendorPhone: result.vendor.phone,
         requestUrl,
       });
-      await sendEmail({ to: result.company_notification_email, subject, html, text });
-    } else {
-      const equipmentUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/equipment/${result.equipment_id}`;
-      const { subject, html, text } = buildOwnerNoVendorEmail({
-        equipmentName: result.equipment_name,
-        locationName: result.location_name,
-        reporterName: body.contactName,
-        reporterPhone: body.reporterPhone || null,
-        priorityLabel,
-        symptoms: body.symptoms,
-        description,
-        equipmentUrl,
-      });
-      await sendEmail({ to: result.company_notification_email, subject, html, text });
+      return await sendEmail({ to: result.company_notification_email, subject, html, text });
     }
+
+    const equipmentUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/equipment/${result.equipment_id}`;
+    const { subject, html, text } = buildOwnerNoVendorEmail({
+      equipmentName: result.equipment_name,
+      locationName: result.location_name,
+      reporterName: body.contactName,
+      reporterPhone: body.reporterPhone || null,
+      priorityLabel,
+      symptoms: body.symptoms,
+      description,
+      equipmentUrl,
+    });
+    return await sendEmail({ to: result.company_notification_email, subject, html, text });
   } catch (err) {
     console.error("owner-requests: failed to send owner notification email:", err);
+    return false;
   }
 }

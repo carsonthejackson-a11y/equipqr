@@ -103,7 +103,12 @@ export default async function EquipmentGuidePage({
     return (
       <PublicNotice
         title="This code has been retired"
-        body="This QR code is no longer linked to any equipment. Please contact the service company."
+        // Kind-neutral (C1-04 copy only): resolve_qr_code() returns only
+        // company_id for a retired code, no kind/name/phone, so this can't
+        // say who to contact by name — "the service company" also presumed
+        // a third party, which is wrong on an owner-kind company's own
+        // sticker (there's no separate service company to call).
+        body="This QR code is no longer linked to any equipment. Please contact the business that manages this equipment."
       />
     );
   }
@@ -116,7 +121,7 @@ export default async function EquipmentGuidePage({
     const notSetUpYet = (
       <PublicNotice
         title="Not set up yet"
-        body="This QR code hasn't been linked to any equipment yet. Please contact the service company."
+        body="This QR code hasn't been linked to any equipment yet. Please contact the business that manages this equipment."
       />
     );
 
@@ -215,6 +220,11 @@ export default async function EquipmentGuidePage({
 
         <div className="space-y-1">
           <h1 className="text-2xl leading-tight font-semibold">{guide.equipment.name}</h1>
+          {/* Owner-kind pages are the company's own equipment — there's no
+              third party to name here (Q-56). */}
+          {guide.company.kind !== "equipment_owner" && (
+            <p className="text-sm text-muted-foreground">Serviced by {guide.company.name}.</p>
+          )}
           <p className="text-muted-foreground">
             {[guide.equipment_type.name, makeModel].filter(Boolean).join(" · ")}
           </p>

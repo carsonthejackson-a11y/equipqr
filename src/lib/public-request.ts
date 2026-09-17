@@ -161,6 +161,107 @@ export function firstIssueMessage(error: z.ZodError): string {
 }
 
 // ----------------------------------------------------------------------------
+// Hazard language (Q-59) — shared by both report forms
+// ----------------------------------------------------------------------------
+
+/**
+ * Matches language describing an active safety hazard — a gas smell, smoke,
+ * sparking or a burning smell — in a customer's own words. Previously the
+ * owner form alone tested a gas-only pattern against symptom *chips*; both
+ * report forms now run this same, broader pattern against whatever free
+ * text the visitor actually typed, so a hazard mentioned in prose (not just
+ * picked from a chip list) still surfaces the banner.
+ */
+const HAZARD_PATTERNS: RegExp[] = [
+  /\bgas\b[^.!?\n]{0,25}\bsmell/i, // "gas smell", "smell of gas near the unit"
+  /\bsmell[^.!?\n]{0,25}\bgas\b/i, // "smells like gas"
+  /\bsmoke\b/i,
+  /\bsmoking\b/i,
+  /\bspark(s|ing)\b/i, // "-ing"/plural, not bare "spark" — keeps "spark plug" from tripping it
+  /\bburn(ing|t)?\s*smell\b/i,
+  /\bsmells?\s+(like\s+)?(it'?s\s+)?burn(ing|t)\b/i,
+  /\bon\s*fire\b/i,
+];
+
+/**
+ * True when any of the given strings describes an active safety hazard.
+ * Blank and missing values are ignored, so a caller can pass optional form
+ * fields straight through: `hasHazardLanguage(description, ...symptoms)`.
+ */
+export function hasHazardLanguage(...texts: Array<string | null | undefined>): boolean {
+  const combined = texts.filter((t): t is string => !!t && t.trim().length > 0).join(" ");
+  return combined ? HAZARD_PATTERNS.some((pattern) => pattern.test(combined)) : false;
+}
+
+/** Shared copy for the hazard banner both report forms show when {@link hasHazardLanguage} matches. */
+export const HAZARD_WARNING =
+  "If you smell gas or see sparks, smoke or burning, leave the area now and call 911 and your gas utility. You can still send this afterwards.";
+
+// ----------------------------------------------------------------------------
+// Report form drafts (Q-54) — shared by both report forms
+// ----------------------------------------------------------------------------
+
+/** localStorage key for a report form's in-progress draft, scoped per token so a second sticker's form starts blank. */
+export function reportDraftStorageKey(qrToken: string): string {
+  return `equipqr-report-draft-${qrToken}`;
+}
+
+/**
+ * Parses a stored draft. Anything that isn't a plain object of string
+ * values — a shape from a future/older version of this form, or corrupted
+ * storage — comes back null rather than crashing the page that reads it.
+ */
+export function parseReportDraft(raw: string | null): Record<string, string> | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const entries = Object.entries(parsed as Record<string, unknown>);
+    if (!entries.every(([, v]) => typeof v === "string")) return null;
+    return Object.fromEntries(entries) as Record<string, string>;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * How long an unsent report draft is kept on a device. Short on purpose:
+ * report forms run on shared kitchen and café devices, so a draft is only
+ * the problem description and urgency — never the reporter's name, phone or
+ * email — and it expires the same day.
+ */
+export const REPORT_DRAFT_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+
+/** Whether a stored draft is recent enough to restore. A draft with no (or an unreadable) `savedAt` comes from an older version of the form and is treated as stale. */
+export function isReportDraftFresh(
+  draft: Record<string, string> | null,
+  nowMs: number,
+  maxAgeMs: number = REPORT_DRAFT_MAX_AGE_MS
+): boolean {
+  if (!draft?.savedAt) return false;
+  const savedMs = Date.parse(draft.savedAt);
+  if (Number.isNaN(savedMs)) return false;
+  return nowMs - savedMs >= 0 && nowMs - savedMs <= maxAgeMs;
+}
+
+/** Whether a parsed draft actually has anything worth restoring — an object of all-blank fields isn't a draft. */
+export function hasDraftContent(draft: Record<string, string> | null): boolean {
+  return !!draft && Object.values(draft).some((v) => v.trim().length > 0);
+}
+
+// ----------------------------------------------------------------------------
+// Inline validation (Q-58) — shared by both report forms
+// ----------------------------------------------------------------------------
+
+/** The first field (by the given display order) that has an error, for scrolling/focusing after a failed client-side validation pass — or null when there are none. */
+export function firstErrorField(
+  errors: Record<string, string | undefined>,
+  order: readonly string[]
+): string | null {
+  return order.find((key) => !!errors[key]) ?? null;
+}
+
+// ----------------------------------------------------------------------------
 // Two-way messaging — POST /api/request-updates (Next roadmap, migration 0019)
 // ----------------------------------------------------------------------------
 

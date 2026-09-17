@@ -107,7 +107,9 @@ cp .env.local.example .env.local
 | `RESEND_FROM_EMAIL` | No | Must be on a domain [verified in Resend](https://resend.com/domains) |
 | `ANTHROPIC_API_KEY` | No — AI guide drafting and the customer chat assist are hidden without it | [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys) |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | No | See `docs/BILLING.md` |
+| `STRIPE_PORTAL_CONFIG_PROVIDER` / `STRIPE_PORTAL_CONFIG_OWNER` | No | Customer Portal configuration ids, one per company kind — see `docs/BILLING.md` §4 |
 | `SENTRY_DSN` | No — error tracking is a no-op without it | Sentry → Settings → Projects → your project → Client Keys (DSN) |
+| `CRON_SECRET` | No, but required for scheduled jobs and `/api/health?deep=1` to work | Any long random string, e.g. `openssl rand -hex 32` |
 | `NEXT_PUBLIC_SUPPORT_EMAIL` | No | Shown to customers on public pages, if set |
 
 All of the above are validated by `src/lib/env.ts` (zod) on first server-side access — a
@@ -127,8 +129,9 @@ are hidden and the app is otherwise unaffected.
 `service_provider` (the original model) or `equipment_owner` — restaurants, cafes, and other
 businesses that own the equipment they track instead of servicing other people's. Owner-kind
 companies subscribe to a separate Free/Site/Multi-site plan set (see `docs/BILLING.md` §6) and
-are never locked out — a lapsed owner company just drops to the Free tier's limits. Set
-`NEXT_PUBLIC_FEATURE_OWNER_ACCOUNTS=false` to hide this while it's still landing.
+are never locked out — a lapsed owner company just drops to the Free tier's limits. This is
+unconditional now; the `FEATURES.ownerAccounts` flag that used to gate it while it was landing
+was removed as dead code (C1-42).
 
 ### 4. Run it
 
@@ -152,7 +155,7 @@ an unknown `/e/[qrToken]`, and `/api/health`. It never creates data.
 2. **Environment variables**: set every "Required" row from the table above, plus whichever
    optional integrations you're enabling, in Vercel's Project Settings → Environment
    Variables. Set `NEXT_PUBLIC_APP_URL` to your production domain (e.g.
-   `https://app.equipqr.com`) — it's used to build the public QR-code links and email links,
+   `https://equipqr.co`) — it's used to build the public QR-code links and email links,
    so getting this wrong sends customers to the wrong place.
 3. **Supabase auth redirect URLs**: in the Supabase dashboard, under Authentication → URL
    Configuration, add your production domain (and any preview-deployment domains you use) to
@@ -175,7 +178,12 @@ an unknown `/e/[qrToken]`, and `/api/health`. It never creates data.
 
 - **Health check**: `GET /api/health` returns `{ ok, version, time, checks: { supabase } }` —
   200 when Supabase answers a lightweight query within 5s, 503 otherwise. Point uptime
-  monitoring at this.
+  monitoring at this (see Gate 0 in `LAUNCH.md` — this should alert a real phone). Add
+  `?deep=1` with an `Authorization: Bearer <CRON_SECRET>` header for a fuller boolean-only
+  config check (`productionReady`, and which specific integration is unconfigured) — 401s
+  without a valid secret, never leaks a value. Same env guard `checkProductionEnv()` runs
+  automatically at server startup in production and logs (never throws) if anything required is
+  missing — see `src/lib/env.ts`.
 - **Error tracking**: Sentry (`@sentry/nextjs`) is wired for server, edge, and client
   runtimes (`src/instrumentation.ts`, `src/instrumentation-client.ts`, `sentry.server.config.ts`,
   `sentry.edge.config.ts`) plus friendly fallback UI (`src/app/error.tsx`,

@@ -22,15 +22,27 @@ export function LogVisitCard({
   qrToken,
   equipmentId,
   companyId,
+  companyName,
   hasOpenRequests = false,
+  isLocked = false,
 }: {
   qrToken: string;
   equipmentId: string;
   companyId: string;
+  /** For the close-out success screen's "Text {name} a summary" SMS fallback (Q-54). */
+  companyName: string;
   /** True while the unit has open requests: the button is hidden, an in-progress close-out is not. */
   hasOpenRequests?: boolean;
+  /** C1-33: a locked company can't start a new close-out flow. */
+  isLocked?: boolean;
 }) {
-  const [pending, setPending] = useState<{ requestId: string; contactEmail: string | null } | null>(null);
+  const [pending, setPending] = useState<{
+    requestId: string;
+    contactName: string;
+    contactEmail: string | null;
+    contactPhone: string | null;
+    publicToken: string;
+  } | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -42,7 +54,7 @@ export function LogVisitCard({
       toast.error(result.error);
       return;
     }
-    setPending({ requestId: result.requestId, contactEmail: result.contactEmail });
+    setPending(result);
     setDialogOpen(true);
   }
 
@@ -55,7 +67,7 @@ export function LogVisitCard({
           <p className="text-sm text-muted-foreground">No open requests on this unit right now.</p>
           <button
             type="button"
-            disabled={loading}
+            disabled={loading || isLocked}
             onClick={handleStart}
             className="flex min-h-[56px] w-full items-center justify-center gap-2 rounded-xl border text-base font-medium disabled:opacity-50"
           >
@@ -77,7 +89,11 @@ export function LogVisitCard({
           qrToken={qrToken}
           requestId={pending.requestId}
           companyId={companyId}
+          companyName={companyName}
+          defaultContactName={pending.contactName}
           defaultEmail={pending.contactEmail}
+          contactPhone={pending.contactPhone}
+          publicToken={pending.publicToken}
           onClosedOut={() => setPending(null)}
         />
       )}

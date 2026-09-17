@@ -83,7 +83,8 @@ export function stickerPageCss(size: StickerSize): string {
 }
 
 /**
- * Host part of the app URL, for the "or enter this code at <host>" caption.
+ * Host part of the app URL, for the "or enter this code at <host>/e" caption
+ * (the /e page is the code-entry form).
  * Falls back to the raw string when it isn't parseable as a URL.
  */
 export function appHost(appUrl: string): string {

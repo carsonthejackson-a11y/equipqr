@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import {
   canAddEquipment,
@@ -203,17 +204,22 @@ export async function assertCanAddMember(): Promise<{ error: string } | null> {
   return null;
 }
 
+export type CompanyPlanFlags = { plan_id: PlanId; is_trialing: boolean; is_locked: boolean };
+
 /**
- * Public-safe plan flags for an anonymous viewer of a QR guide (the
- * /e/[qrToken] flow — no authenticated staff session to resolve
- * get_my_company_id() from). Takes the company id directly since it's
- * already exposed to that flow via resolve_qr_code.
+ * Shared body of getCompanyPlanFlags(), factored out so a caller that
+ * already holds a SupabaseClient (typically the service-role admin client)
+ * can reuse it via getCompanyPlanFlagsWithClient() below instead of paying
+ * for a second, cookie-based client — QoL-5 C1-36's API/webhook use-time
+ * checks do exactly this. `get_company_plan_flags` is SECURITY DEFINER and
+ * takes the company id directly (see its own doc comment in migration
+ * 0024), so it behaves identically no matter which client role calls it.
  */
-export async function getCompanyPlanFlags(
+async function resolveCompanyPlanFlags(
+  client: Pick<SupabaseClient, "rpc">,
   companyId: string
-): Promise<{ plan_id: PlanId; is_trialing: boolean; is_locked: boolean } | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("get_company_plan_flags", { p_company_id: companyId });
+): Promise<CompanyPlanFlags | null> {
+  const { data, error } = await client.rpc("get_company_plan_flags", { p_company_id: companyId });
 
   if (error || !data) {
     if (error) {
@@ -228,4 +234,38 @@ export async function getCompanyPlanFlags(
     is_trialing: !!raw.is_trialing,
     is_locked: !!raw.is_locked,
   };
+}
+
+/**
+ * Public-safe plan flags for an anonymous viewer of a QR guide (the
+ * /e/[qrToken] flow — no authenticated staff session to resolve
+ * get_my_company_id() from). Takes the company id directly since it's
+ * already exposed to that flow via resolve_qr_code.
+ */
+export async function getCompanyPlanFlags(companyId: string): Promise<CompanyPlanFlags | null> {
+  const supabase = await createClient();
+  return resolveCompanyPlanFlags(supabase, companyId);
+}
+
+/**
+ * Same plan flags, but against a SupabaseClient the caller already has open
+ * (an `admin` service-role client in an API route or the webhook drain,
+ * where there's no user session for getCompanyPlanFlags()'s cookie-based
+ * client to attach to). Callers that loop over many rows for the same
+ * company should call this once per companyId and cache the result — this
+ * function itself does not cache, so looping call sites must (see the
+ * per-drain cache in src/lib/webhooks.ts).
+ */
+export async function getCompanyPlanFlagsWithClient(
+  client: Pick<SupabaseClient, "rpc">,
+  companyId: string
+): Promise<CompanyPlanFlags | null> {
+  return resolveCompanyPlanFlags(client, companyId);
+}
+
+/** True when these plan flags allow using an entitlement that's checked at USE time (not just at creation) — locked, or the current plan no longer includes the feature. Null flags (lookup failed) fail OPEN, matching every other entitlement guard in this file. */
+export function planFlagsAllow(flags: CompanyPlanFlags | null, feature: keyof PlanFeatures): boolean {
+  if (!flags) return true;
+  if (flags.is_locked) return false;
+  return getPlan(flags.plan_id).features[feature];
 }

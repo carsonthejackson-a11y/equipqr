@@ -4,11 +4,14 @@ import { brandingForEmail } from "@/lib/email/request-status";
 import { buildPmDueEmail } from "@/lib/email/pm-due";
 import { buildServiceRequestNotificationEmail } from "@/lib/email/service-request-notification";
 import { sendEmail } from "@/lib/email/send";
+import { sendCompanyEmail } from "@/lib/email/company-email";
 import { getRequestStatusUrl } from "@/lib/qr";
 import { formatDateOnly } from "@/lib/schedule";
 import { serverEnv } from "@/lib/env";
+import { vocabFor } from "@/lib/vocab";
 import type { PlanId } from "@/lib/plans";
-import type { GeneratedMaintenanceRequest } from "@/lib/types";
+import type { CompanyKind, GeneratedMaintenanceRequest } from "@/lib/types";
+import { isAuthorizedBearer } from "@/lib/timing-safe-equal";
 
 // Needs the Node runtime for the service-role admin client.
 export const runtime = "nodejs";
@@ -25,9 +28,9 @@ function isPlanId(value: unknown): value is PlanId {
  */
 export async function GET(request: Request) {
   const expected = serverEnv.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
 
-  if (!expected || authHeader !== `Bearer ${expected}`) {
+  // Constant-time comparison (C1-53/C1-54).
+  if (!isAuthorizedBearer(request.headers.get("authorization"), expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -42,6 +45,25 @@ export async function GET(request: Request) {
   const generated = (data as GeneratedMaintenanceRequest[] | null) ?? [];
   let customerEmailsSent = 0;
   let staffEmailsSent = 0;
+
+  // generate_due_maintenance_requests() predates the owner roadmap and was
+  // never updated to return the company's kind (a migration would fix this
+  // properly, but isn't in scope here) — so an equipment_owner company's PM
+  // requests got the provider-worded "New service request" staff email
+  // (C1-05). One batched lookup instead of per-row, since a single run can
+  // generate many rows across few companies.
+  const companyIds = [...new Set(generated.map((row) => row.company_id))];
+  const kindByCompanyId = new Map<string, CompanyKind>();
+  if (companyIds.length > 0) {
+    const { data: companyKinds } = await admin
+      .from("companies")
+      .select("id, kind")
+      .in("id", companyIds)
+      .returns<{ id: string; kind: CompanyKind }[]>();
+    for (const c of companyKinds ?? []) {
+      kindByCompanyId.set(c.id, c.kind);
+    }
+  }
 
   for (const row of generated) {
     const dueDateText = formatDateOnly(row.due_on);
@@ -75,7 +97,13 @@ export async function GET(request: Request) {
           statusUrl,
         });
 
-        const sent = await sendEmail({ to: row.contact_email, subject, html, text });
+        const { sent } = await sendCompanyEmail({
+          company: { name: row.company_name, notification_email: row.company_notification_email },
+          to: row.contact_email,
+          subject,
+          html,
+          text,
+        });
         if (sent) customerEmailsSent++;
       } catch (err) {
         console.error(`pm-due cron: customer email failed for request ${row.request_id}:`, err);
@@ -84,6 +112,7 @@ export async function GET(request: Request) {
 
     if (row.company_notification_email) {
       try {
+        const vocab = vocabFor(kindByCompanyId.get(row.company_id));
         const { subject, html, text } = buildServiceRequestNotificationEmail({
           equipmentName: row.equipment_name,
           contactName: row.contact_name,
@@ -94,6 +123,7 @@ export async function GET(request: Request) {
           aiSummary: null,
           troubleshootingPath: [],
           dashboardUrl,
+          vocab,
         });
 
         const sent = await sendEmail({ to: row.company_notification_email, subject, html, text });

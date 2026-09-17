@@ -22,11 +22,14 @@ export function ScheduleRowActions({
   equipmentOptions,
   checklistTemplates,
   companyTimezone,
+  isOwner,
 }: {
   schedule: MaintenanceSchedule;
   equipmentOptions: { id: string; name: string }[];
   checklistTemplates: { id: string; name: string }[];
   companyTimezone: string;
+  /** Only owners can delete a maintenance schedule (C1-38) — hides the button rather than letting a non-owner hit the server-side block. */
+  isOwner: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -81,17 +84,26 @@ export function ScheduleRowActions({
         checklistTemplates={checklistTemplates}
         companyTimezone={companyTimezone}
         trigger={
-          <Button size="icon-sm" variant="ghost" title="Edit schedule">
+          <Button size="icon-sm" variant="ghost" title="Edit schedule" aria-label="Edit schedule">
             <Pencil className="size-3.5" />
           </Button>
         }
       />
-      <Button size="icon-sm" variant="ghost" onClick={handleToggle} disabled={busy} title={schedule.active ? "Pause" : "Resume"}>
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        onClick={handleToggle}
+        disabled={busy}
+        title={schedule.active ? "Pause" : "Resume"}
+        aria-label={schedule.active ? "Pause schedule" : "Resume schedule"}
+      >
         {schedule.active ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
       </Button>
-      <Button size="icon-sm" variant="ghost" onClick={handleDelete} disabled={busy} title="Delete">
-        <Trash2 className="size-3.5" />
-      </Button>
+      {isOwner && (
+        <Button size="icon-sm" variant="ghost" onClick={handleDelete} disabled={busy} title="Delete" aria-label="Delete schedule">
+          <Trash2 className="size-3.5" />
+        </Button>
+      )}
     </div>
   );
 }

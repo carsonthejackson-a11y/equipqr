@@ -24,15 +24,43 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = safeNext(searchParams.get("next"));
+  const code = searchParams.get("code");
+
+  // PKCE redirect (Supabase's default {{ .ConfirmationURL }} templates): the
+  // verify endpoint sends the browser back here with `?code=`. Exchanging it
+  // only works in the browser that requested the email (the code verifier is
+  // a cookie there), which is why LAUNCH.md recommends token_hash templates.
+  if (code && !tokenHash) {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (!error) {
+      return NextResponse.redirect(`${origin}${next}`);
+    }
+    const codeFailurePath = next === "/reset-password" ? "/forgot-password" : "/login";
+    return NextResponse.redirect(`${origin}${codeFailurePath}?expired=1`);
+  }
 
   if (tokenHash && type) {
     const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
 
     if (!error) {
+      // A password-recovery link's only job is to get the user to the
+      // set-new-password screen — send it there regardless of whatever
+      // `next` the email template supplied, so this keeps working even
+      // before the Reset Password template's redirect param is configured.
+      if (type === "recovery") {
+        return NextResponse.redirect(`${origin}/reset-password`);
+      }
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
 
-  return NextResponse.redirect(`${origin}/login`);
+  // Missing/invalid/expired/already-used token. Land wherever the visitor
+  // can act next instead of a bare bounce to /login: a recovery link sends
+  // them back to request a fresh reset email (with a banner explaining why),
+  // everything else (signup confirmation, email change, magic link) goes to
+  // /login with the same kind of banner.
+  const failurePath = type === "recovery" ? "/forgot-password" : "/login";
+  return NextResponse.redirect(`${origin}${failurePath}?expired=1`);
 }

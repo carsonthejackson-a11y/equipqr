@@ -63,6 +63,16 @@ export const RATE_LIMITS = {
   dispatchToVendorPerUser: { limit: 60, windowSeconds: 60 * 60 } satisfies RateLimitRule,
   /** resendDispatch() — per service request. Re-mails an existing work order to a third party's inbox. */
   resendDispatchPerRequest: { limit: 5, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /** createStaffRequest()'s optional "status link" email — per company. Mails a typed-in address as "{Company} via EquipQR". */
+  staffRequestEmailPerCompany: { limit: 30, windowSeconds: 60 * 60 } satisfies RateLimitRule,
+  /**
+   * draftGuideWithAI() and generateChecklistDraftAction() — per COMPANY, not
+   * per user (C1-37's fix approach calls for "a per-company rate limit"):
+   * several staff at the same company share one Anthropic budget. Each
+   * function uses its own key prefix under this shared rule so one doesn't
+   * eat the other's allowance.
+   */
+  aiDraftPerCompany: { limit: 20, windowSeconds: 60 * 60 } satisfies RateLimitRule,
 } as const;
 
 /** Anything with a header lookup: a `Headers`, or Next's ReadonlyHeaders from `headers()`. */

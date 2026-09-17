@@ -3,6 +3,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RATE_LIMITS, checkRateLimit } from "@/lib/rate-limit";
+import { getCompanyPlanFlagsWithClient, planFlagsAllow } from "@/lib/billing";
 
 // API-key authentication for /api/v1/* (Business plan "data export & API").
 //
@@ -100,6 +101,26 @@ export async function authenticateApiRequest(
       response: NextResponse.json(
         { error: "Rate limit exceeded." },
         { status: 429, headers: { "Retry-After": String(RATE_LIMITS.apiKey.windowSeconds) } }
+      ),
+    };
+  }
+
+  // Re-check entitlement at USE time (after the rate limiter, so throttled
+  // calls don't also cost a plan lookup) — not just at key-creation time (C1-36):
+  // a key issued while the company was on Business keeps working forever
+  // otherwise, even after a downgrade or a lapsed trial. One extra RPC per
+  // request (not per row/entity it goes on to touch), and it fails OPEN like
+  // every other entitlement guard if the lookup itself errors.
+  const planFlags = await getCompanyPlanFlagsWithClient(admin, row.company_id);
+  if (!planFlagsAllow(planFlags, "exportApi")) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error:
+            "This account's plan no longer includes API access — ask the account owner to check Billing.",
+        },
+        { status: 402 }
       ),
     };
   }

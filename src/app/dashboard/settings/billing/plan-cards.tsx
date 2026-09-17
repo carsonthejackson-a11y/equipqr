@@ -15,6 +15,7 @@ export function PlanCards({
   stripeConfigured,
   onCheckout,
   onOpenPortal,
+  recommendedPlanId,
 }: {
   /** plansFor(company.kind) — the plan set for this company's kind (docs/OWNER-ROADMAP-BRIEF.md §3.4). */
   plans: Plan[];
@@ -30,6 +31,14 @@ export function PlanCards({
   stripeConfigured: boolean;
   onCheckout: (planId: PlanId, interval: BillingInterval) => Promise<{ error: string } | void>;
   onOpenPortal: () => Promise<{ error: string } | void>;
+  /**
+   * plan-usage.ts's recommendedPlanFor() result, when the caller wants a
+   * "Fits your usage" badge on that plan's card — the locked screen always
+   * passes one; the Billing settings page passes one only while locked
+   * (docs/QOL-CONTINUITY-BRIEF.md item 7). Omit or pass null for the plain
+   * card grid with no recommendation badge.
+   */
+  recommendedPlanId?: PlanId | null;
 }) {
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [pendingPlanId, setPendingPlanId] = useState<PlanId | null>(null);
@@ -95,9 +104,13 @@ export function PlanCards({
           return (
             <Card key={plan.id} className={cn(isCurrent && "ring-2 ring-primary")}>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <CardTitle>{plan.name}</CardTitle>
-                  {isCurrent && <Badge>Current plan</Badge>}
+                  {isCurrent ? (
+                    <Badge>Current plan</Badge>
+                  ) : (
+                    recommendedPlanId === plan.id && <Badge variant="secondary">Fits your usage</Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground">{plan.blurb}</p>
               </CardHeader>

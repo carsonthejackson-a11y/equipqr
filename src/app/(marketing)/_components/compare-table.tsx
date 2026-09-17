@@ -17,7 +17,7 @@ export type CompareRow = {
 const included = (plan: Plan) => plan.features;
 
 const batchQrRow: CompareRow[] = FEATURES.batchQr
-  ? [{ label: "Pre-printed batch QR sticker orders", value: (p) => included(p).batchQr }]
+  ? [{ label: "Blank QR code batches to print yourself", value: (p) => included(p).batchQr }]
   : [];
 
 /** Service-company plans (Starter / Pro / Business). */
@@ -38,12 +38,25 @@ export const ownerCompareRows: CompareRow[] = [
   { label: "Equipment units", value: (p) => p.equipmentLimit.toLocaleString("en-US") },
   { label: "Locations", value: (p) => (p.locationLimit === null ? "Unlimited" : p.locationLimit) },
   { label: "Staff and vendor contacts", value: () => "Unlimited" },
-  { label: "Service requests with photo & video", value: () => true },
+  { label: "Work orders with photo & video", value: () => true },
   { label: "AI-drafted troubleshooting guides", value: (p) => included(p).aiChat },
   { label: "Chat-style AI troubleshooting assistant", value: (p) => included(p).aiChat },
   ...batchQrRow,
   { label: "Your logo & colors on customer pages", value: (p) => included(p).branding },
   { label: "Support", value: (p) => p.supportLabel.replace(/ support$/, "") },
+];
+
+/**
+ * Baseline workflow every plan in both audiences actually ships (Q-63): the compare table used to
+ * jump straight to the rows that differ, which under-sold what even the cheapest plan includes.
+ * Real features only — nothing here is plan-gated in src/lib/plans.ts.
+ */
+export const ALWAYS_INCLUDED_ROWS: readonly string[] = [
+  "Scheduling and reminders",
+  "PM schedules",
+  "Checklists and inspections",
+  "Phone close-out with photos and signature",
+  "Customer status page and messages",
 ];
 
 export type CompareTableProps = {
@@ -55,6 +68,8 @@ export type CompareTableProps = {
   interval: BillingInterval;
   /** Plan column rendered in accent. Defaults to the `popular` plan. */
   highlightedPlanId?: PlanId;
+  /** Feature names included on every plan, rendered as a labelled ✓✓✓ group above `rows` (Q-63). */
+  alwaysIncluded?: readonly string[];
   className?: string;
 };
 
@@ -77,6 +92,7 @@ export function CompareTable({
   firstHeader,
   interval,
   highlightedPlanId = plans.find((p) => p.popular)?.id,
+  alwaysIncluded,
   className,
 }: CompareTableProps) {
   return (
@@ -98,6 +114,28 @@ export function CompareTable({
           </TableRow>
         </TableHeader>
         <TableBody>
+          {alwaysIncluded && alwaysIncluded.length > 0 && (
+            <>
+              <TableRow className="border-eq-neutral-900 bg-foreground/[0.03] hover:bg-foreground/[0.03]">
+                <TableCell
+                  colSpan={plans.length + 1}
+                  className="px-5 py-[9px] text-[11px] font-medium tracking-[0.06em] text-eq-neutral-500 uppercase"
+                >
+                  Included in every plan
+                </TableCell>
+              </TableRow>
+              {alwaysIncluded.map((label) => (
+                <TableRow key={label} className="border-eq-neutral-900 hover:bg-foreground/[0.04]">
+                  <TableCell className="px-5 py-3 font-medium whitespace-normal">{label}</TableCell>
+                  {plans.map((plan) => (
+                    <TableCell key={plan.id} className="p-3 text-center text-eq-neutral-300 tabular-nums">
+                      <Mark included />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </>
+          )}
           {rows.map((row) => (
             <TableRow key={row.label} className="border-eq-neutral-900 hover:bg-foreground/[0.04]">
               <TableCell className="px-5 py-3 font-medium whitespace-normal">{row.label}</TableCell>

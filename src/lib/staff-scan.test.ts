@@ -3,7 +3,10 @@ import {
   buildStaffPhotoPath,
   buildStaffSignaturePath,
   clampEtaMinutes,
+  firstNameOf,
+  formatCloseOutSummarySms,
   formatOnMyWayNote,
+  formatOnMyWaySms,
   isOwnedStaffMediaPath,
   resolveVisitContact,
   validateCloseOut,
@@ -84,6 +87,50 @@ describe("formatOnMyWayNote", () => {
 
   it("falls back to a generic name when the technician has none on file", () => {
     expect(formatOnMyWayNote("", 5)).toBe("Your technician is on the way — ETA ~5 min");
+  });
+});
+
+describe("firstNameOf", () => {
+  it("returns the first word of a name", () => {
+    expect(firstNameOf("Dana Lee", "there")).toBe("Dana");
+  });
+
+  it("trims surrounding and collapses internal whitespace", () => {
+    expect(firstNameOf("  Priya   Nair  ", "there")).toBe("Priya");
+  });
+
+  it("falls back when null, undefined or blank", () => {
+    expect(firstNameOf(null, "there")).toBe("there");
+    expect(firstNameOf(undefined, "there")).toBe("there");
+    expect(firstNameOf("   ", "there")).toBe("there");
+  });
+});
+
+describe("formatOnMyWaySms", () => {
+  it("matches the QoL brief's exact template", () => {
+    expect(formatOnMyWaySms("Dana Lee", "Jamal Whitfield", "Bluebonnet Espresso Service")).toBe(
+      "Hi Dana, this is Jamal from Bluebonnet Espresso Service — I'm on my way."
+    );
+  });
+
+  it("falls back to generic names when either is blank", () => {
+    expect(formatOnMyWaySms("", "", "Bluebonnet")).toBe(
+      "Hi there, this is Your technician from Bluebonnet — I'm on my way."
+    );
+  });
+});
+
+describe("formatCloseOutSummarySms", () => {
+  it("includes the customer's first name, the company name and the status link", () => {
+    expect(formatCloseOutSummarySms("Dana Lee", "Bluebonnet Espresso Service", "https://equipqr.app/r/abc123")).toBe(
+      "Hi Dana, here's a summary from Bluebonnet Espresso Service for your service visit: https://equipqr.app/r/abc123"
+    );
+  });
+
+  it("falls back to a generic name when blank", () => {
+    expect(formatCloseOutSummarySms("", "Bluebonnet", "https://equipqr.app/r/abc123")).toBe(
+      "Hi there, here's a summary from Bluebonnet for your service visit: https://equipqr.app/r/abc123"
+    );
   });
 });
 

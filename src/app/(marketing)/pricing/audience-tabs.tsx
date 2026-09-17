@@ -6,7 +6,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs } from "@base-ui/react/tabs";
 import { ownerPlans, plans, TRIAL_DAYS, type BillingInterval, type Plan, type PlanId } from "@/lib/plans";
 import { cn } from "@/lib/utils";
-import { CompareTable, ownerCompareRows, providerCompareRows, type CompareRow } from "../_components/compare-table";
+import {
+  ALWAYS_INCLUDED_ROWS,
+  CompareTable,
+  ownerCompareRows,
+  providerCompareRows,
+  type CompareRow,
+} from "../_components/compare-table";
 import { CtaPanel } from "../_components/cta-panel";
 import { billingFaqs, ownerFaqs } from "../_components/faq-data";
 import { FaqList } from "../_components/faq-item";
@@ -76,12 +82,19 @@ const AUDIENCES: Record<Audience, AudienceConfig> = {
     compareRows: ownerCompareRows,
     highlightedPlanId: "site",
     ctaHref: (plan) => `/signup?kind=owner&plan=${plan.id}`,
-    ctaLabel: (plan) => (plan.priceMonthly === 0 ? "Get started free" : "Start free trial"),
+    // Every trialing owner company resolves to Kitchen-level entitlements regardless of which
+    // plan card was clicked (TRIAL_PLAN_BY_KIND.equipment_owner = "site", plans.ts) — so only
+    // the Free and Kitchen cards may promise a trial; Multi-kitchen must not (C1-35).
+    ctaLabel: (plan) => {
+      if (plan.priceMonthly === 0) return "Get started free";
+      if (plan.id === "multi_site") return "Get Multi-kitchen";
+      return "Start free trial";
+    },
     footnote: (
       <>
-        Every plan includes unlimited staff and vendor contacts. Free never expires; Kitchen and Multi-kitchen
-        start with a {TRIAL_DAYS}-day free trial. Annual billing is two months free. No overage charges at any
-        limit.
+        Every plan includes unlimited staff and vendor contacts. Free never expires. Every new restaurant
+        account gets a {TRIAL_DAYS}-day trial of Kitchen features, then moves to Free unless you choose a paid
+        plan. Annual billing is two months free. No overage charges at any limit.
       </>
     ),
     questionsTitle: "Questions from restaurants and kitchens.",
@@ -188,6 +201,7 @@ export function PricingBody({ audience, onAudienceChange }: PricingBodyProps) {
           <CompareTable
             plans={config.plans}
             rows={config.compareRows}
+            alwaysIncluded={ALWAYS_INCLUDED_ROWS}
             firstHeader={intervalHeading}
             interval={interval}
             highlightedPlanId={config.highlightedPlanId}

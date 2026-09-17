@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   detectScanSource,
+  firstErrorField,
+  hasDraftContent,
+  hasHazardLanguage,
   isOwnedUploadPath,
   MAX_SYMPTOMS,
   ownerServiceRequestSchema,
+  parseReportDraft,
   priorityFromChoice,
+  reportDraftStorageKey,
   requestReference,
   requestUpdateAuthorStorageKey,
   requestUpdateSchema,
@@ -343,6 +348,110 @@ describe("vendorActionSchema", () => {
 });
 
 // ----------------------------------------------------------------------------
+// Hazard language (Q-59)
+// ----------------------------------------------------------------------------
+
+describe("hasHazardLanguage", () => {
+  it("catches gas smell phrased either direction", () => {
+    expect(hasHazardLanguage("There's a gas smell near the unit")).toBe(true);
+    expect(hasHazardLanguage("It smells like gas over here")).toBe(true);
+  });
+
+  it("catches smoke, sparking and burning smell", () => {
+    expect(hasHazardLanguage("Smoke coming from the back panel")).toBe(true);
+    expect(hasHazardLanguage("The outlet is sparking")).toBe(true);
+    expect(hasHazardLanguage("There's a burning smell")).toBe(true);
+    expect(hasHazardLanguage("It smells like it's burning")).toBe(true);
+    expect(hasHazardLanguage("Smells burnt when it runs")).toBe(true);
+    expect(hasHazardLanguage("I think it's on fire")).toBe(true);
+  });
+
+  it("is case-insensitive", () => {
+    expect(hasHazardLanguage("SMOKE coming out the top")).toBe(true);
+  });
+
+  it("ignores ordinary maintenance language", () => {
+    expect(hasHazardLanguage("Needs a new spark plug")).toBe(false);
+    expect(hasHazardLanguage("Won't start, makes a grinding noise")).toBe(false);
+    expect(hasHazardLanguage("Leaking water under the door")).toBe(false);
+  });
+
+  it("checks every argument, ignoring blank and missing ones", () => {
+    expect(hasHazardLanguage(null, undefined, "", "  ")).toBe(false);
+    expect(hasHazardLanguage("Won't start", undefined, "smoke when I plug it in")).toBe(true);
+    // Symptom chips, spread in — the owner form's use case.
+    expect(hasHazardLanguage("", "Not cooling", "Sparking")).toBe(true);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Report form drafts (Q-54)
+// ----------------------------------------------------------------------------
+
+describe("reportDraftStorageKey", () => {
+  it("is stable per token and distinct across tokens", () => {
+    expect(reportDraftStorageKey("ABCD2345")).toBe(reportDraftStorageKey("ABCD2345"));
+    expect(reportDraftStorageKey("ABCD2345")).not.toBe(reportDraftStorageKey("WXYZ6789"));
+  });
+});
+
+describe("parseReportDraft", () => {
+  it("parses a plain string-valued object", () => {
+    expect(parseReportDraft('{"description":"Grinding noise","priority":"soon"}')).toEqual({
+      description: "Grinding noise",
+      priority: "soon",
+    });
+  });
+
+  it("returns null for missing, empty, or malformed input", () => {
+    expect(parseReportDraft(null)).toBeNull();
+    expect(parseReportDraft("")).toBeNull();
+    expect(parseReportDraft("{not json")).toBeNull();
+  });
+
+  it("rejects shapes that aren't a flat object of strings", () => {
+    expect(parseReportDraft("[]")).toBeNull();
+    expect(parseReportDraft("null")).toBeNull();
+    expect(parseReportDraft('"just a string"')).toBeNull();
+    expect(parseReportDraft('{"description":"ok","count":3}')).toBeNull();
+    expect(parseReportDraft('{"nested":{"a":"b"}}')).toBeNull();
+  });
+});
+
+describe("hasDraftContent", () => {
+  it("is false for null or all-blank drafts", () => {
+    expect(hasDraftContent(null)).toBe(false);
+    expect(hasDraftContent({})).toBe(false);
+    expect(hasDraftContent({ description: "", contactName: "   " })).toBe(false);
+  });
+
+  it("is true once any field has real content", () => {
+    expect(hasDraftContent({ description: "", priority: "urgent" })).toBe(true);
+    expect(hasDraftContent({ description: "Grinding noise" })).toBe(true);
+  });
+});
+
+// ----------------------------------------------------------------------------
+// Inline validation (Q-58)
+// ----------------------------------------------------------------------------
+
+describe("firstErrorField", () => {
+  const order = ["description", "contactName", "contactPhone"] as const;
+
+  it("returns the first field in display order that has an error", () => {
+    expect(firstErrorField({ contactName: "Required" }, order)).toBe("contactName");
+    expect(
+      firstErrorField({ contactPhone: "Required", description: "Required" }, order)
+    ).toBe("description");
+  });
+
+  it("returns null when nothing has an error", () => {
+    expect(firstErrorField({}, order)).toBeNull();
+    expect(firstErrorField({ description: undefined }, order)).toBeNull();
+  });
+});
+
+// ----------------------------------------------------------------------------
 // Security review (see the `-- security review` section of
 // scripts/local-db/smoke-owner.sql for the SQL-side half).
 // ----------------------------------------------------------------------------
@@ -390,5 +499,27 @@ describe("isOwnedUploadPath (mirrors assert_submission_media_ok in migration 002
 
   it("accepts what the uploader actually writes", () => {
     expect(isOwnedUploadPath(`${token}/2f1c-photo.jpg`, token)).toBe(true);
+  });
+});
+
+describe("isReportDraftFresh", () => {
+  const now = Date.parse("2026-09-16T18:00:00.000Z");
+
+  it("accepts a draft saved within the last 12 hours", async () => {
+    const { isReportDraftFresh } = await import("./public-request");
+    expect(isReportDraftFresh({ description: "leaking", savedAt: "2026-09-16T08:30:00.000Z" }, now)).toBe(true);
+  });
+
+  it("rejects a draft older than 12 hours, one with no timestamp, and garbage timestamps", async () => {
+    const { isReportDraftFresh } = await import("./public-request");
+    expect(isReportDraftFresh({ description: "leaking", savedAt: "2026-09-15T17:59:00.000Z" }, now)).toBe(false);
+    expect(isReportDraftFresh({ description: "leaking" }, now)).toBe(false);
+    expect(isReportDraftFresh({ description: "leaking", savedAt: "yesterday" }, now)).toBe(false);
+    expect(isReportDraftFresh(null, now)).toBe(false);
+  });
+
+  it("rejects a draft stamped in the future (clock skew or tampering)", async () => {
+    const { isReportDraftFresh } = await import("./public-request");
+    expect(isReportDraftFresh({ description: "leaking", savedAt: "2026-09-16T19:00:00.000Z" }, now)).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Code, LegalLayout, type LegalSection } from "../_components/legal";
 import { SUPPORT_EMAIL } from "@/lib/site";
 
-const LAST_UPDATED = "September 3, 2026";
+const LAST_UPDATED = "September 16, 2026";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -109,7 +109,12 @@ const sections: LegalSection[] = [
           </li>
           <li>
             <strong>Anthropic</strong> — AI model provider used to draft troubleshooting
-            guides, power the chat assistant, and summarize service requests.
+            guides, power the chat assistant, and summarize service requests; and
+          </li>
+          <li>
+            <strong>Sentry</strong> — error tracking, so we can detect and fix problems in the
+            Service. It may capture technical details about the error (such as the page and
+            browser involved) from both the dashboard and the public equipment pages.
           </li>
         </ul>
         <p>

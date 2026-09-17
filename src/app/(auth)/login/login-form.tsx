@@ -17,7 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const schema = z.object({
   email: z.string().email("Enter a valid email"),
@@ -40,6 +40,7 @@ export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = safeNext(searchParams.get("next"));
+  const expired = searchParams.get("expired") === "1";
 
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -71,6 +72,15 @@ export function LoginForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {expired && (
+            <Alert>
+              <AlertTitle>That link expired</AlertTitle>
+              <AlertDescription>
+                It only works once and expires after a while. If you&apos;re confirming a new
+                account, sign up again to get a new link — otherwise log in below.
+              </AlertDescription>
+            </Alert>
+          )}
           {serverError && (
             <Alert variant="destructive">
               <AlertDescription>{serverError}</AlertDescription>
@@ -86,7 +96,12 @@ export function LoginForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link href="/forgot-password" className="text-sm underline">
+                Forgot password?
+              </Link>
+            </div>
             <Input id="password" type="password" {...register("password")} />
             {errors.password && (
               <p className="text-sm text-destructive">{errors.password.message}</p>

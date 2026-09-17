@@ -17,10 +17,13 @@ const MAX_CHIP_LENGTH = 40;
 export function EditTypeForm({
   type,
   kind = "service_provider",
+  isOwner,
 }: {
   type: EquipmentType;
   /** Symptom chips only mean anything on the owner-kind report form (docs/OWNER-ROADMAP-BRIEF.md §3.3.1). */
   kind?: CompanyKind;
+  /** Only owners can delete an equipment type (C1-38) — hides the button rather than letting a non-owner hit the server-side block. */
+  isOwner: boolean;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -133,9 +136,11 @@ export function EditTypeForm({
       )}
       <div className="flex gap-2">
         <Button type="submit">Save</Button>
-        <Button type="button" variant="outline" onClick={handleDelete} disabled={deleting}>
-          {deleting ? "Deleting..." : "Delete type"}
-        </Button>
+        {isOwner && (
+          <Button type="button" variant="outline" onClick={handleDelete} disabled={deleting}>
+            {deleting ? "Deleting..." : "Delete type"}
+          </Button>
+        )}
       </div>
     </form>
   );

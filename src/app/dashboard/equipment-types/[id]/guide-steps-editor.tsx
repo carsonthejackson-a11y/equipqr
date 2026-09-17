@@ -53,10 +53,13 @@ export function GuideStepsEditor({
   equipmentTypeId,
   steps,
   options,
+  isOwner,
 }: {
   equipmentTypeId: string;
   steps: GuideStep[];
   options: GuideOption[];
+  /** Only owners can delete a guide step/option (C1-38) — hides the buttons rather than letting a non-owner hit the server-side block. */
+  isOwner: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [addStepOpen, setAddStepOpen] = useState(false);
@@ -227,17 +230,25 @@ export function GuideStepsEditor({
                         Set as start
                       </Button>
                     )}
-                    <Button variant="ghost" size="icon" onClick={() => setEditingStep(step)}>
-                      <Pencil className="size-4" />
-                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      disabled={isPending}
-                      onClick={() => handleDeleteStep(step.id)}
+                      aria-label={`Edit "${step.title}"`}
+                      onClick={() => setEditingStep(step)}
                     >
-                      <Trash2 className="size-4" />
+                      <Pencil className="size-4" />
                     </Button>
+                    {isOwner && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`Delete "${step.title}"`}
+                        disabled={isPending}
+                        onClick={() => handleDeleteStep(step.id)}
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
 
@@ -257,18 +268,22 @@ export function GuideStepsEditor({
                         <Button
                           variant="ghost"
                           size="icon-sm"
+                          aria-label={`Edit "${option.label}"`}
                           onClick={() => setEditingOption(option)}
                         >
                           <Pencil className="size-3.5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          disabled={isPending}
-                          onClick={() => handleDeleteOption(option.id)}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                        {isOwner && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Delete "${option.label}"`}
+                            disabled={isPending}
+                            onClick={() => handleDeleteOption(option.id)}
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}

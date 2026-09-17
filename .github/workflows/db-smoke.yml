@@ -1,0 +1,115 @@
+name: DB smoke test
+
+# Applies the Supabase shim + every supabase/migrations/*.sql file (0001+) to
+# a throwaway local Postgres 16 database, then runs the 4 hand-written smoke
+# SQL suites against it (scripts/local-db/smoke*.sql) — the same thing a
+# developer runs locally with scripts/local-db/db.sh, gated in CI so a
+# migration or RLS/RPC change that breaks one of these can't merge quietly
+# (C1-57).
+#
+# Uses its own database name, never db.sh's own default (`equipqr`) or the
+# local devstack's (`equipqr_dev`, see devstack/README.md) — irrelevant on a
+# GitHub-hosted runner's own throwaway VM, but the same script this workflow
+# calls is also what a person runs by hand on a shared machine, and it must
+# never be able to collide with (or, via `db.sh reset`'s dropdb, destroy)
+# anyone's already-running local database.
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/local-db/**"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/local-db/**"
+
+jobs:
+  smoke:
+    name: Apply migrations + smoke SQL (Postgres 16)
+    runs-on: ubuntu-latest
+    env:
+      DBNAME: equipqr_ci_smoke
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Ensure PostgreSQL 16 server binaries are present
+        run: |
+          set -euo pipefail
+          if [ ! -x /usr/lib/postgresql/16/bin/initdb ]; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-16
+          fi
+
+      - name: Start local Postgres 16
+        run: scripts/local-db/db.sh start
+
+      # smoke-port.sql's own header: "Run after smoke.sql on a fresh
+      # `db.sh reset` (NOT after smoke-next.sql, which seeds its own
+      # overlapping fixtures) ... Depends on companies A/B that smoke.sql
+      # seeds." So these two run back to back against ONE reset.
+      - name: "Group 1: smoke.sql + smoke-port.sql"
+        run: |
+          set -euo pipefail
+          scripts/local-db/db.sh reset
+
+          echo "::group::smoke.sql"
+          # smoke.sql deliberately ENDS in an uncaught error — its last line
+          # (anon role) calls retire_qr_code(), which anon has no EXECUTE
+          # grant on at all, specifically to prove that's still enforced
+          # (see the file's own final few lines, "\echo EXPECT ERROR NEXT").
+          # A non-zero psql exit here is therefore the EXPECTED outcome, not
+          # a failure — what must be true is that the script got all the way
+          # to that exact final assertion (nothing earlier broke first) and
+          # never hit one of the file's own "LEAK" markers (its convention
+          # for a caught tenant-isolation/security failure). The exact
+          # final-error text below was captured by actually running this
+          # file against a real reset database, not guessed from reading
+          # retire_qr_code()'s source (which would suggest "Code not found"
+          # — that's what it raises internally, but anon never gets that far
+          # because the permission check on the function itself fails
+          # first).
+          set +e
+          scripts/local-db/db.sh psql -f scripts/local-db/smoke.sql \
+            > /tmp/smoke.out 2> /tmp/smoke.err
+          set -e
+          cat /tmp/smoke.out
+          cat /tmp/smoke.err >&2
+          if grep -qi "LEAK" /tmp/smoke.out /tmp/smoke.err; then
+            echo "::error::smoke.sql: a tenant-isolation/security assertion failed (LEAK)"
+            exit 1
+          fi
+          if ! grep -q "permission denied for function retire_qr_code" /tmp/smoke.err; then
+            echo "::error::smoke.sql did not reach its final expected-error assertion — an earlier statement failed unexpectedly"
+            exit 1
+          fi
+          echo "smoke.sql: reached its final expected-error assertion cleanly — OK"
+          echo "::endgroup::"
+
+          echo "::group::smoke-port.sql"
+          scripts/local-db/db.sh psql -f scripts/local-db/smoke-port.sql | tee /tmp/smoke-port.out
+          grep -q "smoke-port: all assertions passed" /tmp/smoke-port.out
+          echo "::endgroup::"
+
+      # smoke-next.sql's own header: run it against a fresh `db.sh reset` —
+      # it seeds the same fixed company/profile ids smoke.sql does, so
+      # combining them in one database would collide on primary keys.
+      - name: "Group 2: smoke-next.sql (fresh database)"
+        run: |
+          set -euo pipefail
+          scripts/local-db/db.sh reset
+          scripts/local-db/db.sh psql -f scripts/local-db/smoke-next.sql | tee /tmp/smoke-next.out
+          grep -q "smoke-next OK" /tmp/smoke-next.out
+
+      # smoke-owner.sql's own header: same reasoning — "must not share a
+      # database with another smoke file."
+      - name: "Group 3: smoke-owner.sql (fresh database)"
+        run: |
+          set -euo pipefail
+          scripts/local-db/db.sh reset
+          scripts/local-db/db.sh psql -f scripts/local-db/smoke-owner.sql | tee /tmp/smoke-owner.out
+          grep -q "smoke-owner OK" /tmp/smoke-owner.out
+
+      - name: Stop Postgres
+        if: always()
+        run: scripts/local-db/db.sh stop

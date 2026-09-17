@@ -226,6 +226,16 @@ export async function drainWebhookDeliveries(
   const deadline = options.deadlineMs ? Date.now() + options.deadlineMs : null;
   const outOfTime = () => deadline !== null && Date.now() >= deadline;
 
+  // No plan/lock re-check here, on purpose. The API (src/lib/api-auth.ts)
+  // re-checks entitlement on every call, but a delivery can't be deferred
+  // without a schema change: finishing it as "skipped" would spend its
+  // retries (claim_webhook_deliveries increments attempts), lose it for good
+  // within hours, and after 20 skips auto-disable the endpoint so it stays
+  // off even once the customer pays again — a declined renewal card
+  // (past_due counts as locked) would be enough. Until a migration either
+  // stops enqueueing for non-entitled companies or defers rows without
+  // counting a failure, deliveries keep flowing for queued events.
+
   const runOne = async (delivery: WebhookDelivery) => {
     const endpoint = endpointById.get(delivery.endpoint_id);
 

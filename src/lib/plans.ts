@@ -23,7 +23,7 @@ export type BillingInterval = "month" | "year";
 
 export type PlanFeatures = {
   aiChat: boolean;
-  /** Pre-printed sticker batches. Also globally gated by FEATURES.batchQr in src/lib/features.ts. */
+  /** Blank QR code batches, generated and printed by the company itself. Also globally gated by FEATURES.batchQr in src/lib/features.ts. */
   batchQr: boolean;
   branding: boolean;
   exportApi: boolean;
@@ -156,12 +156,12 @@ export const ownerPlans: Plan[] = [
       exportApi: false,
     },
     supportLabel: "Email support",
-    blurb: "For one site tracking equipment and taking service requests, at no cost.",
+    blurb: "For one site tracking equipment and taking work orders, at no cost.",
     highlights: [
       "Up to 10 pieces of equipment",
       "1 location",
       "Unlimited staff and vendor contacts",
-      "Service requests with photo & video",
+      "Work orders with photo & video",
       "Email support",
     ],
     kind: "equipment_owner",
@@ -182,12 +182,12 @@ export const ownerPlans: Plan[] = [
       exportApi: false,
     },
     supportLabel: "Priority email support",
-    blurb: "For one kitchen that wants AI troubleshooting and pre-printed QR batches.",
+    blurb: "For one kitchen that wants AI troubleshooting and blank QR code batches to print itself.",
     highlights: [
       "Up to 75 pieces of equipment",
       "1 location",
       "AI-drafted troubleshooting guides",
-      "Pre-printed QR code batches",
+      "Blank QR code batches to print yourself",
       "Priority email support",
     ],
     popular: true,
@@ -243,6 +243,28 @@ export const FREE_PLAN_BY_KIND: Record<CompanyKind, PlanId> = {
 /** All plans available to companies of this kind, in display order. */
 export function plansFor(kind: CompanyKind): Plan[] {
   return kind === "equipment_owner" ? ownerPlans : plans;
+}
+
+/** This kind's plans that include `feature`, in display order — e.g. for "which plan(s) should this upsell name" (C1-06). */
+export function plansWithFeature(kind: CompanyKind, feature: keyof PlanFeatures): Plan[] {
+  return plansFor(kind).filter((p) => p.features[feature]);
+}
+
+/**
+ * Upgrade copy generated from the account's OWN kind's plans, e.g. "Upgrade
+ * to Kitchen or Multi-kitchen" for an equipment_owner account — never a
+ * hardcoded provider plan name like "Upgrade to Pro or Business" that an
+ * owner-kind account could never buy (C1-06). Returns null when no plan of
+ * this kind includes the feature at all (exportApi has no owner plan
+ * today) — callers must handle that case by saying the feature isn't
+ * available for this kind of account, not by linking to a plan comparison
+ * with no answer on it.
+ */
+export function upgradeCopyFor(kind: CompanyKind, feature: keyof PlanFeatures): string | null {
+  const names = plansWithFeature(kind, feature).map((p) => p.name);
+  if (names.length === 0) return null;
+  if (names.length === 1) return `Upgrade to ${names[0]}`;
+  return `Upgrade to ${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
 }
 
 export function getPlan(id: PlanId): Plan {

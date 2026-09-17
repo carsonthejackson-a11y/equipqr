@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CalendarCheck2, CalendarDays } from "lucide-react";
+import { CalendarCheck2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,10 +10,12 @@ import { addDaysToDateOnly, formatDateOnly, todayInTimeZone } from "@/lib/schedu
 import type { ChecklistTemplate, Customer, Equipment, MaintenanceSchedule } from "@/lib/types";
 import { ScheduleDialog } from "./schedule-dialog";
 import { ScheduleRowActions } from "./schedule-row-actions";
+import { VisitsMaintenanceTabs } from "../schedule/visits-maintenance-tabs";
 
 export default async function MaintenancePage() {
   const supabase = await createClient();
-  const { company } = await getCurrentProfile();
+  const { profile, company } = await getCurrentProfile();
+  const isOwner = profile.role === "owner";
 
   const [{ data: schedules }, { data: equipment }, { data: customers }, { data: templates }] = await Promise.all([
     supabase
@@ -50,22 +52,15 @@ export default async function MaintenancePage() {
             Recurring service schedules — a request is created automatically as each one comes due.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard/schedule"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground hover:underline"
-          >
-            <CalendarDays className="size-4" />
-            View visit schedule
-          </Link>
-          <ScheduleDialog
-            mode="create"
-            equipmentOptions={equipmentOptions}
-            checklistTemplates={checklistTemplates}
-            companyTimezone={company.timezone}
-          />
-        </div>
+        <ScheduleDialog
+          mode="create"
+          equipmentOptions={equipmentOptions}
+          checklistTemplates={checklistTemplates}
+          companyTimezone={company.timezone}
+        />
       </div>
+
+      <VisitsMaintenanceTabs active="maintenance" />
 
       {rows.length === 0 ? (
         <EmptyState
@@ -124,6 +119,7 @@ export default async function MaintenancePage() {
                     equipmentOptions={equipmentOptions}
                     checklistTemplates={checklistTemplates}
                     companyTimezone={company.timezone}
+                    isOwner={isOwner}
                   />
                 </CardContent>
               </Card>

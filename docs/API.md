@@ -3,7 +3,10 @@
 Business-plan features: programmatic access to your equipment, customers, and service
 requests (`/api/v1/*`), plus one-click CSV export (`/api/export/*`). Both are gated by the
 `exportApi` plan feature (`src/lib/plans.ts`) — Starter and Pro accounts get a 403 pointing at
-the Billing page.
+the Billing page. No `equipment_owner`-kind plan includes `exportApi` today, so **Settings →
+API** is hidden entirely from the Settings subnav for that kind (C1-06) — a direct link there
+still resolves, showing "isn't offered for this kind of account" rather than an upgrade prompt
+that would lead nowhere.
 
 Manage API keys and trigger CSV downloads from **Settings → API**
 (`/dashboard/settings/api`).
@@ -218,9 +221,11 @@ curl -s "https://app.equipqr.co/api/v1/scan-events?equipment_id=EQUIPMENT_ID" \
 
 ## CSV export
 
-`GET /api/export/:entity` — session-authenticated (any signed-in staff member, not just
-owners), not API-key authenticated. Click the buttons on **Settings → API → Data export**, or
-hit the route directly while signed in to the dashboard in a browser.
+`GET /api/export/:entity` — session-authenticated, not API-key authenticated, and **owner-role
+only** (`requireOwner()`, matching Settings → API's own access) — a non-owner gets `403 { "error":
+"Only company owners can export data." }` even with a valid session (C1-38). Click the buttons
+on **Settings → API → Data export**, or hit the route directly while signed in as an owner in a
+browser.
 
 | `:entity` | Contents |
 |---|---|

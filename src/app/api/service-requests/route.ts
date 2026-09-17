@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -6,11 +6,13 @@ import { summarizeTroubleshootingPath } from "@/lib/anthropic";
 import { buildServiceRequestNotificationEmail } from "@/lib/email/service-request-notification";
 import { buildRequestReceivedEmail, brandingForEmail } from "@/lib/email/request-status";
 import { sendEmail } from "@/lib/email/send";
+import { sendCompanyEmail } from "@/lib/email/company-email";
+import { sanitizeEmailHeader } from "@/lib/email/layout";
 import { enforceRateLimits, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { getRequestStatusUrl } from "@/lib/qr";
 import { serverEnv } from "@/lib/env";
-import { firstIssueMessage, serviceRequestSchema } from "@/lib/public-request";
+import { firstIssueMessage, serviceRequestSchema, type ServiceRequestInput } from "@/lib/public-request";
 import { REQUEST_PRIORITY_LABELS } from "@/components/status-badge";
 
 // The one write path open to the anonymous internet. Order matters:
@@ -96,6 +98,30 @@ export async function POST(request: Request) {
   const result = data as SubmitResult;
   const statusUrl = getRequestStatusUrl(result.public_token);
 
+  // The request is already safely recorded at this point, so none of this
+  // needs to sit in front of the response the submit form is waiting on
+  // (Q-05): the AI summary (an Anthropic call), its RPC write, and both
+  // emails are all best-effort and deferred to run after the response is
+  // sent. `supabase` was created above (not inside this callback) so it
+  // carries no unread request-scoped state into it — same pattern already
+  // used for the welcome email in dashboard/layout.tsx.
+  after(async () => {
+    await runPostSubmitWork(supabase, result, body, statusUrl);
+  });
+
+  return NextResponse.json({
+    id: result.request_id,
+    publicToken: result.public_token,
+    statusUrl,
+  });
+}
+
+async function runPostSubmitWork(
+  supabase: SupabaseClient,
+  result: SubmitResult,
+  body: ServiceRequestInput,
+  statusUrl: string
+): Promise<void> {
   const aiSummary = await summarizeTroubleshootingPath({
     equipmentName: result.equipment_name,
     description: body.description,
@@ -106,7 +132,10 @@ export async function POST(request: Request) {
     // Anon has no RLS update grant on service_requests, so this goes through
     // a security-definer RPC keyed on id + the public token we were just
     // handed (migration 0015) rather than a direct table write, which was
-    // silently dropped.
+    // silently dropped. summarizeTroubleshootingPath() never throws (it
+    // returns null on any failure), and .rpc() resolves an { error } rather
+    // than throwing, so nothing here needs its own try/catch to keep the two
+    // sends below from being skipped.
     const { error: summaryError } = await supabase.rpc("set_request_ai_summary", {
       p_request_id: result.request_id,
       p_public_token: result.public_token,
@@ -119,12 +148,6 @@ export async function POST(request: Request) {
 
   await sendStaffNotification(result, body, aiSummary);
   await sendRequesterReceipt(result, body, statusUrl);
-
-  return NextResponse.json({
-    id: result.request_id,
-    publicToken: result.public_token,
-    statusUrl,
-  });
 }
 
 async function sendStaffNotification(
@@ -135,29 +158,44 @@ async function sendStaffNotification(
   // Null when the RPC ran without the service-role key — see submitClient().
   if (!result.company_notification_email) return;
 
-  const dashboardUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/requests/${result.request_id}`;
+  try {
+    const dashboardUrl = `${serverEnv.NEXT_PUBLIC_APP_URL}/dashboard/requests/${result.request_id}`;
 
-  const { subject, html, text } = buildServiceRequestNotificationEmail({
-    equipmentName: result.equipment_name,
-    contactName: body.contactName,
-    contactEmail: body.contactEmail,
-    contactPhone: body.contactPhone,
-    description: body.description,
-    mediaCount: body.media.length,
-    priority: REQUEST_PRIORITY_LABELS[body.priority],
-    aiSummary,
-    troubleshootingPath: body.troubleshootingPath,
-    dashboardUrl,
-  });
+    const { subject, html, text } = buildServiceRequestNotificationEmail({
+      equipmentName: result.equipment_name,
+      contactName: body.contactName,
+      contactEmail: body.contactEmail,
+      contactPhone: body.contactPhone,
+      description: body.description,
+      mediaCount: body.media.length,
+      priority: REQUEST_PRIORITY_LABELS[body.priority],
+      aiSummary,
+      troubleshootingPath: body.troubleshootingPath,
+      dashboardUrl,
+    });
 
-  await sendEmail({ to: result.company_notification_email, subject, html, text });
+    // Staff hitting "reply" should land in the requester's inbox, not
+    // bounce back to this notification's own sender — sanitized since a
+    // requester-typed address is untrusted input going straight into a raw
+    // email header (C1-43's other half).
+    await sendEmail({
+      to: result.company_notification_email,
+      subject,
+      html,
+      text,
+      replyTo: sanitizeEmailHeader(body.contactEmail) || undefined,
+    });
+  } catch (err) {
+    console.error("staff notification email failed:", err);
+  }
 }
 
 /**
  * "We got it, here's how to check on it." Skipped when the requester left no
- * email or the company turned customer updates off. Never blocks the
- * response body the form is waiting on beyond the send itself, and never
- * throws — the request is already safely recorded by this point.
+ * email or the company turned customer updates off. Runs inside the
+ * after() callback above, so it never blocks the response at all — and
+ * never throws either way, since the request is already safely recorded by
+ * this point regardless of how this send goes.
  */
 async function sendRequesterReceipt(
   result: SubmitResult,
@@ -187,7 +225,13 @@ async function sendRequesterReceipt(
       statusUrl,
     });
 
-    await sendEmail({ to: body.contactEmail, subject, html, text });
+    await sendCompanyEmail({
+      company: { name: result.company_name, notification_email: result.company_notification_email },
+      to: body.contactEmail,
+      subject,
+      html,
+      text,
+    });
   } catch (err) {
     console.error("request received email failed:", err);
   }
