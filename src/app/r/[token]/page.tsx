@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { CalendarClock, UserRound } from "lucide-react";
@@ -11,6 +12,7 @@ import { formatZonedDateTime } from "@/lib/schedule";
 import { REQUEST_STATUS_LABELS } from "@/components/status-badge";
 import { BrandHeader, BrandShell, ContactActions, PoweredBy } from "@/components/public/brand-shell";
 import { MessageComposer } from "./message-composer";
+import { StatusSkeleton } from "./status-skeleton";
 import type { PublicRequestStatusWithCompanyId, RequestStatus } from "@/lib/types";
 
 // The customer's window into a request they submitted. Reached from the
@@ -91,6 +93,34 @@ export default async function RequestStatusPage({
     notFound();
   }
 
+  // The token is looked up — and notFound() has had its chance to fire —
+  // ABOVE this boundary on purpose. The response body starts streaming the
+  // moment a Suspense fallback renders (a loading.tsx is exactly that, and
+  // this segment used to have one), and once it has started the HTTP status
+  // is committed as 200: a notFound() from below the boundary can only draw
+  // the not-found UI inside a 200 (a "soft 404" — see the Next docs on
+  // loading.tsx status codes). The lookup up here costs the skeleton during
+  // that one RPC; the plan-flags round-trip still streams behind it.
+  return (
+    <Suspense fallback={<StatusSkeleton />}>
+      <StatusView status={status} token={token} />
+    </Suspense>
+  );
+}
+
+/**
+ * The status page proper, once get_request_status() has found the request.
+ * Split out of the page so its own await (plan flags, which settle branding)
+ * can stream behind the skeleton without moving notFound() past the Suspense
+ * boundary.
+ */
+async function StatusView({
+  status,
+  token,
+}: {
+  status: PublicRequestStatusWithCompanyId;
+  token: string;
+}) {
   const planFlags = await getCompanyPlanFlags(status.company.id);
 
   const branding = resolveBranding({

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   detectScanSource,
   firstErrorField,
+  guideChatSchema,
   hasDraftContent,
   hasHazardLanguage,
   isOwnedUploadPath,
+  MAX_GUIDE_CHAT_MESSAGE_LENGTH,
   MAX_SYMPTOMS,
   ownerServiceRequestSchema,
   parseReportDraft,
@@ -166,6 +168,46 @@ describe("serviceRequestSchema", () => {
       expect(serviceRequestSchema.safeParse({ ...valid, priority }).success).toBe(true);
     }
     expect(serviceRequestSchema.safeParse({ ...valid, priority: "urgent" }).success).toBe(false);
+  });
+});
+
+describe("guideChatSchema", () => {
+  const valid = {
+    qrToken: SHORT_CODE,
+    stepId: "step-1",
+    message: "  it's making a grinding noise  ",
+  };
+
+  it("accepts a valid body and trims the message", () => {
+    const parsed = guideChatSchema.parse(valid);
+    expect(parsed.qrToken).toBe(SHORT_CODE);
+    expect(parsed.stepId).toBe("step-1");
+    expect(parsed.message).toBe("it's making a grinding noise");
+  });
+
+  it("rejects a non-string message rather than throwing (the route used to 500 on `message.trim()`)", () => {
+    expect(guideChatSchema.safeParse({ ...valid, message: 123 }).success).toBe(false);
+    expect(guideChatSchema.safeParse({ ...valid, message: null }).success).toBe(false);
+    expect(guideChatSchema.safeParse({ ...valid, message: ["hi"] }).success).toBe(false);
+  });
+
+  it(`caps the message at ${MAX_GUIDE_CHAT_MESSAGE_LENGTH} characters`, () => {
+    expect(
+      guideChatSchema.safeParse({ ...valid, message: "x".repeat(MAX_GUIDE_CHAT_MESSAGE_LENGTH) })
+        .success
+    ).toBe(true);
+    expect(
+      guideChatSchema.safeParse({ ...valid, message: "x".repeat(MAX_GUIDE_CHAT_MESSAGE_LENGTH + 1) })
+        .success
+    ).toBe(false);
+  });
+
+  it("requires qrToken, stepId and a non-blank message", () => {
+    expect(guideChatSchema.safeParse({ qrToken: SHORT_CODE, message: "hi" }).success).toBe(false);
+    expect(guideChatSchema.safeParse({ ...valid, stepId: "" }).success).toBe(false);
+    expect(guideChatSchema.safeParse({ ...valid, qrToken: "" }).success).toBe(false);
+    expect(guideChatSchema.safeParse({ ...valid, message: "   " }).success).toBe(false);
+    expect(guideChatSchema.safeParse({}).success).toBe(false);
   });
 });
 

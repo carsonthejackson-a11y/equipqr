@@ -58,6 +58,14 @@ export function SitePinGate({
         pass?: string | null;
       };
 
+      // A rate-limited attempt (429 from /api/site-pin's per-IP and per-token
+      // caps) isn't a wrong code — saying "didn't match" here had people
+      // re-typing a PIN that was right, which only kept the limit tripped.
+      if (response.status === 429) {
+        setError("Too many attempts — wait a few minutes and try again.");
+        setPin("");
+        return;
+      }
       if (!response.ok || !body.ok || !body.pass) {
         setError("That code didn't match");
         setPin("");
