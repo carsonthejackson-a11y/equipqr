@@ -25,6 +25,10 @@ import { createMaintenanceSchedule, updateMaintenanceSchedule } from "../equipme
 
 const INTERVAL_PRESETS = [30, 60, 90, 180, 365];
 
+function defaultNextDueOn(companyTimezone: string) {
+  return addDaysToDateOnly(todayInTimeZone(companyTimezone), 90);
+}
+
 export function ScheduleDialog({
   mode,
   schedule,
@@ -51,12 +55,32 @@ export function ScheduleDialog({
   const [submitting, setSubmitting] = useState(false);
   const [equipmentId, setEquipmentId] = useState(schedule?.equipment_id ?? lockEquipmentId ?? "");
   const [intervalDays, setIntervalDays] = useState(String(schedule?.interval_days ?? 90));
-  const [nextDueOn, setNextDueOn] = useState(
-    schedule?.next_due_on ?? addDaysToDateOnly(todayInTimeZone(companyTimezone), 90)
-  );
+  const [nextDueOn, setNextDueOn] = useState(schedule?.next_due_on ?? defaultNextDueOn(companyTimezone));
   const [autoCreate, setAutoCreate] = useState(schedule?.auto_create_request ?? true);
   const [notifyCustomer, setNotifyCustomer] = useState(schedule?.notify_customer ?? true);
   const [checklistTemplateId, setChecklistTemplateId] = useState(schedule?.checklist_template_id ?? "");
+
+  // The controlled fields above are seeded once, on mount — but the row this
+  // dialog edits can change underneath it while it's closed (e.g. "Mark
+  // done" rolled next_due_on forward and router.refresh() handed us the new
+  // `schedule`). Re-seed every field from the current props each time the
+  // dialog opens, or Save would write the stale next_due_on back and make
+  // the schedule overdue again. (The uncontrolled `defaultValue` inputs
+  // remount with the dialog content, so they already pick up the new row.)
+  function resetForm() {
+    setError(null);
+    setEquipmentId(schedule?.equipment_id ?? lockEquipmentId ?? "");
+    setIntervalDays(String(schedule?.interval_days ?? 90));
+    setNextDueOn(schedule?.next_due_on ?? defaultNextDueOn(companyTimezone));
+    setAutoCreate(schedule?.auto_create_request ?? true);
+    setNotifyCustomer(schedule?.notify_customer ?? true);
+    setChecklistTemplateId(schedule?.checklist_template_id ?? "");
+  }
+
+  function handleOpenChange(next: boolean) {
+    if (next) resetForm();
+    setOpen(next);
+  }
 
   async function handleSubmit(formData: FormData) {
     setSubmitting(true);
@@ -82,7 +106,7 @@ export function ScheduleDialog({
     : undefined;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={
           trigger ?? (

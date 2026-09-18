@@ -98,7 +98,12 @@ export function GuideStepsEditor({
   }
 
   function handleDeleteStep(stepId: string) {
-    if (!confirm("Delete this step? Any options pointing to it will need a new target.")) return;
+    if (
+      !confirm(
+        'Delete this step? Options pointing to it will switch to "Escalate to service request" until you give them a new target.'
+      )
+    )
+      return;
     startTransition(async () => {
       const result = await deleteGuideStep(stepId, equipmentTypeId);
       if (result?.error) {

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
 import { serverEnv } from "@/lib/env";
-import type { ChecklistItem, ChecklistItemKind, GuideGraphNode, GuideOutcome } from "./types";
+import type { ChecklistItem, ChecklistItemKind, GuideGraphNode } from "./types";
 
 let client: Anthropic | null = null;
 
@@ -18,13 +19,62 @@ function getClient() {
 const DRAFTING_MODEL = "claude-sonnet-5";
 const CLASSIFIER_MODEL = "claude-haiku-4-5-20251001";
 
+// What the model's propose_guide tool call is *asked* to contain. Every
+// field the model can plausibly omit or get wrong is optional or loose here
+// (no `is_root`, no `options`, an outcome outside the enum) so the raw draft
+// is typed honestly — normalizeDraftNodes() below is what turns it into a
+// GuideGraphNode that's safe to insert.
 export type DraftGuideNode = {
   temp_id: string;
   title: string;
-  instructions: string;
-  is_root: boolean;
-  options: { label: string; outcome: GuideOutcome; next_temp_id: string | null }[];
+  instructions?: string | null;
+  is_root?: boolean;
+  options?: { label: string; outcome: string; next_temp_id: string | null }[];
 };
+
+// Shared with guideGraphSchema below so a draft that survives normalization
+// always passes the graph validation replaceGuideGraph() runs on it.
+export const MAX_GUIDE_STEPS = 40;
+export const MAX_GUIDE_OPTIONS_PER_STEP = 8;
+const MAX_GUIDE_TEMP_ID_LENGTH = 64;
+const MAX_GUIDE_TITLE_LENGTH = 200;
+const MAX_GUIDE_INSTRUCTIONS_LENGTH = 4000;
+const MAX_GUIDE_OPTION_LABEL_LENGTH = 120;
+
+// The tool-use input is model output, not a trusted payload: it's parsed
+// (never cast) and each node — and each option inside a node — is checked on
+// its own, so one garbled entry costs that entry, not the whole draft.
+const proposeGuideInputSchema = z.object({ nodes: z.array(z.unknown()) });
+
+const draftGuideOptionSchema = z.object({
+  label: z.string().max(MAX_GUIDE_OPTION_LABEL_LENGTH),
+  outcome: z.string(),
+  next_temp_id: z.string().nullish(),
+});
+
+const draftGuideNodeSchema = z.object({
+  temp_id: z.string().min(1).max(MAX_GUIDE_TEMP_ID_LENGTH),
+  title: z.string().trim().min(1).max(MAX_GUIDE_TITLE_LENGTH),
+  instructions: z.string().max(MAX_GUIDE_INSTRUCTIONS_LENGTH).nullish(),
+  is_root: z.boolean().optional(),
+  options: z.array(z.unknown()).optional(),
+});
+
+function parseDraftNodes(input: unknown): DraftGuideNode[] {
+  const parsed = proposeGuideInputSchema.safeParse(input);
+  if (!parsed.success) return [];
+
+  return parsed.data.nodes.flatMap((rawNode) => {
+    const node = draftGuideNodeSchema.safeParse(rawNode);
+    if (!node.success) return [];
+
+    const options = (node.data.options ?? []).flatMap((rawOption) => {
+      const option = draftGuideOptionSchema.safeParse(rawOption);
+      return option.success ? [{ ...option.data, next_temp_id: option.data.next_temp_id ?? null }] : [];
+    });
+    return [{ ...node.data, options }];
+  });
+}
 
 export async function draftTroubleshootingGuide({
   equipmentTypeName,
@@ -118,7 +168,7 @@ export async function draftTroubleshootingGuide({
     throw new Error("The model didn't return a guide");
   }
 
-  const rawNodes = (toolUse.input as { nodes: DraftGuideNode[] }).nodes ?? [];
+  const rawNodes = parseDraftNodes(toolUse.input);
   if (rawNodes.length === 0) {
     throw new Error("The model returned an empty guide");
   }
@@ -131,28 +181,151 @@ export async function draftTroubleshootingGuide({
 // option pointing at a real node in the same draft (anything else becomes
 // "escalate" so it can't produce a dead end or a dangling reference that
 // would violate a DB check constraint later).
+//
+// "Exactly one" root matters more than it looks: guide_steps_one_root_per_type
+// is a unique index, and replaceGuideGraph() deletes the old guide before it
+// inserts the new one — so a draft with two roots used to fail on the second
+// insert and leave the type with no guide at all. Same story for duplicate
+// temp_ids (options resolved next_temp_id to the wrong step) and a node with
+// no options array at all (`.map` threw before anything was shown).
 export function normalizeDraftNodes(rawNodes: DraftGuideNode[]): GuideGraphNode[] {
-  const validTempIds = new Set(rawNodes.map((n) => n.temp_id));
-  const hasRoot = rawNodes.some((n) => n.is_root);
+  // First occurrence of a temp_id wins; capped so a runaway draft can't
+  // blow past what the guide editor (and guideGraphSchema) will accept.
+  const nodes: DraftGuideNode[] = [];
+  const seenTempIds = new Set<string>();
+  for (const node of rawNodes) {
+    if (seenTempIds.has(node.temp_id)) continue;
+    seenTempIds.add(node.temp_id);
+    nodes.push(node);
+    if (nodes.length === MAX_GUIDE_STEPS) break;
+  }
 
-  return rawNodes.map((node, index) => ({
+  // Exactly one root: the first node the model marked, else the first node.
+  const firstMarkedRoot = nodes.findIndex((node) => node.is_root === true);
+  const rootIndex = firstMarkedRoot === -1 ? 0 : firstMarkedRoot;
+
+  return nodes.map((node, index) => ({
     tempId: node.temp_id,
     title: node.title,
     instructions: node.instructions?.trim() || null,
-    // Defensive: if the model didn't mark exactly one root, fall back to the first node.
-    isRoot: hasRoot ? node.is_root : index === 0,
-    options: node.options.map((option) => {
-      // Defensive: a "continue" option must resolve to a real node in this
-      // same draft, or the DB insert will violate a check constraint later.
-      const targetValid = option.next_temp_id && validTempIds.has(option.next_temp_id);
-      return {
-        label: option.label,
-        outcome: option.outcome === "continue" && !targetValid ? "escalate" : option.outcome,
-        nextTempId: option.outcome === "continue" && targetValid ? option.next_temp_id : null,
-      };
-    }),
+    isRoot: index === rootIndex,
+    options: normalizeDraftOptions(node.options, seenTempIds),
   }));
 }
+
+function normalizeDraftOptions(
+  options: DraftGuideNode["options"],
+  validTempIds: Set<string>
+): GuideGraphNode["options"] {
+  // Tolerates a missing (or non-array) options list — a step with no
+  // options is a legal dead end the owner can fix in the editor.
+  if (!Array.isArray(options)) return [];
+
+  const result: GuideGraphNode["options"] = [];
+  for (const option of options) {
+    if (!option || typeof option !== "object") continue;
+    const label = typeof option.label === "string" ? option.label.trim() : "";
+    if (!label) continue;
+
+    // A "continue" option must resolve to a real node in this same draft, or
+    // the DB insert will violate guide_options_continue_needs_target later.
+    const nextTempId =
+      typeof option.next_temp_id === "string" && validTempIds.has(option.next_temp_id)
+        ? option.next_temp_id
+        : null;
+
+    if (option.outcome === "continue" && nextTempId) {
+      result.push({ label, outcome: "continue", nextTempId });
+    } else if (option.outcome === "resolved") {
+      result.push({ label, outcome: "resolved", nextTempId: null });
+    } else {
+      // "escalate", a "continue" with no usable target, or an outcome the
+      // model made up — escalating to a service request is the one outcome
+      // that's always safe.
+      result.push({ label, outcome: "escalate", nextTempId: null });
+    }
+    if (result.length === MAX_GUIDE_OPTIONS_PER_STEP) break;
+  }
+  return result;
+}
+
+// Validation for a whole guide graph as replaceGuideGraph() receives it from
+// the client (the AI drafter's "Use this draft"). Lives here next to
+// normalizeDraftNodes() rather than in the server action so it's unit-
+// testable without a Supabase client, and so the two stay in step: whatever
+// the normalizer emits must pass this, because replaceGuideGraph() runs it
+// BEFORE deleting the live guide — a graph that fails a DB constraint
+// mid-insert (second root, dangling continue) would otherwise leave the
+// type half-replaced.
+export const guideGraphSchema = z
+  .array(
+    z.object({
+      tempId: z.string().min(1).max(MAX_GUIDE_TEMP_ID_LENGTH),
+      title: z
+        .string()
+        .trim()
+        .min(1, "Every step needs a title")
+        .max(MAX_GUIDE_TITLE_LENGTH, `Step titles can be at most ${MAX_GUIDE_TITLE_LENGTH} characters`),
+      instructions: z
+        .string()
+        .max(MAX_GUIDE_INSTRUCTIONS_LENGTH, `Step instructions can be at most ${MAX_GUIDE_INSTRUCTIONS_LENGTH} characters`)
+        .nullable(),
+      isRoot: z.boolean(),
+      options: z
+        .array(
+          z.object({
+            label: z
+              .string()
+              .trim()
+              .min(1, "Every option needs a label")
+              .max(MAX_GUIDE_OPTION_LABEL_LENGTH, `Option labels can be at most ${MAX_GUIDE_OPTION_LABEL_LENGTH} characters`),
+            outcome: z.enum(["continue", "resolved", "escalate"]),
+            nextTempId: z.string().nullable(),
+          })
+        )
+        .max(MAX_GUIDE_OPTIONS_PER_STEP, `A step can have at most ${MAX_GUIDE_OPTIONS_PER_STEP} options`),
+    })
+  )
+  .min(1, "A guide needs at least one step")
+  .max(MAX_GUIDE_STEPS, `A guide can have at most ${MAX_GUIDE_STEPS} steps`)
+  .superRefine((nodes, ctx) => {
+    const tempIds = new Set<string>();
+    nodes.forEach((node, i) => {
+      if (tempIds.has(node.tempId)) {
+        ctx.addIssue({ code: "custom", message: `Two steps share the id "${node.tempId}"`, path: [i, "tempId"] });
+      }
+      tempIds.add(node.tempId);
+    });
+
+    const rootCount = nodes.filter((node) => node.isRoot).length;
+    if (rootCount !== 1) {
+      ctx.addIssue({
+        code: "custom",
+        message: rootCount === 0 ? "One step must be marked as the start" : "Only one step can be the start",
+      });
+    }
+
+    nodes.forEach((node, i) => {
+      node.options.forEach((option, j) => {
+        const path = [i, "options", j, "nextTempId"];
+        if (option.outcome === "continue") {
+          if (!option.nextTempId || !tempIds.has(option.nextTempId)) {
+            ctx.addIssue({
+              code: "custom",
+              message: `"${option.label}" continues to a step that isn't in this guide`,
+              path,
+            });
+          }
+        } else if (option.nextTempId !== null) {
+          ctx.addIssue({
+            code: "custom",
+            message: `"${option.label}" ends the guide, so it can't also continue to a step`,
+            path,
+          });
+        }
+      });
+    });
+  });
 
 export async function summarizeTroubleshootingPath({
   equipmentName,

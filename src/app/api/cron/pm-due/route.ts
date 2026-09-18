@@ -9,16 +9,12 @@ import { getRequestStatusUrl } from "@/lib/qr";
 import { formatDateOnly } from "@/lib/schedule";
 import { serverEnv } from "@/lib/env";
 import { vocabFor } from "@/lib/vocab";
-import type { PlanId } from "@/lib/plans";
+import { isPlanId, type PlanId } from "@/lib/plans";
 import type { CompanyKind, GeneratedMaintenanceRequest } from "@/lib/types";
 import { isAuthorizedBearer } from "@/lib/timing-safe-equal";
 
 // Needs the Node runtime for the service-role admin client.
 export const runtime = "nodejs";
-
-function isPlanId(value: unknown): value is PlanId {
-  return value === "starter" || value === "pro" || value === "business";
-}
 
 /**
  * Daily job (see vercel.json): turns every due maintenance schedule into a
@@ -74,7 +70,11 @@ export async function GET(request: Request) {
       try {
         const { data: planFlags } = await admin.rpc("get_company_plan_flags", { p_company_id: row.company_id });
         const flags = planFlags as { plan_id?: string } | null;
-        const planId = isPlanId(flags?.plan_id) ? flags?.plan_id : null;
+        // isPlanId must come from @/lib/plans (it knows owner plans too): a
+        // provider-only check here sent every equipment_owner plan to null,
+        // and resolveBranding() fails OPEN on null — so a Free/Kitchen owner's
+        // PM emails went out branded.
+        const planId: PlanId | null = isPlanId(flags?.plan_id) ? flags?.plan_id : null;
 
         const brand = brandingForEmail({
           company: {
