@@ -98,6 +98,42 @@ describe("staffRequestSchema", () => {
     const result = staffRequestSchema.safeParse({ ...BASE, scheduleDate: "2026-09-20" });
     expect(result.success).toBe(true);
   });
+
+  // The action feeds scheduleDate/scheduleTime straight into
+  // zonedWallTimeToUtcIso(), which does no parsing of its own — anything that
+  // isn't a real "YYYY-MM-DD" / "HH:MM" must be rejected HERE, or the action
+  // throws RangeError instead of returning { error }.
+  it("rejects a US-style visit date", () => {
+    const result = staffRequestSchema.safeParse({ ...BASE, scheduleDate: "9/20/2026" });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(firstStaffRequestIssue(result.error)).toMatch(/YYYY-MM-DD/);
+  });
+
+  it("rejects a non-date visit date", () => {
+    const result = staffRequestSchema.safeParse({ ...BASE, scheduleDate: "abc" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a visit date that has the right shape but isn't a real date", () => {
+    expect(staffRequestSchema.safeParse({ ...BASE, scheduleDate: "2026-13-45" }).success).toBe(false);
+    expect(staffRequestSchema.safeParse({ ...BASE, scheduleDate: "2026-02-30" }).success).toBe(false);
+  });
+
+  it("rejects a 12-hour visit time", () => {
+    const result = staffRequestSchema.safeParse({ ...BASE, scheduleDate: "2026-09-20", scheduleTime: "9pm" });
+    expect(result.success).toBe(false);
+    if (!result.success) expect(firstStaffRequestIssue(result.error)).toMatch(/HH:MM/);
+  });
+
+  it("rejects an out-of-range visit time", () => {
+    expect(staffRequestSchema.safeParse({ ...BASE, scheduleDate: "2026-09-20", scheduleTime: "24:00" }).success).toBe(false);
+    expect(staffRequestSchema.safeParse({ ...BASE, scheduleDate: "2026-09-20", scheduleTime: "14:60" }).success).toBe(false);
+  });
+
+  it("accepts a well-formed visit date and 24-hour time", () => {
+    const result = staffRequestSchema.safeParse({ ...BASE, scheduleDate: "2026-09-20", scheduleTime: "21:00" });
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("parseStaffRequestEquipmentQuery", () => {

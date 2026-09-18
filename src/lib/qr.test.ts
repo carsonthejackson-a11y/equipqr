@@ -26,6 +26,21 @@ describe("normalizeQrCode", () => {
   });
 });
 
+describe("claimToken", () => {
+  it("normalizes a typed or scanned short code for claim_qr_code", async () => {
+    const { claimToken } = await import("./qr");
+    expect(claimToken(" ab3d-9f2k ")).toBe("AB3D9F2K");
+    expect(claimToken("AB3D9F2K")).toBe("AB3D9F2K");
+  });
+
+  it("keeps an owner-pool 24-hex token intact — uppercasing it would stop it matching qr_codes.token", async () => {
+    const { claimToken } = await import("./qr");
+    const token = "0123456789abcdef01234567";
+    expect(claimToken(token)).toBe(token);
+    expect(claimToken(` ${token}\n`)).toBe(token);
+  });
+});
+
 describe("getEquipmentPublicUrl", () => {
   const ORIGINAL_ENV = process.env;
 

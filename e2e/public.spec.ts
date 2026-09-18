@@ -78,9 +78,16 @@ test.describe("public marketing + auth pages", () => {
 test.describe("public QR scan page", () => {
   test("an unknown QR token shows a not-found state, not a 500", async ({ page }) => {
     const response = await page.goto("/e/not-a-real-token");
-    // Next's App Router serves not-found content with a 404 status.
+    // The segment-level not-found.tsx (src/app/e/[qrToken]/not-found.tsx)
+    // renders with a real 404: page.tsx resolves the token before any
+    // Suspense boundary, so the status is still settable when notFound()
+    // fires. (A loading.tsx in that segment used to stream first and commit
+    // a 200 — a soft 404.)
     expect(response?.status()).toBe(404);
-    await expect(page.getByText(/page not found/i)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      /couldn.t find that sticker/i
+    );
+    await expect(page.getByLabel("Sticker code")).toBeVisible();
   });
 });
 

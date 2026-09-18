@@ -4,7 +4,15 @@
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { byCreatedAt, cursorFilter, decodeCursor, paginateRows, parseLimit } from "@/lib/api-pagination";
 import type { Equipment } from "@/lib/types";
-import { equipmentPhotoUrl, jsonData, jsonError } from "../shared";
+import {
+  EQUIPMENT_STATUSES,
+  equipmentPhotoUrl,
+  invalidEnumFilter,
+  invalidTimestampFilter,
+  invalidUuidFilter,
+  jsonData,
+  jsonError,
+} from "../shared";
 
 export async function GET(request: Request) {
   const auth = await authenticateApiRequest(request, "read");
@@ -16,6 +24,12 @@ export async function GET(request: Request) {
   const updatedSince = searchParams.get("updated_since");
   const limit = parseLimit(searchParams.get("limit"));
   const cursor = decodeCursor(searchParams.get("cursor"));
+
+  const invalidFilter =
+    invalidEnumFilter("status", status, EQUIPMENT_STATUSES) ??
+    invalidUuidFilter("customer_id", customerId) ??
+    invalidTimestampFilter("updated_since", updatedSince);
+  if (invalidFilter) return invalidFilter;
 
   let query = auth.ctx.admin
     .from("equipment")

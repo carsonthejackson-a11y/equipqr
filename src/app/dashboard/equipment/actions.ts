@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { normalizeQrCode } from "@/lib/qr";
+import { claimToken } from "@/lib/qr";
 import { createInstantCode } from "@/lib/qr-codes";
 import { assertCanAddEquipment } from "@/lib/billing";
 import { emitEquipmentEvent } from "@/lib/events";
@@ -167,8 +167,11 @@ async function assignCode(
     if (!rawCode) {
       return "Enter the code from a pre-printed sticker, or choose to generate one instead";
     }
+    // claimToken(), not normalizeQrCode(): an owner-pool blank sticker's
+    // token is lowercase 24-hex, and claim_qr_code matches it by exact
+    // `token` — uppercased it would match neither token nor short_code.
     const { error } = await supabase.rpc("claim_qr_code", {
-      p_token: normalizeQrCode(rawCode),
+      p_token: claimToken(rawCode),
       p_equipment_id: equipmentId,
     });
     return error ? error.message : null;

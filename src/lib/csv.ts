@@ -88,6 +88,13 @@ export type CsvTable = {
   headers: string[];
   /** One record per data row, keyed by header. Missing trailing cells read as "". */
   rows: Record<string, string>[];
+  /**
+   * `rows[i]` came from source row `rowNumbers[i]`, 1-based as a spreadsheet
+   * numbers it — blank rows and anything above the header count. Row numbers
+   * shown to the user must come from here, not from `index + 2`: blank rows
+   * are skipped, so the index drifts by one for every blank row above.
+   */
+  rowNumbers: number[];
 };
 
 function normalizeHeader(header: string): string {
@@ -100,19 +107,24 @@ function isBlankRow(cells: string[]): boolean {
 
 /** Parses CSV text into header-keyed records, skipping entirely blank lines. */
 export function parseCsvTable(text: string): CsvTable {
-  const raw = parseCsv(text).filter((cells) => !isBlankRow(cells));
-  if (raw.length === 0) return { headers: [], rows: [] };
+  // Number every row *before* dropping the blank ones (a `,,,` row Excel
+  // leaves behind counts as blank), so the numbers still match the file.
+  const raw = parseCsv(text)
+    .map((cells, index) => ({ cells, rowNumber: index + 1 }))
+    .filter(({ cells }) => !isBlankRow(cells));
+  if (raw.length === 0) return { headers: [], rows: [], rowNumbers: [] };
 
-  const headers = raw[0].map(normalizeHeader);
-  const rows = raw.slice(1).map((cells) => {
+  const headers = raw[0].cells.map(normalizeHeader);
+  const rows = raw.slice(1).map(({ cells }) => {
     const record: Record<string, string> = {};
     headers.forEach((header, index) => {
       record[header] = (cells[index] ?? "").trim();
     });
     return record;
   });
+  const rowNumbers = raw.slice(1).map(({ rowNumber }) => rowNumber);
 
-  return { headers, rows };
+  return { headers, rows, rowNumbers };
 }
 
 /**

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { GuideGraphNode } from "@/lib/types";
-import { draftTroubleshootingGuide } from "@/lib/anthropic";
+import { draftTroubleshootingGuide, guideGraphSchema } from "@/lib/anthropic";
 import { getEntitlements, hasFeature, requireActiveSubscription } from "@/lib/billing";
 import { getCurrentProfile, requireOwner } from "@/lib/auth";
 import { serverEnv } from "@/lib/env";
@@ -113,14 +113,57 @@ export async function updateEquipmentType(id: string, formData: FormData) {
 }
 
 export async function deleteEquipmentType(id: string) {
+  // Authorization and the "still in use" check come BEFORE anything
+  // destructive: the guide_options cleanup below must not run for a
+  // non-owner, or for a type whose delete is about to be refused anyway.
+  const owner = await requireOwner();
+  if (!owner) {
+    return { error: "Only owners can delete equipment types." };
+  }
+
   const supabase = await createClient();
-  // RLS ("Owners delete own equipment types") already blocks a non-owner's
-  // delete — but it does so by silently filtering the row, not by erroring,
-  // so a non-owner's click would otherwise look like it worked. Chaining
-  // .select("id") reports which rows the delete actually touched, so a
-  // 0-row result (blocked, not "already gone" — this button doesn't render
-  // for a non-owner in the first place) can be turned into an explicit
-  // error instead of a silent no-op (C1-38).
+
+  // equipment.equipment_type_id is `on delete restrict` — check up front so
+  // the refusal is a clean message rather than an FK error after the guide
+  // options are already gone.
+  const { count: inUse, error: countError } = await supabase
+    .from("equipment")
+    .select("id", { count: "exact", head: true })
+    .eq("equipment_type_id", id);
+  if (countError) {
+    return { error: countError.message };
+  }
+  if ((inUse ?? 0) > 0) {
+    return { error: "This type is still assigned to equipment. Reassign or delete that equipment first." };
+  }
+
+  // Guide steps cascade from the type, but guide_options.next_step_id is
+  // `on delete set null` and guide_options_continue_needs_target forbids a
+  // 'continue' with no target — so the cascade fails on any option that
+  // points at one of this type's steps unless the options go first.
+  // (Migration 0029's BEFORE DELETE trigger on guide_steps covers this too,
+  // but not every DB has it applied.)
+  const { data: steps, error: stepsError } = await supabase
+    .from("guide_steps")
+    .select("id")
+    .eq("equipment_type_id", id)
+    .returns<{ id: string }[]>();
+  if (stepsError) {
+    return { error: stepsError.message };
+  }
+  const stepIds = (steps ?? []).map((s) => s.id);
+  if (stepIds.length > 0) {
+    const { error: optionsError } = await supabase.from("guide_options").delete().in("guide_step_id", stepIds);
+    if (optionsError) {
+      return { error: optionsError.message };
+    }
+  }
+
+  // RLS ("Owners delete own equipment types") blocks a delete it doesn't
+  // allow by silently filtering the row, not by erroring, so the delete
+  // would otherwise look like it worked. Chaining .select("id") reports
+  // which rows the delete actually touched, so a 0-row result can be turned
+  // into an explicit error instead of a silent no-op (C1-38).
   const { data, error } = await supabase.from("equipment_types").delete().eq("id", id).select("id");
 
   if (error) {
@@ -257,6 +300,21 @@ export async function deleteGuideStep(stepId: string, equipmentTypeId: string) {
     }
   }
 
+  // Options that continue to this step: guide_options.next_step_id is
+  // `on delete set null`, but guide_options_continue_needs_target forbids a
+  // 'continue' with no target, so the delete fails at the DB unless they're
+  // repointed first. Escalate is the one always-safe terminal outcome; the
+  // editor's confirm copy tells the owner to give them a new target.
+  // (Migration 0029's BEFORE DELETE trigger does the same, but not every DB
+  // has it applied.)
+  const { error: repointError } = await supabase
+    .from("guide_options")
+    .update({ outcome: "escalate", next_step_id: null })
+    .eq("next_step_id", stepId);
+  if (repointError) {
+    return { error: repointError.message };
+  }
+
   const { error } = await supabase.from("guide_steps").delete().eq("id", stepId);
 
   if (error) {
@@ -265,6 +323,37 @@ export async function deleteGuideStep(stepId: string, equipmentTypeId: string) {
 
   revalidatePath(`/dashboard/equipment-types/${equipmentTypeId}`);
   return { success: true };
+}
+
+// A 'continue' option may only target another step of the same guide.
+// Nothing at the DB level says so — next_step_id is a plain FK to
+// guide_steps, and the guide_options RLS policy only checks the option's own
+// step — so a crafted call could point an option at a step of a different
+// type (even another company's) and the public guide would show a dead tap.
+// Both the source step and the target must be visible AND belong to
+// `equipmentTypeId`, and the target can't be the source itself. Returns the
+// error message (the callers wrap it in a fresh `{ error }` literal — keeping
+// every return an object literal is what lets the editor read `result?.error`
+// off the action's inferred union).
+async function continueTargetError(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  { stepId, equipmentTypeId, nextStepId }: { stepId: string; equipmentTypeId: string; nextStepId: string }
+): Promise<string | null> {
+  if (nextStepId === stepId) {
+    return "An option can't continue to its own step";
+  }
+
+  const { data: steps } = await supabase
+    .from("guide_steps")
+    .select("id")
+    .eq("equipment_type_id", equipmentTypeId)
+    .in("id", [stepId, nextStepId])
+    .returns<{ id: string }[]>();
+
+  if ((steps ?? []).length !== 2) {
+    return "Choose a step from this guide";
+  }
+  return null;
 }
 
 export async function createGuideOption(
@@ -284,6 +373,13 @@ export async function createGuideOption(
   }
 
   const supabase = await createClient();
+
+  if (outcome === "continue") {
+    const targetError = await continueTargetError(supabase, { stepId, equipmentTypeId, nextStepId });
+    if (targetError) {
+      return { error: targetError };
+    }
+  }
 
   const { count } = await supabase
     .from("guide_options")
@@ -323,6 +419,26 @@ export async function updateGuideOption(
   }
 
   const supabase = await createClient();
+
+  if (outcome === "continue") {
+    const { data: option } = await supabase
+      .from("guide_options")
+      .select("guide_step_id")
+      .eq("id", optionId)
+      .maybeSingle<{ guide_step_id: string }>();
+    if (!option) {
+      return { error: "Option not found" };
+    }
+    const targetError = await continueTargetError(supabase, {
+      stepId: option.guide_step_id,
+      equipmentTypeId,
+      nextStepId,
+    });
+    if (targetError) {
+      return { error: targetError };
+    }
+  }
+
   const { error } = await supabase
     .from("guide_options")
     .update({
@@ -363,7 +479,49 @@ export async function deleteGuideOption(optionId: string, equipmentTypeId: strin
 // graph in one call. Used by the AI-drafted-guide flow's "Use this draft"
 // action below.
 export async function replaceGuideGraph(equipmentTypeId: string, nodes: GuideGraphNode[]) {
+  // `nodes` is client input. Validate it in full BEFORE the first write:
+  // this deletes the live guide and then inserts step by step, so a graph
+  // that only fails a DB constraint mid-way (a second root, a 'continue'
+  // with no target) used to leave the type with half a guide and a raw
+  // Postgres error.
+  const parsed = guideGraphSchema.safeParse(nodes);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the draft and try again" };
+  }
+  const graph = parsed.data;
+
+  // Replacing a guide deletes every existing step, and deleting steps is an
+  // owner-only action (C1-38, see deleteGuideStep) — so this is too.
+  const owner = await requireOwner();
+  if (!owner) {
+    return { error: "Only owners can replace a troubleshooting guide." };
+  }
+
   const supabase = await createClient();
+
+  // guide_options.next_step_id is `on delete set null`, but
+  // guide_options_continue_needs_target forbids a 'continue' with no target
+  // — so deleting the old steps fails on any option pointing at one of them
+  // unless the options go first. (Migration 0029's BEFORE DELETE trigger
+  // covers this too, but not every DB has it applied.)
+  const { data: existingSteps, error: existingStepsError } = await supabase
+    .from("guide_steps")
+    .select("id")
+    .eq("equipment_type_id", equipmentTypeId)
+    .returns<{ id: string }[]>();
+  if (existingStepsError) {
+    return { error: existingStepsError.message };
+  }
+  const existingStepIds = (existingSteps ?? []).map((s) => s.id);
+  if (existingStepIds.length > 0) {
+    const { error: optionsDeleteError } = await supabase
+      .from("guide_options")
+      .delete()
+      .in("guide_step_id", existingStepIds);
+    if (optionsDeleteError) {
+      return { error: optionsDeleteError.message };
+    }
+  }
 
   const { error: deleteError } = await supabase
     .from("guide_steps")
@@ -379,7 +537,7 @@ export async function replaceGuideGraph(equipmentTypeId: string, nodes: GuideGra
   // next_step_id references when inserting the options below.
   const tempIdToRealId = new Map<string, string>();
 
-  for (const node of nodes) {
+  for (const node of graph) {
     const { data: row, error } = await supabase
       .from("guide_steps")
       .insert({
@@ -397,7 +555,7 @@ export async function replaceGuideGraph(equipmentTypeId: string, nodes: GuideGra
     tempIdToRealId.set(node.tempId, row.id);
   }
 
-  const optionRows = nodes.flatMap((node) =>
+  const optionRows = graph.flatMap((node) =>
     node.options.map((option) => ({
       guide_step_id: tempIdToRealId.get(node.tempId)!,
       label: option.label,

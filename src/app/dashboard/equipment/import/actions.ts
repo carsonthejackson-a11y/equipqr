@@ -226,7 +226,9 @@ function analyze(csvText: string, createMissing: boolean, lookups: Lookups): {
 
     return {
       preview: {
-        line: index + 2, // +1 for the header row, +1 because spreadsheets are 1-based
+        // The parser's own row number: blank rows are skipped, so `index + 2`
+        // (header row + 1-based) would be off by one for every blank row above.
+        line: table.rowNumbers[index] ?? index + 2,
         name,
         equipmentType: typeName,
         customer: customerName,

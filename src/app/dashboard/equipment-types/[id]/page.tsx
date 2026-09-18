@@ -71,11 +71,15 @@ export default async function EquipmentTypeDetailPage({
 
       <EditTypeForm type={type} kind={company.kind} isOwner={isOwner} />
 
-      <AiGuideDrafter
-        equipmentTypeId={type.id}
-        defaultDescription={type.description ?? ""}
-        existingStepCount={steps?.length ?? 0}
-      />
+      {/* "Use this draft" replaces the whole guide, which is owner-only like
+          deleting a step (replaceGuideGraph enforces it too). */}
+      {isOwner && (
+        <AiGuideDrafter
+          equipmentTypeId={type.id}
+          defaultDescription={type.description ?? ""}
+          existingStepCount={steps?.length ?? 0}
+        />
+      )}
 
       <GuideStepsEditor
         equipmentTypeId={type.id}

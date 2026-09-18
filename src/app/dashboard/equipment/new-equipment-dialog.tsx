@@ -29,7 +29,7 @@ import { EQUIPMENT_STATUS_LABELS } from "@/components/status-badge";
 import { CreatableCombobox, type ComboboxOption } from "@/components/creatable-combobox";
 import { toast } from "sonner";
 import type { CategoryDefaultVendor, CompanyKind, Customer, EquipmentCustomField, EquipmentType, Location, Vendor } from "@/lib/types";
-import { normalizeQrCode } from "@/lib/short-code";
+import { formatShortCode } from "@/lib/short-code";
 import { downscaleToJpeg, blobToBase64 } from "@/lib/client-image";
 import { FEATURES } from "@/lib/features";
 import { isBillingLimitError } from "@/lib/billing-errors";
@@ -550,7 +550,9 @@ export function NewEquipmentDialog({
                           value={preprintedCode}
                           onChange={(e) => setPreprintedCode(e.target.value)}
                         />
-                        <QrScanButton onScan={(code) => setPreprintedCode(normalizeQrCode(code))} />
+                        {/* formatShortCode dashes an 8-char code for display and leaves an
+                            owner-pool 24-hex token untouched (uppercasing it would break the claim). */}
+                        <QrScanButton onScan={(code) => setPreprintedCode(formatShortCode(code))} />
                       </div>
                     )}
                   </div>

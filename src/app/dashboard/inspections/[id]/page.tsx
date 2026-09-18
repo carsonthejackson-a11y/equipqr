@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Circle, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCompanyContext } from "@/lib/company-context";
 import { BackLink } from "@/components/back-link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -34,6 +35,9 @@ export default async function InspectionDetailPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
+  // Server component: a bare toLocaleString() would format in the server's
+  // zone (UTC on Vercel), not the company's — use the company-zoned formatter.
+  const ctx = await getCompanyContext();
 
   const { data: inspection } = await supabase
     .from("inspections")
@@ -102,7 +106,7 @@ export default async function InspectionDetailPage({
           {" · "}
           {performer?.full_name || "Staff"}
           {" · "}
-          {new Date(inspection.started_at).toLocaleString()}
+          {ctx.fmt.dateTime(inspection.started_at, { zone: true })}
           {inspection.service_request_id && (
             <>
               {" · "}
@@ -188,7 +192,7 @@ export default async function InspectionDetailPage({
             )}
             <p className="text-sm text-muted-foreground">
               {inspection.signed_by_name ?? "Signed on the technician's device"}
-              {inspection.signed_at && ` · ${new Date(inspection.signed_at).toLocaleString()}`}
+              {inspection.signed_at && ` · ${ctx.fmt.dateTime(inspection.signed_at, { zone: true })}`}
             </p>
           </CardContent>
         </Card>

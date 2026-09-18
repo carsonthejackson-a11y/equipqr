@@ -397,4 +397,104 @@ end $$;
 reset request.jwt.claim.sub;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- migration 0029: deleting a guide step that a `continue` option targets
+-- ---------------------------------------------------------------------------
+-- Before 0029 both deletes below raised 23514 (guide_options_continue_needs_target)
+-- from the FK's on-delete-set-null, so a guide with a "Start over" branch
+-- could lose neither a node nor its whole equipment type.
+insert into equipment_types (id,company_id,name) values
+  ('ee000000-0000-0000-0000-0000000000e1','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','Grinder');
+insert into guide_steps (id,equipment_type_id,title,is_root) values
+  ('ee000000-0000-0000-0000-0000000000e2','ee000000-0000-0000-0000-0000000000e1','Is it plugged in?',true),
+  ('ee000000-0000-0000-0000-0000000000e3','ee000000-0000-0000-0000-0000000000e1','Check the hopper',false);
+insert into guide_options (guide_step_id,label,outcome,next_step_id) values
+  ('ee000000-0000-0000-0000-0000000000e2','Yes','continue','ee000000-0000-0000-0000-0000000000e3'),
+  ('ee000000-0000-0000-0000-0000000000e2','That fixed it','resolved',null),
+  ('ee000000-0000-0000-0000-0000000000e3','Start over','continue','ee000000-0000-0000-0000-0000000000e2'),
+  ('ee000000-0000-0000-0000-0000000000e3','Still broken','escalate',null);
+
+-- as the owner through RLS (the dashboard's deleteGuideStep path): the node
+-- goes, the option that continued to it becomes an escalate branch, nothing
+-- else is touched
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare v_outcome text; v_next uuid; n int;
+begin
+  delete from guide_steps where id = 'ee000000-0000-0000-0000-0000000000e3';
+  if not found then raise exception 'guide step delete affected 0 rows'; end if;
+  select outcome, next_step_id into v_outcome, v_next from guide_options
+  where guide_step_id = 'ee000000-0000-0000-0000-0000000000e2' and label = 'Yes';
+  if v_outcome <> 'escalate' or v_next is not null then
+    raise exception 'expected the dangling continue option to become escalate/null, got %/%', v_outcome, v_next;
+  end if;
+  select count(*) into n from guide_options
+  where guide_step_id = 'ee000000-0000-0000-0000-0000000000e2' and label = 'That fixed it' and outcome = 'resolved';
+  if n <> 1 then raise exception 'an unrelated option was touched'; end if;
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from guide_options where guide_step_id = 'ee000000-0000-0000-0000-0000000000e3';
+  if n <> 0 then raise exception 'deleted step still has % option(s)', n; end if;
+end $$;
+
+-- re-create the branch, then delete the whole type as the owner (cascade
+-- through guide_steps — the dashboard's deleteEquipmentType path)
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+insert into guide_steps (id,equipment_type_id,title,is_root) values
+  ('ee000000-0000-0000-0000-0000000000e3','ee000000-0000-0000-0000-0000000000e1','Check the hopper',false);
+update guide_options set outcome='continue', next_step_id='ee000000-0000-0000-0000-0000000000e3'
+where guide_step_id = 'ee000000-0000-0000-0000-0000000000e2' and label = 'Yes';
+insert into guide_options (guide_step_id,label,outcome,next_step_id) values
+  ('ee000000-0000-0000-0000-0000000000e3','Start over','continue','ee000000-0000-0000-0000-0000000000e2');
+do $$
+begin
+  delete from equipment_types where id = 'ee000000-0000-0000-0000-0000000000e1';
+  if not found then raise exception 'equipment type delete affected 0 rows'; end if;
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+do $$
+declare n int;
+begin
+  select count(*) into n from guide_steps where equipment_type_id = 'ee000000-0000-0000-0000-0000000000e1';
+  if n <> 0 then raise exception '% guide step(s) survived the cascade', n; end if;
+  select count(*) into n from guide_options go
+  where not exists (select 1 from guide_steps gs where gs.id = go.guide_step_id);
+  if n <> 0 then raise exception '% orphan guide option(s) after the cascade', n; end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- migration 0030: generate_company_qr_batch() mints token = short_code
+-- ---------------------------------------------------------------------------
+-- 0019's version stored a 24-hex token next to the short code, so the
+-- sticker URL and the printed code disagreed (docs/QR-LABELS.md).
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare r qr_codes; n int := 0;
+begin
+  for r in select * from generate_company_qr_batch(2) loop
+    n := n + 1;
+    if r.token <> r.short_code then
+      raise exception 'batch code token % does not equal its short_code %', r.token, r.short_code;
+    end if;
+    if normalize_short_code(r.token) is null then
+      raise exception 'batch code token % is not a short code', r.token;
+    end if;
+    if r.source <> 'batch' or r.status <> 'active' or r.equipment_id is not null
+       or r.company_id <> 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' then
+      raise exception 'batch code row shape changed: %', r;
+    end if;
+  end loop;
+  if n <> 2 then raise exception 'expected 2 codes, got %', n; end if;
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
 select 'smoke-next OK' as result;

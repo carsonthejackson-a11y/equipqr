@@ -19,10 +19,20 @@ import type { Company, CompanyKind, Profile } from "@/lib/types";
 
 const BILLING_PATH = "/dashboard/settings/billing";
 const OWNER_ONBOARDING_PATH = "/dashboard/onboarding/owner";
+// How long after companies.created_at a dashboard load still counts as the
+// sign-up that created the company (see the welcome-email block below).
+const WELCOME_EMAIL_WINDOW_MS = 10 * 60 * 1000;
 
 /** meta.pending_company_kind is user-supplied (auth metadata) — never trust it beyond these two literals. */
 function pendingCompanyKind(value: string | undefined): CompanyKind {
   return value === "equipment_owner" ? "equipment_owner" : "service_provider";
+}
+
+// Plain helper (not the component body) so the `Date.now()` read stays out
+// of render, like daysUntil() below.
+function createdWithinWelcomeWindow(company: Pick<Company, "created_at"> | null): boolean {
+  if (!company) return false;
+  return Date.now() - new Date(company.created_at).getTime() < WELCOME_EMAIL_WINDOW_MS;
 }
 
 function daysUntil(iso: string) {
@@ -117,10 +127,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
     ]);
 
   // Best-effort, idempotent welcome email — only ever sent once (guarded by
-  // companies.welcome_email_sent_at) and only on the request that actually
-  // created the company, never on a routine dashboard load. Deferred with
-  // after() so a slow Resend call never delays the first dashboard paint.
-  if (justCreatedCompany && company && !company.welcome_email_sent_at) {
+  // companies.welcome_email_sent_at) and only for a company that was just
+  // created, never on a routine dashboard load. Deferred with after() so a
+  // slow Resend call never delays the first dashboard paint.
+  //
+  // "Just created" is not only `justCreatedCompany`: the page's own
+  // getCurrentProfile() (src/lib/auth.ts) runs in parallel with this layout
+  // and may be the request that wins the create_company_and_profile() race.
+  // When it does, the SELECT above already finds the row and this flag stays
+  // false — so a company created within the last few minutes with the flag
+  // still unset counts too. The flag is only stamped after a successful send,
+  // which keeps this idempotent across the two racing requests.
+  const createdRecently = createdWithinWelcomeWindow(company);
+  if ((justCreatedCompany || createdRecently) && company && !company.welcome_email_sent_at) {
     const newCompany = company;
     const recipientName = profile.full_name;
     after(async () => {

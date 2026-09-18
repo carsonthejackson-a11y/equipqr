@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { MapPin, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import type { Equipment, ResolvedQrCode, UserRole } from "@/lib/types";
+import type { Equipment, EquipmentGuide, ResolvedQrCode, UserRole } from "@/lib/types";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { getPlan } from "@/lib/plans";
 import { FEATURES } from "@/lib/features";
@@ -15,6 +16,7 @@ import { detectScanSource } from "@/lib/public-request";
 import { BrandHeader, BrandShell, PoweredBy } from "@/components/public/brand-shell";
 import { ClaimCodeCard } from "./claim-code-card";
 import { ScanActions } from "./scan-actions";
+import { ScanSkeleton } from "./scan-skeleton";
 import { OwnerScanActions } from "./owner/owner-scan-actions";
 import { StaffScanView } from "./staff/staff-scan-view";
 import { StaffSignInLink } from "./staff/staff-sign-in-link";
@@ -66,7 +68,7 @@ export default async function EquipmentGuidePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { qrToken } = await params;
-  const { src } = await searchParams;
+  const { src, view } = await searchParams;
   const supabase = await createClient();
 
   // Scan tracking runs AFTER the response is finished, so it never blocks or
@@ -174,11 +176,45 @@ export default async function EquipmentGuidePage({
 
   const { guide } = resolved;
 
+  // The token is resolved — and notFound() has had its chance to fire —
+  // ABOVE this boundary on purpose. The response body starts streaming the
+  // moment a Suspense fallback renders (a loading.tsx is exactly that, and
+  // this segment used to have one), and once it has started the HTTP status
+  // is committed as 200: a notFound() from below the boundary can only draw
+  // the not-found UI inside a 200 (a "soft 404" — see the Next docs on
+  // loading.tsx status codes). Same for redirect(), which turns into a
+  // client-side hop. Resolving up here costs the skeleton during that one
+  // RPC; everything after it (staff check, plan flags) still streams behind
+  // the skeleton.
+  return (
+    <Suspense fallback={<ScanSkeleton />}>
+      <ClaimedScanView guide={guide} qrToken={qrToken} view={view} />
+    </Suspense>
+  );
+}
+
+/**
+ * Everything a claimed sticker renders once resolve_qr_code() has said it
+ * exists: the staff/customer split and the customer guide itself. Split out
+ * of the page so the awaits in here (staff lookup, plan flags) can stream
+ * behind the skeleton without moving notFound() past the Suspense boundary.
+ */
+async function ClaimedScanView({
+  guide,
+  qrToken,
+  view,
+}: {
+  guide: EquipmentGuide;
+  qrToken: string;
+  view: string | string[] | undefined;
+}) {
+  const supabase = await createClient();
+
   // Staff scan mode (Next roadmap): a technician who scans their own
   // company's sticker lands on the work view, not the customer guide.
   // `?view=customer` lets staff preview what the customer sees.
   const staff = await getScanningStaff(supabase, guide.company.id);
-  if (staff && (await searchParams).view !== "customer") {
+  if (staff && view !== "customer") {
     return <StaffScanView guide={guide} qrToken={qrToken} staff={staff} />;
   }
 

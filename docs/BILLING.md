@@ -95,6 +95,12 @@ The webhook upserts one row per company into the `subscriptions` table (keyed by
 allowed to write to `subscriptions` directly (see the RLS policy in
 `supabase/migrations/0007_billing.sql`).
 
+The same service-role client records `companies.stripe_customer_id` the first time a company
+starts Checkout: since migration 0027 that column is no longer updatable by signed-in users
+(an owner could otherwise point their company at another company's Stripe customer and have
+that customer's subscription events routed to them). `SUPABASE_SERVICE_ROLE_KEY` is therefore
+required for Checkout, not just for the webhook.
+
 ## 4. Enable the Customer Portal
 
 In the Stripe dashboard → Settings → Billing → Customer portal, enable it and turn on:

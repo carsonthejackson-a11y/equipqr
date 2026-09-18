@@ -161,6 +161,31 @@ export function firstIssueMessage(error: z.ZodError): string {
 }
 
 // ----------------------------------------------------------------------------
+// Guided troubleshooting chat — POST /api/guide-chat
+// ----------------------------------------------------------------------------
+
+/** Cap on a free-text reply to a guide step. Short on purpose: it's one sentence about a symptom, and every accepted call costs an Anthropic request. */
+export const MAX_GUIDE_CHAT_MESSAGE_LENGTH = 400;
+
+/**
+ * Validates the body of `POST /api/guide-chat`. zod rather than hand-rolled
+ * `?.trim()` checks: the route used to call `body.message?.trim()` on
+ * whatever JSON arrived, so a non-string `message` (a number, an array)
+ * threw a TypeError and the public route answered 500 instead of 400.
+ */
+export const guideChatSchema = z.object({
+  qrToken: z.string().min(1).max(200),
+  stepId: z.string().min(1).max(100),
+  message: z
+    .string()
+    .trim()
+    .min(1, "Missing required fields")
+    .max(MAX_GUIDE_CHAT_MESSAGE_LENGTH, "Message is too long"),
+});
+
+export type GuideChatInput = z.infer<typeof guideChatSchema>;
+
+// ----------------------------------------------------------------------------
 // Hazard language (Q-59) — shared by both report forms
 // ----------------------------------------------------------------------------
 

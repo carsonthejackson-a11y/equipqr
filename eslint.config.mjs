@@ -17,6 +17,11 @@ const eslintConfig = defineConfig([
     // Design handoff bundles (docs/design/*/BRIEF.md D8): the .dc.html pages
     // ship their own plain-JS runtime, which is reference material, not code.
     "docs/design/**",
+    // Playwright's output (gitignored): the HTML report and traces carry
+    // minified JS that `npm run lint` would otherwise flag by the thousand
+    // after any local `npm run test:e2e`.
+    "playwright-report/**",
+    "test-results/**",
   ]),
 ]);
 

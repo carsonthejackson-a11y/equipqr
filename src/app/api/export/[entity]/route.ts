@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireOwner } from "@/lib/auth";
 import { getEntitlements, hasFeature } from "@/lib/billing";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAll } from "@/lib/fetch-all";
 import { csvFilename, toCsv, type CsvColumn } from "@/lib/csv-export";
 import { formatCustomFieldValue } from "@/lib/custom-fields";
 import { formatShortCode } from "@/lib/qr";
@@ -49,21 +50,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
   const supabase = await createClient();
   let csv: string;
 
-  switch (entity) {
-    case "equipment":
-      csv = await exportEquipment(supabase, company.id);
-      break;
-    case "customers":
-      csv = await exportCustomers(supabase, company.id);
-      break;
-    case "service-requests":
-      csv = await exportServiceRequests(supabase, company.id);
-      break;
-    case "scan-events":
-      csv = await exportScanEvents(supabase, company.id);
-      break;
-    default:
-      return NextResponse.json({ error: "Unknown export entity" }, { status: 404 });
+  // Every exporter reads through fetchAll(), which throws on a query error —
+  // a failed page must become a 500, never a truncated file with a 200.
+  try {
+    switch (entity) {
+      case "equipment":
+        csv = await exportEquipment(supabase, company.id);
+        break;
+      case "customers":
+        csv = await exportCustomers(supabase, company.id);
+        break;
+      case "service-requests":
+        csv = await exportServiceRequests(supabase, company.id);
+        break;
+      case "scan-events":
+        csv = await exportScanEvents(supabase, company.id);
+        break;
+      default:
+        return NextResponse.json({ error: "Unknown export entity" }, { status: 404 });
+    }
+  } catch (err) {
+    const error = err instanceof Error ? err.message : "Export failed";
+    console.error(`export/${entity} failed for company ${company.id}:`, error);
+    return NextResponse.json({ error }, { status: 500 });
   }
 
   return new NextResponse(csv, {
@@ -77,35 +86,57 @@ export async function GET(request: Request, { params }: { params: Promise<{ enti
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
+// Every query below goes through fetchAll() with an `id` tiebreak on its
+// order: an un-ranged select silently stops at PostgREST's max-rows (1000),
+// so a company with more units/customers/codes than that used to get a
+// truncated CSV with a 200. The `id, name` lookups are company-scoped
+// (rather than `.in("id", <every id on the page>)`) because a thousand-uuid
+// `in` list overflows the query string.
+
 async function exportEquipment(supabase: SupabaseServerClient, companyId: string): Promise<string> {
-  const [{ data: equipment }, { data: types }, { data: customers }, { data: codes }, { data: customFields }] =
-    await Promise.all([
+  const [equipment, types, customers, codes, customFields] = await Promise.all([
+    fetchAll<Equipment>((from, to) =>
       supabase
         .from("equipment")
         .select("*")
         .eq("company_id", companyId)
         .order("created_at", { ascending: false })
-        .returns<Equipment[]>(),
-      supabase.from("equipment_types").select("*").eq("company_id", companyId).returns<EquipmentType[]>(),
-      supabase.from("customers").select("*").eq("company_id", companyId).returns<Customer[]>(),
+        .order("id", { ascending: false })
+        .range(from, to)
+        .returns<Equipment[]>()
+    ),
+    fetchAll<EquipmentType>((from, to) =>
+      supabase.from("equipment_types").select("*").eq("company_id", companyId).order("id").range(from, to).returns<EquipmentType[]>()
+    ),
+    fetchAll<Customer>((from, to) =>
+      supabase.from("customers").select("*").eq("company_id", companyId).order("id").range(from, to).returns<Customer[]>()
+    ),
+    fetchAll<QrCode>((from, to) =>
       supabase
         .from("qr_codes")
         .select("*")
         .eq("company_id", companyId)
         .eq("status", "active")
-        .returns<QrCode[]>(),
+        .order("id")
+        .range(from, to)
+        .returns<QrCode[]>()
+    ),
+    fetchAll<EquipmentCustomField>((from, to) =>
       supabase
         .from("equipment_custom_fields")
         .select("*")
         .eq("company_id", companyId)
         .order("sort_order")
         .order("created_at")
-        .returns<EquipmentCustomField[]>(),
-    ]);
+        .order("id")
+        .range(from, to)
+        .returns<EquipmentCustomField[]>()
+    ),
+  ]);
 
-  const typeById = new Map((types ?? []).map((t) => [t.id, t]));
-  const customerById = new Map((customers ?? []).map((c) => [c.id, c]));
-  const codeByEquipmentId = new Map((codes ?? []).filter((c) => c.equipment_id).map((c) => [c.equipment_id as string, c]));
+  const typeById = new Map(types.map((t) => [t.id, t]));
+  const customerById = new Map(customers.map((c) => [c.id, c]));
+  const codeByEquipmentId = new Map(codes.filter((c) => c.equipment_id).map((c) => [c.equipment_id as string, c]));
 
   type Row = Equipment;
   const columns: CsvColumn<Row>[] = [
@@ -133,12 +164,12 @@ async function exportEquipment(supabase: SupabaseServerClient, companyId: string
     // One column per custom field definition, headed by its label, in the
     // owner's order. Values render the way the detail page shows them
     // (booleans as Yes/No); a unit without a value gets an empty cell.
-    ...customFieldColumns(customFields ?? []),
+    ...customFieldColumns(customFields),
     { header: "created_at", value: (r) => r.created_at },
     { header: "updated_at", value: (r) => r.updated_at },
   ];
 
-  return toCsv(equipment ?? [], columns);
+  return toCsv(equipment, columns);
 }
 
 /** Core equipment export headers, as the import normalises them (lower-case, spaces → underscores). */
@@ -169,12 +200,16 @@ function customFieldColumns(defs: EquipmentCustomField[]): CsvColumn<Equipment>[
 }
 
 async function exportCustomers(supabase: SupabaseServerClient, companyId: string): Promise<string> {
-  const { data: customers } = await supabase
-    .from("customers")
-    .select("*")
-    .eq("company_id", companyId)
-    .order("created_at", { ascending: false })
-    .returns<Customer[]>();
+  const customers = await fetchAll<Customer>((from, to) =>
+    supabase
+      .from("customers")
+      .select("*")
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to)
+      .returns<Customer[]>()
+  );
 
   const columns: CsvColumn<Customer>[] = [
     { header: "id", value: (r) => r.id },
@@ -186,36 +221,48 @@ async function exportCustomers(supabase: SupabaseServerClient, companyId: string
     { header: "created_at", value: (r) => r.created_at },
   ];
 
-  return toCsv(customers ?? [], columns);
+  return toCsv(customers, columns);
+}
+
+/** Every `id, name` pair of a company-scoped table, for resolving foreign keys to display names. */
+function fetchNames(
+  supabase: SupabaseServerClient,
+  table: "equipment" | "customers",
+  companyId: string
+): Promise<{ id: string; name: string }[]> {
+  return fetchAll<{ id: string; name: string }>((from, to) =>
+    supabase.from(table).select("id, name").eq("company_id", companyId).order("id").range(from, to).returns<{ id: string; name: string }[]>()
+  );
 }
 
 async function exportServiceRequests(supabase: SupabaseServerClient, companyId: string): Promise<string> {
-  const { data: requests } = await supabase
-    .from("service_requests")
-    .select("*")
-    .eq("company_id", companyId)
-    .order("created_at", { ascending: false })
-    .returns<ServiceRequest[]>();
-
-  const equipmentIds = [...new Set((requests ?? []).map((r) => r.equipment_id))];
-  const customerIds = [...new Set((requests ?? []).map((r) => r.customer_id).filter((id): id is string => !!id))];
-  const assigneeIds = [...new Set((requests ?? []).map((r) => r.assigned_to).filter((id): id is string => !!id))];
-
-  const [{ data: equipment }, { data: customers }, { data: assignees }] = await Promise.all([
-    equipmentIds.length > 0
-      ? supabase.from("equipment").select("id, name").in("id", equipmentIds).returns<Pick<Equipment, "id" | "name">[]>()
-      : Promise.resolve({ data: [] as Pick<Equipment, "id" | "name">[] }),
-    customerIds.length > 0
-      ? supabase.from("customers").select("id, name").in("id", customerIds).returns<Pick<Customer, "id" | "name">[]>()
-      : Promise.resolve({ data: [] as Pick<Customer, "id" | "name">[] }),
-    assigneeIds.length > 0
-      ? supabase.from("profiles").select("id, full_name").in("id", assigneeIds).returns<Pick<Profile, "id" | "full_name">[]>()
-      : Promise.resolve({ data: [] as Pick<Profile, "id" | "full_name">[] }),
+  const [requests, equipment, customers, assignees] = await Promise.all([
+    fetchAll<ServiceRequest>((from, to) =>
+      supabase
+        .from("service_requests")
+        .select("*")
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to)
+        .returns<ServiceRequest[]>()
+    ),
+    fetchNames(supabase, "equipment", companyId),
+    fetchNames(supabase, "customers", companyId),
+    fetchAll<Pick<Profile, "id" | "full_name">>((from, to) =>
+      supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("company_id", companyId)
+        .order("id")
+        .range(from, to)
+        .returns<Pick<Profile, "id" | "full_name">[]>()
+    ),
   ]);
 
-  const equipmentById = new Map((equipment ?? []).map((e) => [e.id, e.name]));
-  const customerById = new Map((customers ?? []).map((c) => [c.id, c.name]));
-  const assigneeById = new Map((assignees ?? []).map((p) => [p.id, p.full_name]));
+  const equipmentById = new Map(equipment.map((e) => [e.id, e.name]));
+  const customerById = new Map(customers.map((c) => [c.id, c.name]));
+  const assigneeById = new Map(assignees.map((p) => [p.id, p.full_name]));
 
   const columns: CsvColumn<ServiceRequest>[] = [
     { header: "id", value: (r) => r.id },
@@ -237,26 +284,27 @@ async function exportServiceRequests(supabase: SupabaseServerClient, companyId: 
     { header: "updated_at", value: (r) => r.updated_at },
   ];
 
-  return toCsv(requests ?? [], columns);
+  return toCsv(requests, columns);
 }
 
 async function exportScanEvents(supabase: SupabaseServerClient, companyId: string): Promise<string> {
   const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: events } = await supabase
-    .from("scan_events")
-    .select("*")
-    .eq("company_id", companyId)
-    .gte("scanned_at", since)
-    .order("scanned_at", { ascending: false })
-    .returns<ScanEvent[]>();
-
-  const equipmentIds = [...new Set((events ?? []).map((e) => e.equipment_id).filter((id): id is string => !!id))];
-  const { data: equipment } =
-    equipmentIds.length > 0
-      ? await supabase.from("equipment").select("id, name").in("id", equipmentIds).returns<Pick<Equipment, "id" | "name">[]>()
-      : { data: [] as Pick<Equipment, "id" | "name">[] };
-  const equipmentById = new Map((equipment ?? []).map((e) => [e.id, e.name]));
+  const [events, equipment] = await Promise.all([
+    fetchAll<ScanEvent>((from, to) =>
+      supabase
+        .from("scan_events")
+        .select("*")
+        .eq("company_id", companyId)
+        .gte("scanned_at", since)
+        .order("scanned_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to)
+        .returns<ScanEvent[]>()
+    ),
+    fetchNames(supabase, "equipment", companyId),
+  ]);
+  const equipmentById = new Map(equipment.map((e) => [e.id, e.name]));
 
   const columns: CsvColumn<ScanEvent>[] = [
     { header: "id", value: (r) => r.id },
@@ -266,5 +314,5 @@ async function exportScanEvents(supabase: SupabaseServerClient, companyId: strin
     { header: "user_agent", value: (r) => r.user_agent },
   ];
 
-  return toCsv(events ?? [], columns);
+  return toCsv(events, columns);
 }

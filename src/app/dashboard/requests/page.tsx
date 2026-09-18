@@ -103,12 +103,22 @@ function isBucketKey(value: string | undefined): value is RequestBucketKey {
   return !!value && Object.hasOwn(REQUEST_BUCKETS, value);
 }
 
+/** Next hands a repeated query key (?q=a&q=b) over as string[]; the inbox only ever wants one value, so take the first. */
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 export default async function RequestsPage({
   searchParams,
 }: {
-  searchParams: Promise<RequestsSearchParams>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const params = await searchParams;
+  // Normalise before any `.trim()`/compare below — a string[] value used to
+  // throw here and 500 the whole inbox.
+  const raw = await searchParams;
+  const params: RequestsSearchParams = Object.fromEntries(
+    Object.entries(raw).map(([key, value]) => [key, first(value)])
+  );
   const supabase = await createClient();
   const ctx = await getCompanyContext();
   const { profile, company, vocab, fmt } = ctx;
@@ -118,7 +128,7 @@ export default async function RequestsPage({
   const bucketKey = isBucketKey(params.bucket) ? params.bucket : null;
   const statusParam = params.status ?? "open";
   const q = params.q?.trim() ?? "";
-  const page = Math.max(1, Number(params.page) || 1);
+  const page = Math.max(1, Number.parseInt(params.page ?? "1", 10) || 1);
   const sortByVisit = params.sort === "visit";
 
   const { data: membersData } = await supabase.rpc("get_company_members");

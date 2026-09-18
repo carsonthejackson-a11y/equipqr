@@ -13,7 +13,7 @@ import { notifyRequesterOfStatus } from "@/lib/email/request-status";
 import { buildAssigneeNotificationEmail } from "@/lib/email/assignment";
 import { sendEmail } from "@/lib/email/send";
 import { publicEnv } from "@/lib/env";
-import { formatZonedDateTime } from "@/lib/schedule";
+import { formatZonedDateTime, isSameInstant } from "@/lib/schedule";
 import { formatCompanyLongDateTime, DEFAULT_COMPANY_TIME_ZONE } from "@/lib/format";
 import { getEquipmentPublicUrl } from "@/lib/qr";
 import { pickBestCode } from "@/lib/qr-codes";
@@ -178,7 +178,11 @@ export async function scheduleVisit(requestId: string, input: ScheduleVisitInput
   }
 
   const scheduledForIso = scheduledDate.toISOString();
-  const timeChanged = ctx.request.scheduled_for !== scheduledForIso;
+  // Compare instants, not strings: PostgREST renders scheduled_for as
+  // "...+00:00" while toISOString() gives "...000Z", so a string compare
+  // said "changed" on every save, nulled reminder_sent_at, and the cron
+  // re-sent the visit reminder.
+  const timeChanged = !isSameInstant(ctx.request.scheduled_for, scheduledForIso);
   const nextStatus = SCHEDULABLE_FROM.includes(ctx.request.status) ? "scheduled" : ctx.request.status;
 
   const { error } = await supabase

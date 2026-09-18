@@ -62,6 +62,15 @@ function shortCodeSearchTerm(term: string): string {
   return term.replace(/[^a-zA-Z0-9]/g, "");
 }
 
+/**
+ * Next hands a repeated query key (`?q=a&q=b`) over as a `string[]`, and
+ * `.trim()` on an array throws. Take the first value of each key before any
+ * string handling (the requests list applies the same rule).
+ */
+function first(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 function pageHref(params: URLSearchParams, page: number): string {
   const next = new URLSearchParams(params);
   if (page <= 1) {
@@ -76,16 +85,17 @@ function pageHref(params: URLSearchParams, page: number): string {
 export default async function EquipmentPage({
   searchParams,
 }: {
-  searchParams: Promise<{
-    q?: string;
-    type?: string;
-    customer?: string;
-    location?: string;
-    status?: string;
-    page?: string;
-  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const raw = await searchParams;
+  const params = await searchParams;
+  const raw = {
+    q: first(params.q),
+    type: first(params.type),
+    customer: first(params.customer),
+    location: first(params.location),
+    status: first(params.status),
+    page: first(params.page),
+  };
   const q = (raw.q ?? "").trim();
   const typeFilter = raw.type && raw.type !== "all" ? raw.type : "";
   const customerFilter = raw.customer && raw.customer !== "all" ? raw.customer : "";

@@ -3,16 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { classifyGuideOption } from "@/lib/anthropic";
 import { getCompanyPlanFlags } from "@/lib/billing";
 import { getPlan } from "@/lib/plans";
+import { firstIssueMessage, guideChatSchema } from "@/lib/public-request";
 import { enforceRateLimits, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import type { ResolvedQrCode } from "@/lib/types";
-
-const MAX_MESSAGE_LENGTH = 400;
-
-type RequestBody = {
-  qrToken?: string;
-  stepId?: string;
-  message?: string;
-};
 
 export async function POST(request: Request) {
   // Every call that gets past here costs an Anthropic request, so the limit
@@ -22,14 +15,15 @@ export async function POST(request: Request) {
   ]);
   if (limited) return limited;
 
-  const body = (await request.json().catch(() => null)) as RequestBody | null;
-
-  if (!body?.qrToken || !body.stepId || !body.message?.trim()) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  // zod, like the sibling public routes — the hand-rolled check this replaced
+  // called `body.message?.trim()` on whatever JSON arrived, so a non-string
+  // `message` threw a TypeError and this public route answered 500.
+  const raw: unknown = await request.json().catch(() => null);
+  const parsed = guideChatSchema.safeParse(raw ?? {});
+  if (!parsed.success) {
+    return NextResponse.json({ error: firstIssueMessage(parsed.error) }, { status: 400 });
   }
-  if (body.message.length > MAX_MESSAGE_LENGTH) {
-    return NextResponse.json({ error: "Message is too long" }, { status: 400 });
-  }
+  const body = parsed.data;
 
   const supabase = await createClient();
   const { data } = await supabase.rpc("resolve_qr_code", { p_token: body.qrToken });

@@ -117,7 +117,21 @@ export function CloseOutDialog({
   const [signatureEmpty, setSignatureEmpty] = useState(true);
   // Set right before a reset that should NOT immediately re-persist the
   // blank fields it produces as a "new" draft — see the write-effect below.
-  const skipDraftWrite = useRef(false);
+  //
+  // Starts TRUE so the effect's mount run is skipped too. This dialog mounts
+  // (closed) on every request card, and the mount run used to persist the
+  // untouched defaults as a "draft" for each of them — including
+  // `sendEmail: false` whenever the customer had no email at the time. That
+  // stored false then won over `!!defaultEmail` on the next visit, after the
+  // customer had added one, and the resolution email was silently skipped.
+  // Only a real edit should create a draft.
+  const skipDraftWrite = useRef(true);
+  // The field values this dialog mounted with. While the fields still equal
+  // them and no draft was restored, there is nothing worth keeping — so the
+  // effect clears rather than writes. That also covers React StrictMode's
+  // dev-only double effect run (which re-enters after skipDraftWrite has
+  // already been cleared) and a draft the technician typed back to blank.
+  const mountedWith = useRef({ summary, recommendations, signedByName, sendEmail, emailTo });
 
   // Q-51: best-effort autosave of the text fields on every change. Photos
   // and the signature can't reasonably round-trip through localStorage, so
@@ -129,8 +143,20 @@ export function CloseOutDialog({
       skipDraftWrite.current = false;
       return;
     }
+    const base = mountedWith.current;
+    const untouched =
+      !initialDraft &&
+      summary === base.summary &&
+      recommendations === base.recommendations &&
+      signedByName === base.signedByName &&
+      sendEmail === base.sendEmail &&
+      emailTo === base.emailTo;
+    if (untouched) {
+      clearCloseOutDraft(requestId);
+      return;
+    }
     writeCloseOutDraft(requestId, { summary, recommendations, signedByName, sendEmail, emailTo });
-  }, [requestId, summary, recommendations, signedByName, sendEmail, emailTo]);
+  }, [requestId, initialDraft, summary, recommendations, signedByName, sendEmail, emailTo]);
 
   // Q-04: what a brand-new close-out looks like before anyone touches it —
   // the baseline for "is there unsaved work?". Deliberately NOT the
