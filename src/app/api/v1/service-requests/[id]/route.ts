@@ -16,22 +16,14 @@ import type {
   ServiceRequest,
 } from "@/lib/types";
 import {
+  REQUEST_PRIORITIES,
+  REQUEST_STATUSES,
   SERVICE_REQUEST_COLUMNS,
   findCompanyProfile,
   jsonData,
   jsonError,
   statusUrlFor,
 } from "../../shared";
-
-const VALID_STATUSES: RequestStatus[] = [
-  "new",
-  "in_progress",
-  "scheduled",
-  "on_hold",
-  "resolved",
-  "canceled",
-];
-const VALID_PRIORITIES: RequestPriority[] = ["low", "normal", "high", "urgent"];
 
 /** Everything notifyRequesterOfStatus() needs that isn't already on the request row. */
 type NotifyCompany = Pick<
@@ -168,15 +160,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const patch: Record<string, unknown> = {};
 
   if (hasStatus) {
-    if (typeof body.status !== "string" || !VALID_STATUSES.includes(body.status as RequestStatus)) {
-      return jsonError(`status must be one of: ${VALID_STATUSES.join(", ")}`, 400);
+    if (typeof body.status !== "string" || !REQUEST_STATUSES.includes(body.status as RequestStatus)) {
+      return jsonError(`status must be one of: ${REQUEST_STATUSES.join(", ")}`, 400);
     }
     patch.status = body.status;
   }
 
   if (hasPriority) {
-    if (typeof body.priority !== "string" || !VALID_PRIORITIES.includes(body.priority as RequestPriority)) {
-      return jsonError(`priority must be one of: ${VALID_PRIORITIES.join(", ")}`, 400);
+    if (typeof body.priority !== "string" || !REQUEST_PRIORITIES.includes(body.priority as RequestPriority)) {
+      return jsonError(`priority must be one of: ${REQUEST_PRIORITIES.join(", ")}`, 400);
     }
     patch.priority = body.priority;
   }

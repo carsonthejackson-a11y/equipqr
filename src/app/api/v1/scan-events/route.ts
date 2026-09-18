@@ -4,7 +4,7 @@
 import { authenticateApiRequest } from "@/lib/api-auth";
 import { cursorFilter, decodeCursor, paginateRows, parseLimit } from "@/lib/api-pagination";
 import type { ScanEvent } from "@/lib/types";
-import { jsonData, jsonError } from "../shared";
+import { invalidTimestampFilter, invalidUuidFilter, jsonData, jsonError } from "../shared";
 
 const SORT_COLUMN = "scanned_at";
 const DEFAULT_WINDOW_DAYS = 90;
@@ -18,11 +18,18 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const equipmentId = searchParams.get("equipment_id");
-  const since =
-    searchParams.get("since") ??
-    new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const sinceParam = searchParams.get("since");
   const limit = parseLimit(searchParams.get("limit"));
   const cursor = decodeCursor(searchParams.get("cursor"));
+
+  const invalidFilter =
+    invalidUuidFilter("equipment_id", equipmentId) ?? invalidTimestampFilter("since", sinceParam);
+  if (invalidFilter) return invalidFilter;
+
+  // An empty `?since=` falls back to the default window like an absent one
+  // (invalidTimestampFilter() lets "" through for that reason).
+  const since =
+    sinceParam || new Date(Date.now() - DEFAULT_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   let query = auth.ctx.admin
     .from("scan_events")

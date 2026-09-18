@@ -11,7 +11,11 @@ import { getRequestStatusUrl, getEquipmentPublicUrl } from "@/lib/qr";
 import { pickBestCode } from "@/lib/qr-codes";
 import { formatCompanyLongDateTime } from "@/lib/format";
 import { serverEnv } from "@/lib/env";
-import type { PlanId } from "@/lib/plans";
+// The shared isPlanId() knows the owner plans (free/site/multi_site) too. A
+// local provider-only copy here used to resolve every owner plan to null,
+// which brandingForEmail() treats as "unknown, fail open" — so a free-tier
+// owner got a custom-branded reminder its plan doesn't include.
+import { isPlanId, type PlanId } from "@/lib/plans";
 import type { Company, Customer, Equipment, Location, Profile, QrCode, ServiceRequest } from "@/lib/types";
 import { isAuthorizedBearer } from "@/lib/timing-safe-equal";
 
@@ -19,10 +23,6 @@ import { isAuthorizedBearer } from "@/lib/timing-safe-equal";
 export const runtime = "nodejs";
 
 const REMINDER_WINDOW_HOURS = 36;
-
-function isPlanId(value: unknown): value is PlanId {
-  return value === "starter" || value === "pro" || value === "business";
-}
 
 type ReminderEquipment = Pick<Equipment, "name" | "address" | "customer_id" | "location_id">;
 
@@ -149,7 +149,7 @@ export async function GET(request: Request) {
     }
 
     const flags = planFlags as { plan_id?: string } | null;
-    const planId = isPlanId(flags?.plan_id) ? flags?.plan_id : null;
+    const planId: PlanId | null = isPlanId(flags?.plan_id) ? flags.plan_id : null;
 
     // Claim the row BEFORE sending: two overlapping runs (a manual trigger
     // alongside the schedule, a retried invocation) would otherwise both pass

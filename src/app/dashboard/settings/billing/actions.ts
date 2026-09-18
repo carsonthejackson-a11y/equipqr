@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
 import { getPlan, getStripePriceId, isPlanId, type BillingInterval, type PlanId } from "@/lib/plans";
 import { isLiveSubscriptionStatus } from "@/lib/billing";
@@ -119,6 +120,19 @@ export async function createCheckoutSession(planId: string, interval: string) {
   let customerId = company.stripe_customer_id;
 
   if (!customerId) {
+    // `companies.stripe_customer_id` is written with the service-role client,
+    // never the user's: migration 0027 stops granting that column to
+    // `authenticated`, so an owner can't PATCH another company's `cus_` id
+    // onto their own row and have the webhook mis-route its subscription.
+    // Resolved BEFORE the Stripe call so a misconfigured server doesn't
+    // leave an orphaned Stripe customer behind.
+    let admin: ReturnType<typeof createAdminClient>;
+    try {
+      admin = createAdminClient();
+    } catch {
+      return { error: "Billing is not fully configured on this server (missing service role key)." };
+    }
+
     let customer;
     try {
       customer = await stripe.customers.create({
@@ -131,7 +145,7 @@ export async function createCheckoutSession(planId: string, interval: string) {
     }
     customerId = customer.id;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await admin
       .from("companies")
       .update({ stripe_customer_id: customerId })
       .eq("id", company.id);

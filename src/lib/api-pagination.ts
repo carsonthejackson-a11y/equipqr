@@ -14,6 +14,14 @@ export function encodeCursor(cursor: Cursor): string {
   return Buffer.from(JSON.stringify(cursor), "utf8").toString("base64url");
 }
 
+// Both cursor fields are interpolated verbatim into a PostgREST `.or()`
+// filter by cursorFilter() below, so they must be exactly the shapes our own
+// encodeCursor() produces — a uuid and a timestamptz as PostgREST serialises
+// it — and nothing else. Anything looser lets a hand-edited cursor inject
+// filter syntax, which fails the request with a raw PostgREST parse error.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TIMESTAMPTZ_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+
 /** Decodes a `cursor` query param. Returns null for anything missing, malformed, or tampered with — callers should treat that as "start from the beginning" rather than erroring, since a stale/garbage cursor is a client bug, not a reason to fail the request. */
 export function decodeCursor(value: string | null | undefined): Cursor | null {
   if (!value) return null;
@@ -26,7 +34,9 @@ export function decodeCursor(value: string | null | undefined): Cursor | null {
       typeof (parsed as Record<string, unknown>).sortValue === "string" &&
       typeof (parsed as Record<string, unknown>).id === "string"
     ) {
-      return { sortValue: (parsed as Cursor).sortValue, id: (parsed as Cursor).id };
+      const { sortValue, id } = parsed as Cursor;
+      if (!TIMESTAMPTZ_RE.test(sortValue) || !UUID_RE.test(id)) return null;
+      return { sortValue, id };
     }
     return null;
   } catch {

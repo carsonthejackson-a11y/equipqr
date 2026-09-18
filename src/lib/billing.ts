@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import {
+  FREE_PLAN_BY_KIND,
   canAddEquipment,
   canAddLocation,
   canAddMember,
@@ -49,18 +50,36 @@ export async function getEntitlements(): Promise<Entitlements | null> {
   }
 
   const raw = data as Record<string, unknown>;
+  const status: Entitlements["status"] = (raw.status as Entitlements["status"]) ?? "none";
+  const is_trialing = !!raw.is_trialing;
+  const company_kind: CompanyKind =
+    raw.company_kind === "equipment_owner" ? "equipment_owner" : "service_provider";
+
+  let plan_id: PlanId = isPlanId(raw.plan_id as string) ? (raw.plan_id as PlanId) : "starter";
+  let max_locations: number | null = raw.max_locations == null ? null : Number(raw.max_locations);
+  // Mirror enforce_equipment_limit()/enforce_location_limit() (0024): with no
+  // active trial and no active/trialing subscription, the company is on its
+  // kind's floor plan. The RPC only floors when `is_locked` — and an
+  // equipment_owner is never locked — so a canceled multi_site owner would
+  // otherwise still read as multi_site here (400 units, AI, branding) while
+  // the DB trigger enforces free's 10-unit limit.
+  if (!is_trialing && status !== "active" && status !== "trialing") {
+    plan_id = FREE_PLAN_BY_KIND[company_kind];
+    max_locations = getPlan(plan_id).locationLimit;
+  }
+
   return {
-    plan_id: isPlanId(raw.plan_id as string) ? (raw.plan_id as PlanId) : "starter",
-    status: (raw.status as Entitlements["status"]) ?? "none",
+    plan_id,
+    status,
     trial_ends_at: (raw.trial_ends_at as string | null) ?? null,
     current_period_end: (raw.current_period_end as string | null) ?? null,
     equipment_count: Number(raw.equipment_count ?? 0),
     member_count: Number(raw.member_count ?? 0),
-    is_trialing: !!raw.is_trialing,
+    is_trialing,
     is_locked: !!raw.is_locked,
-    company_kind: raw.company_kind === "equipment_owner" ? "equipment_owner" : "service_provider",
+    company_kind,
     location_count: Number(raw.location_count ?? 0),
-    max_locations: raw.max_locations == null ? null : Number(raw.max_locations),
+    max_locations,
   };
 }
 
