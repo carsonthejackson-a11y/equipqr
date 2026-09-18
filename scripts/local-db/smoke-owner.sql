@@ -1025,4 +1025,332 @@ end $$;
 -- security review -- END
 -- ============================================================================
 
+-- ============================================================================
+-- security review (0027) -- BEGIN
+-- ============================================================================
+-- Each assertion is an attack that SUCCEEDED before 0027_tenant_write_hardening.sql.
+
+-- SR9. profiles: a technician can neither promote itself nor move to another
+-- company, but can still rename itself.
+set role authenticated;
+set request.jwt.claim.sub = 'b0000000-0000-0000-0000-000000000003';  -- O's technician
+do $$
+begin
+  begin
+    update profiles set role = 'owner' where id = auth.uid();
+    raise exception 'ESCALATION: technician promoted itself to owner';
+  exception when insufficient_privilege then
+    raise notice 'ok: profiles.role is not updatable by the user';
+  end;
+  begin
+    update profiles set company_id = 'a0000000-0000-0000-0000-000000000001' where id = auth.uid();
+    raise exception 'CROSS-TENANT: technician moved its profile into another company';
+  exception when insufficient_privilege then
+    raise notice 'ok: profiles.company_id is not updatable by the user';
+  end;
+  update profiles set full_name = 'O Tech' where id = auth.uid();
+  if not found then raise exception 'REGRESSION: user cannot update its own full_name'; end if;
+  raise notice 'ok: profiles.full_name still editable by its owner';
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
+-- SR10. profiles: a signed-up user with no profile cannot insert itself into a company.
+insert into auth.users (id, email) values ('c0000000-0000-0000-0000-000000000099', 'mallory@x.test');
+set role authenticated;
+set request.jwt.claim.sub = 'c0000000-0000-0000-0000-000000000099';
+do $$
+begin
+  insert into profiles (id, company_id, full_name, role)
+  values (auth.uid(), 'a0000000-0000-0000-0000-000000000001', 'Mallory', 'owner');
+  raise exception 'CROSS-TENANT: a user with no profile inserted itself as owner of another company';
+exception when insufficient_privilege then
+  raise notice 'ok: direct profile insert refused (creation goes through the RPCs)';
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
+-- SR11. companies: an owner cannot move its own trial clock, change kind or
+-- rewrite stripe_customer_id; every column the dashboard writes with the user
+-- client stays updatable (self-assignment exercises the UPDATE privilege on
+-- each one without changing data).
+set role authenticated;
+set request.jwt.claim.sub = 'a0000000-0000-0000-0000-000000000002';  -- P's owner
+do $$
+begin
+  begin
+    update companies set trial_ends_at = '2099-01-01' where id = get_my_company_id();
+    raise exception 'BILLING BYPASS: owner extended its own trial';
+  exception when insufficient_privilege then
+    raise notice 'ok: companies.trial_ends_at is not updatable by staff';
+  end;
+  begin
+    update companies set kind = 'equipment_owner' where id = get_my_company_id();
+    raise exception 'owner changed companies.kind';
+  exception when insufficient_privilege then
+    raise notice 'ok: companies.kind is not updatable by staff';
+  end;
+  begin
+    -- The Stripe webhook routes subscription events by this column; an owner
+    -- must not be able to point its row at another customer's cus_ id.
+    update companies set stripe_customer_id = 'cus_hijack' where id = get_my_company_id();
+    raise exception 'BILLING: owner rewrote its own stripe_customer_id through PostgREST';
+  exception when insufficient_privilege then
+    raise notice 'ok: companies.stripe_customer_id is not updatable by staff';
+  end;
+  update companies set
+    name = name, notification_email = notification_email, phone = phone, sms_number = sms_number,
+    website = website, timezone = timezone, customer_updates_enabled = customer_updates_enabled,
+    logo_path = logo_path, brand_color = brand_color, onboarding_dismissed_at = onboarding_dismissed_at,
+    owner_setup_completed_at = owner_setup_completed_at, welcome_email_sent_at = welcome_email_sent_at
+  where id = get_my_company_id();
+  if not found then raise exception 'REGRESSION: owner cannot update company settings columns'; end if;
+  raise notice 'ok: the 12 settings/branding/onboarding columns still updatable';
+end $$;
+
+-- SR12. qr_codes: an own code cannot be pointed (update or insert) at another tenant's unit.
+do $$
+begin
+  update qr_codes set status = 'replaced' where token = 'ptoken0000000000000001';  -- frees the one-active-per-unit slot
+  begin
+    update qr_codes set equipment_id = 'b0000000-0000-0000-0000-000000000007' where token = 'ptoken0000000000000001';
+    raise exception 'CROSS-TENANT: qr_codes.equipment_id accepted another company''s unit';
+  exception when insufficient_privilege then
+    raise notice 'ok: qr_codes.equipment_id update rejects a foreign unit';
+  end;
+  update qr_codes set status = 'active' where token = 'ptoken0000000000000001';
+  begin
+    insert into qr_codes (token, short_code, company_id, equipment_id, source, status)
+    values ('pfaketoken0000000000001', 'PFAKE001', 'a0000000-0000-0000-0000-000000000001',
+            'b0000000-0000-0000-0000-000000000007', 'instant', 'active');
+    raise exception 'CROSS-TENANT: qr_codes insert accepted another company''s unit';
+  exception when insufficient_privilege then
+    raise notice 'ok: qr_codes insert rejects a foreign unit';
+  end;
+end $$;
+
+-- SR13. service_requests: an own request cannot be pointed at another tenant's
+-- unit or staff; assigning own staff still works.
+do $$
+declare v_id uuid;
+begin
+  insert into service_requests (company_id, equipment_id, description, contact_name, source)
+  values ('a0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000004', 'SR13 fixture', 'Pat', 'staff')
+  returning id into v_id;
+  begin
+    update service_requests set equipment_id = 'b0000000-0000-0000-0000-000000000007' where id = v_id;
+    raise exception 'CROSS-TENANT: service_requests.equipment_id accepted another company''s unit';
+  exception when insufficient_privilege then
+    raise notice 'ok: service_requests.equipment_id rejects a foreign unit';
+  end;
+  begin
+    update service_requests set assigned_to = 'b0000000-0000-0000-0000-000000000003' where id = v_id;
+    raise exception 'CROSS-TENANT: service_requests.assigned_to accepted another company''s staff';
+  exception when insufficient_privilege then
+    raise notice 'ok: service_requests.assigned_to rejects foreign staff';
+  end;
+  update service_requests set assigned_to = 'a0000000-0000-0000-0000-000000000002' where id = v_id;
+  if not found then raise exception 'REGRESSION: cannot assign own staff'; end if;
+  raise notice 'ok: assigning own staff still works';
+end $$;
+
+-- SR14. equipment: an own unit cannot be pointed at another tenant's equipment type.
+do $$
+begin
+  begin
+    update equipment set equipment_type_id = 'b0000000-0000-0000-0000-000000000006'
+    where id = 'a0000000-0000-0000-0000-000000000004';
+    raise exception 'CROSS-TENANT: equipment.equipment_type_id accepted another company''s type';
+  exception when insufficient_privilege then
+    raise notice 'ok: equipment.equipment_type_id rejects a foreign type';
+  end;
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
+-- SR15. submit_service_request() rate-limits per code inside the RPC: the 31st
+-- submission in an hour raises 54000 (a dedicated unit/code keeps the bucket pristine).
+insert into equipment (id, company_id, equipment_type_id, name) values
+  ('a0000000-0000-0000-0000-000000000009', 'a0000000-0000-0000-0000-000000000001',
+   'a0000000-0000-0000-0000-000000000003', 'Rate Limit Unit');
+insert into qr_codes (token, company_id, equipment_id, source, claimed_at) values
+  ('ptoken-ratelimit-00001', 'a0000000-0000-0000-0000-000000000001',
+   'a0000000-0000-0000-0000-000000000009', 'instant', now());
+set role anon;
+do $$
+declare i int; failed_at_31 boolean := false;
+begin
+  for i in 1..31 loop
+    begin
+      perform submit_service_request('ptoken-ratelimit-00001', 'flood ' || i, 'Flooder', null, null);
+      if i = 31 then raise exception 'expected the 31st submission to raise 54000, but it succeeded'; end if;
+    exception
+      when sqlstate '54000' then
+        if i <> 31 then raise exception '54000 raised too early, on submission %', i; end if;
+        failed_at_31 := true;
+    end;
+  end loop;
+  if not failed_at_31 then raise exception 'expected the 31st submission to raise 54000'; end if;
+  raise notice 'ok: submit_service_request is capped at 30/h per code inside the RPC';
+end $$;
+reset role;
+
+-- SR16. The broken 0001 public reader is gone.
+do $$
+begin
+  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+             where n.nspname = 'public' and p.proname = 'get_equipment_guide') then
+    raise exception 'get_equipment_guide() still exists (anon-callable and broken since 0005)';
+  end if;
+  raise notice 'ok: get_equipment_guide() dropped';
+end $$;
+-- ============================================================================
+-- security review (0027) -- END
+-- ============================================================================
+
+-- ============================================================================
+-- migration 0028: a lapsed owner subscription falls to the free floor
+-- ============================================================================
+-- Owner company with an expired trial and a canceled multi_site subscription.
+-- Before 0028 get_company_plan_flags() and get_company_entitlements() still
+-- reported multi_site for it (owner companies are never "locked", and only
+-- locked companies fell to the floor) while enforce_equipment_limit() /
+-- enforce_location_limit() already enforced free.
+insert into auth.users (id, email) values ('d0000000-0000-0000-0000-000000000002', 'oc-owner@x.test');
+insert into companies (id, name, slug, notification_email, kind, trial_ends_at) values
+  ('d0000000-0000-0000-0000-000000000001', 'Canceled Diner', 'canceled-diner', 'oc-notify@x.test',
+   'equipment_owner', now() - interval '60 days');
+insert into profiles (id, company_id, full_name, role) values
+  ('d0000000-0000-0000-0000-000000000002', 'd0000000-0000-0000-0000-000000000001', 'OC Owner', 'owner');
+insert into subscriptions (company_id, plan_id, status) values
+  ('d0000000-0000-0000-0000-000000000001', 'multi_site', 'canceled');
+
+-- E1. get_company_plan_flags() (the anon path /e and the crons use): free, never locked.
+set role anon;
+do $$
+declare v json;
+begin
+  v := get_company_plan_flags('d0000000-0000-0000-0000-000000000001');
+  if v->>'plan_id' <> 'free' then
+    raise exception 'BILLING: canceled owner subscription still reports plan_id=%', v->>'plan_id';
+  end if;
+  if (v->>'is_locked')::boolean is not false then raise exception 'expected is_locked=false for an owner company'; end if;
+  raise notice 'ok: get_company_plan_flags falls to free for a canceled owner subscription';
+end $$;
+reset role;
+
+-- E2. get_company_entitlements() as its owner: free / not locked / status
+-- still reported / max_locations=1 — the same answer enforce_location_limit gives.
+set role authenticated;
+set request.jwt.claim.sub = 'd0000000-0000-0000-0000-000000000002';
+do $$
+declare v json;
+begin
+  v := get_company_entitlements();
+  if v->>'plan_id' <> 'free' then
+    raise exception 'BILLING: canceled owner subscription still reports plan_id=%', v->>'plan_id';
+  end if;
+  if (v->>'is_locked')::boolean is not false then raise exception 'expected is_locked=false for an owner company'; end if;
+  if v->>'status' <> 'canceled' then raise exception 'expected status=canceled to be reported, got %', v->>'status'; end if;
+  if (v->>'max_locations')::int <> 1 then raise exception 'expected max_locations=1, got %', v->>'max_locations'; end if;
+  raise notice 'ok: get_company_entitlements falls to free for a canceled owner subscription';
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
+-- E3. The floor applies only while there is no active/trialing subscription:
+-- reinstating it restores multi_site; past_due is not entitled either.
+update subscriptions set status = 'active' where company_id = 'd0000000-0000-0000-0000-000000000001';
+do $$
+declare v json;
+begin
+  v := get_company_plan_flags('d0000000-0000-0000-0000-000000000001');
+  if v->>'plan_id' <> 'multi_site' then
+    raise exception 'REGRESSION: active multi_site subscription reports plan_id=%', v->>'plan_id';
+  end if;
+  raise notice 'ok: an active subscription still resolves to its paid plan';
+end $$;
+update subscriptions set status = 'past_due' where company_id = 'd0000000-0000-0000-0000-000000000001';
+do $$
+declare v json;
+begin
+  v := get_company_plan_flags('d0000000-0000-0000-0000-000000000001');
+  if v->>'plan_id' <> 'free' then
+    raise exception 'BILLING: past_due owner subscription still reports plan_id=%', v->>'plan_id';
+  end if;
+  raise notice 'ok: past_due falls to free like the limit triggers';
+end $$;
+
+-- E4. Providers unchanged: a lapsed provider with a canceled pro subscription
+-- is locked on starter, exactly as before 0028.
+insert into auth.users (id, email) values ('d0000000-0000-0000-0000-000000000005', 'pc-owner@x.test');
+insert into companies (id, name, slug, notification_email, trial_ends_at) values
+  ('d0000000-0000-0000-0000-000000000004', 'Canceled Provider', 'canceled-provider', 'pc-notify@x.test',
+   now() - interval '60 days');
+insert into profiles (id, company_id, full_name, role) values
+  ('d0000000-0000-0000-0000-000000000005', 'd0000000-0000-0000-0000-000000000004', 'PC Owner', 'owner');
+insert into subscriptions (company_id, plan_id, status) values
+  ('d0000000-0000-0000-0000-000000000004', 'pro', 'canceled');
+set role authenticated;
+set request.jwt.claim.sub = 'd0000000-0000-0000-0000-000000000005';
+do $$
+declare v json;
+begin
+  v := get_company_entitlements();
+  if (v->>'is_locked')::boolean is not true then raise exception 'expected is_locked=true for a lapsed provider'; end if;
+  if v->>'plan_id' <> 'starter' then raise exception 'expected plan_id=starter, got %', v->>'plan_id'; end if;
+  raise notice 'ok: provider path unchanged by 0028';
+end $$;
+reset request.jwt.claim.sub;
+reset role;
+
+-- ============================================================================
+-- migration 0031: vendor_acknowledge_dispatch() never regresses eta_given
+-- ============================================================================
+-- D2 (the second unit's dispatch, still 'sent' — assertion 19) gives an ETA
+-- first and then acknowledges. Before 0031 the acknowledge moved it back to
+-- 'acknowledged' and the trigger-synced service_requests.dispatch_status
+-- followed, even though eta_at was still on the row.
+set role service_role;
+set request.jwt.claim.role = 'service_role';
+select token as d2_token from dispatches where id = current_setting('smoke.d2_id')::uuid \gset
+select set_config('smoke.d2_token', :'d2_token', false);
+reset request.jwt.claim.role;
+reset role;
+
+set role anon;
+do $$
+declare v json;
+begin
+  v := vendor_set_dispatch_eta(current_setting('smoke.d2_token'), now() + interval '2 hours', null);
+  if v->>'status' <> 'eta_given' then raise exception 'expected eta_given, got %', v->>'status'; end if;
+  v := vendor_acknowledge_dispatch(current_setting('smoke.d2_token'), 'Confirmed');
+  if v->>'status' <> 'eta_given' then
+    raise exception 'REGRESSION: acknowledging after an ETA moved the dispatch to %', v->>'status';
+  end if;
+  if v->>'eta_at' is null then raise exception 'expected eta_at to be kept'; end if;
+  raise notice 'ok: acknowledge keeps eta_given';
+end $$;
+reset role;
+
+set role service_role;
+set request.jwt.claim.role = 'service_role';
+do $$
+declare v_status dispatch_status; v_ack timestamptz; v_notes text; v_req_dispatch dispatch_status; v_req request_status;
+begin
+  select d.status, d.acknowledged_at, d.vendor_notes into v_status, v_ack, v_notes
+  from dispatches d where d.id = current_setting('smoke.d2_id')::uuid;
+  if v_status <> 'eta_given' then raise exception 'REGRESSION: D2 row status is %', v_status; end if;
+  if v_ack is null then raise exception 'expected acknowledged_at to be stamped'; end if;
+  if v_notes not like '%Confirmed%' then raise exception 'expected the note to be appended'; end if;
+
+  select sr.dispatch_status, sr.status into v_req_dispatch, v_req
+  from service_requests sr where sr.dispatch_id = current_setting('smoke.d2_id')::uuid;
+  if v_req_dispatch <> 'eta_given' then raise exception 'REGRESSION: request.dispatch_status is %', v_req_dispatch; end if;
+  if v_req <> 'in_progress' then raise exception 'expected the request to move to in_progress, got %', v_req; end if;
+  raise notice 'ok: D2 row and its request stay at eta_given';
+end $$;
+reset request.jwt.claim.role;
+reset role;
+
 select 'smoke-owner OK' as result;
