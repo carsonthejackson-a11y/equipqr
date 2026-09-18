@@ -29,6 +29,21 @@ export function formatShortCode(code: string): string {
   return `${normalized.slice(0, 4)}-${normalized.slice(4)}`;
 }
 
+/**
+ * What to hand `claim_qr_code` for a code typed or scanned into the "Use a
+ * pre-printed code" box. An 8-character short code is normalized
+ * ("ab3d-9f2k" → "AB3D9F2K"); anything else passes through trimmed but
+ * otherwise untouched — an owner-pool blank sticker's `token` is lowercase
+ * 24-hex (generate_company_qr_batch, migration 0019), and uppercasing it
+ * would stop it matching `qr_codes.token` while its length rules out the
+ * `short_code` match. Same rule as the dashboard Scan button
+ * (src/components/dashboard-scan-button.tsx, review fix L11 / fc9ada6).
+ * Not normalizeQrCode(): that uppercases everything.
+ */
+export function claimToken(input: string): string {
+  return normalizeShortCode(input) ?? input.trim();
+}
+
 // Pre-printed batch codes look like "AB3D-9F2K". Normalizes whatever a
 // person typed (spacing, casing, missing dash) into that canonical form.
 export function normalizeQrCode(input: string) {

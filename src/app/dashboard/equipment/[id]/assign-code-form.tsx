@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { QrScanButton } from "@/components/qr-scan-button";
-import { normalizeQrCode } from "@/lib/short-code";
+import { formatShortCode } from "@/lib/short-code";
 import { FEATURES } from "@/lib/features";
 import { assignQrCode } from "../actions";
 
@@ -82,7 +82,9 @@ export function AssignCodeForm({
                     value={preprintedCode}
                     onChange={(e) => setPreprintedCode(e.target.value)}
                   />
-                  <QrScanButton onScan={(code) => setPreprintedCode(normalizeQrCode(code))} />
+                  {/* formatShortCode dashes an 8-char code for display and leaves an
+                      owner-pool 24-hex token untouched (uppercasing it would break the claim). */}
+                  <QrScanButton onScan={(code) => setPreprintedCode(formatShortCode(code))} />
                 </div>
               )}
             </>

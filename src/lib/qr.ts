@@ -22,6 +22,7 @@ import { serverEnv } from "@/lib/env";
 export {
   SHORT_CODE_ALPHABET,
   SHORT_CODE_LENGTH,
+  claimToken,
   formatShortCode,
   generateShortCode,
   normalizeQrCode,

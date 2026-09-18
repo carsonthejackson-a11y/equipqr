@@ -83,7 +83,20 @@ describe("parseCsvTable", () => {
   });
 
   it("returns an empty table for empty input", () => {
-    expect(parseCsvTable("   \n")).toEqual({ headers: [], rows: [] });
+    expect(parseCsvTable("   \n")).toEqual({ headers: [], rows: [], rowNumbers: [] });
+  });
+
+  it("keeps the spreadsheet row number across blank rows", () => {
+    const table = parseCsvTable("name,make\nA,\n,\nB,\n");
+    expect(table.rows.map((row) => row.name)).toEqual(["A", "B"]);
+    // Header is row 1; "A" is row 2; the blank `,` row is row 3; "B" is row 4.
+    expect(table.rowNumbers).toEqual([2, 4]);
+  });
+
+  it("counts blank rows above the header too", () => {
+    const table = parseCsvTable("\n\nname,make\nA,\n");
+    expect(table.rows.map((row) => row.name)).toEqual(["A"]);
+    expect(table.rowNumbers).toEqual([4]);
   });
 });
 

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { isPlatformAdmin } from "@/lib/auth";
-import { generateQrDataUrl, getEquipmentPublicUrl } from "@/lib/qr";
+import { formatShortCode, generateQrDataUrl, getEquipmentPublicUrl } from "@/lib/qr";
 import { PrintButton } from "@/app/dashboard/equipment/[id]/label/print-button";
 import type { Company, QrCode } from "@/lib/types";
 
@@ -46,6 +46,10 @@ export default async function PrintQrSheetPage({
   const cells = await Promise.all(
     sheetCodes.map(async (code) => ({
       token: code.token,
+      // The printed fallback is the short code, not the token: an owner-pool
+      // token (generate_company_qr_batch, migration 0019) is 24 hex chars,
+      // which the /e code-entry form rejects.
+      shortCode: formatShortCode(code.short_code),
       qrDataUrl: await generateQrDataUrl(getEquipmentPublicUrl(code.token)),
     }))
   );
@@ -72,8 +76,8 @@ export default async function PrintQrSheetPage({
               key={cell.token}
               className="flex flex-col items-center gap-2 break-inside-avoid rounded-lg border p-4 text-center print:border-dashed"
             >
-              <Image src={cell.qrDataUrl} alt={cell.token} width={160} height={160} unoptimized />
-              <p className="font-mono text-sm font-medium">{cell.token}</p>
+              <Image src={cell.qrDataUrl} alt={cell.shortCode} width={160} height={160} unoptimized />
+              <p className="font-mono text-sm font-medium">{cell.shortCode}</p>
               <p className="text-xs text-muted-foreground">{company.name}</p>
             </div>
           ))}
