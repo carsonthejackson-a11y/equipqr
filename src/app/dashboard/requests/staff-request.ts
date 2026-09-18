@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { MAX_DESCRIPTION_LENGTH } from "@/lib/public-request";
+import { isValidIsoDate } from "@/lib/schedule";
 import { normalizeShortCode } from "@/lib/short-code";
 import type { RequestPriority } from "@/lib/types";
 
@@ -37,9 +38,24 @@ export const staffRequestSchema = z
     contactPhone: z.string().trim().max(40).optional().default(""),
     priority: z.enum(STAFF_REQUEST_PRIORITIES).optional().default("normal"),
     /** "YYYY-MM-DD", company-local — paired with scheduleTime via zonedWallTimeToUtcIso() in the action. Empty = no visit scheduled yet. */
-    scheduleDate: z.string().trim().max(10).optional().default(""),
+    scheduleDate: z
+      .string()
+      .trim()
+      .max(10)
+      // Shape AND validity, not just length: zonedWallTimeToUtcIso() does no
+      // parsing of its own, so "9/20/2026" or "2026-13-45" would reach it and
+      // throw RangeError out of the action instead of coming back as { error }.
+      .refine((v) => v === "" || isValidIsoDate(v), "Enter the visit date as YYYY-MM-DD")
+      .optional()
+      .default(""),
     /** "HH:MM", 24-hour, company-local. */
-    scheduleTime: z.string().trim().max(5).optional().default(""),
+    scheduleTime: z
+      .string()
+      .trim()
+      .max(5)
+      .refine((v) => v === "" || /^([01]\d|2[0-3]):[0-5]\d$/.test(v), "Enter the visit time as HH:MM (24-hour)")
+      .optional()
+      .default(""),
     sendStatusEmail: z.boolean().optional().default(false),
   })
   .refine((v) => !!(v.contactEmail || v.contactPhone), {

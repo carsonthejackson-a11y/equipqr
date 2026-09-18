@@ -9,6 +9,10 @@ import {
   formatZonedDateTime,
   formatZonedTime,
   isDateOnOrBefore,
+  isSameInstant,
+  isValidIsoDate,
+  startOfMonth,
+  startOfPreviousMonth,
   startOfWeek,
   todayInTimeZone,
   utcIsoToZonedParts,
@@ -144,5 +148,63 @@ describe("addMinutesIso", () => {
 
   it("rolls over a day boundary", () => {
     expect(addMinutesIso("2026-01-15T23:30:00.000Z", 60)).toBe("2026-01-16T00:30:00.000Z");
+  });
+});
+
+describe("isValidIsoDate", () => {
+  it("accepts a real YYYY-MM-DD date", () => {
+    expect(isValidIsoDate("2026-09-20")).toBe(true);
+    expect(isValidIsoDate("2024-02-29")).toBe(true); // leap day
+  });
+
+  it("rejects other shapes", () => {
+    expect(isValidIsoDate("9/20/2026")).toBe(false);
+    expect(isValidIsoDate("abc")).toBe(false);
+    expect(isValidIsoDate("")).toBe(false);
+    expect(isValidIsoDate("2026-9-2")).toBe(false);
+  });
+
+  it("rejects a well-shaped string that isn't a real date", () => {
+    // V8 turns "2026-13-45" into an Invalid Date and rolls "2026-02-30" over
+    // to March 2 — both must fail, not just the first.
+    expect(isValidIsoDate("2026-13-45")).toBe(false);
+    expect(isValidIsoDate("2026-02-30")).toBe(false);
+    expect(isValidIsoDate("2026-00-10")).toBe(false);
+  });
+});
+
+describe("startOfMonth / startOfPreviousMonth", () => {
+  it("finds the first of the month containing a date", () => {
+    expect(startOfMonth("2026-03-31")).toBe("2026-03-01");
+    expect(startOfMonth("2026-03-01")).toBe("2026-03-01");
+  });
+
+  it("finds the first of the previous month, crossing a year boundary", () => {
+    expect(startOfPreviousMonth("2026-01-15")).toBe("2025-12-01");
+    expect(startOfPreviousMonth("2026-03-31")).toBe("2026-02-01");
+    expect(startOfPreviousMonth("2026-03-01")).toBe("2026-02-01");
+  });
+});
+
+describe("isSameInstant", () => {
+  it("treats two nulls as the same (absent) instant", () => {
+    expect(isSameInstant(null, null)).toBe(true);
+    expect(isSameInstant(undefined, null)).toBe(true);
+  });
+
+  it("treats one null as a change", () => {
+    expect(isSameInstant(null, "2026-09-20T14:00:00.000Z")).toBe(false);
+    expect(isSameInstant("2026-09-20T14:00:00.000Z", null)).toBe(false);
+  });
+
+  it("matches PostgREST's +00:00 rendering against toISOString()'s .000Z", () => {
+    // The bug: scheduleVisit compared these as strings, saw a "change" on
+    // every save, nulled reminder_sent_at and re-sent the visit reminder.
+    expect(isSameInstant("2026-09-20T14:00:00+00:00", "2026-09-20T14:00:00.000Z")).toBe(true);
+    expect(isSameInstant("2026-09-20T09:00:00-05:00", "2026-09-20T14:00:00.000Z")).toBe(true);
+  });
+
+  it("reports genuinely different instants as different", () => {
+    expect(isSameInstant("2026-09-20T14:00:00+00:00", "2026-09-20T15:00:00.000Z")).toBe(false);
   });
 });

@@ -267,7 +267,7 @@ export default async function ServiceRequestDetailPage({
               <CardTitle>Photos &amp; videos</CardTitle>
             </CardHeader>
             <CardContent>
-              <MediaGallery items={mediaWithUrls.filter((m) => m.url)} signature={signature} />
+              <MediaGallery items={mediaWithUrls.filter((m) => m.url)} signature={signature} timeZone={ctx.fmt.timeZone} />
             </CardContent>
           </Card>
 

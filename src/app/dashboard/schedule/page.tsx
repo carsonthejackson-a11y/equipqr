@@ -12,6 +12,7 @@ import {
   formatDuration,
   formatWeekdayLabel,
   formatZonedTime,
+  isValidIsoDate,
   startOfWeek,
   todayInTimeZone,
   weekDates,
@@ -23,7 +24,6 @@ import { ScheduleFilters } from "./schedule-filters";
 type ScheduleSearchParams = { week?: string; tech?: string };
 
 const UNSCHEDULABLE_STATUSES = OPEN_REQUEST_STATUSES.filter((s) => s !== "scheduled");
-const WEEK_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export default async function SchedulePage({
   searchParams,
@@ -35,7 +35,10 @@ export default async function SchedulePage({
   const { company } = await getCurrentProfile();
 
   const today = todayInTimeZone(company.timezone);
-  const weekStart = startOfWeek(params.week && WEEK_PATTERN.test(params.week) ? params.week : today);
+  // A real-date check, not just a digit-shape regex: "?week=2026-13-45"
+  // used to pass the shape test, reach startOfWeek() as an Invalid Date and
+  // throw RangeError (a 500) instead of falling back to this week.
+  const weekStart = startOfWeek(params.week && isValidIsoDate(params.week) ? params.week : today);
   const days = weekDates(weekStart);
   const rangeStartIso = zonedWallTimeToUtcIso(weekStart, "00:00", company.timezone);
   const rangeEndIso = zonedWallTimeToUtcIso(addDaysToDateOnly(days[6], 1), "00:00", company.timezone);

@@ -134,6 +134,30 @@ export function isDateOnOrBefore(date: IsoDate, referenceDate: IsoDate): boolean
 }
 
 /**
+ * True when `value` is a real calendar date written as "YYYY-MM-DD". The
+ * digit-shape regex alone isn't enough: V8 parses "2026-02-30" by rolling
+ * over to March 2, and "2026-13-45" to an Invalid Date whose toISOString()
+ * throws RangeError — so the string must also survive a round trip.
+ */
+export function isValidIsoDate(value: string): value is IsoDate {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const d = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value;
+}
+
+/** First day of the month containing `date` ("YYYY-MM-DD" in, "YYYY-MM-DD" out). Calendar-date arithmetic — no timezone involved. */
+export function startOfMonth(date: IsoDate): IsoDate {
+  return `${date.slice(0, 7)}-01`;
+}
+
+/** First day of the month BEFORE the one containing `date` ("YYYY-MM-DD" in/out). */
+export function startOfPreviousMonth(date: IsoDate): IsoDate {
+  const d = new Date(`${startOfMonth(date)}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
  * Monday of the week containing `date` ("YYYY-MM-DD" in, "YYYY-MM-DD" out).
  * Calendar-date arithmetic done in UTC so it's independent of the caller's
  * own timezone — the company's timezone only matters for placing a specific
@@ -156,4 +180,18 @@ export function weekDates(weekStart: IsoDate): IsoDate[] {
 /** Adds whole minutes to a UTC ISO instant. */
 export function addMinutesIso(iso: string, minutes: number): string {
   return new Date(new Date(iso).getTime() + minutes * 60_000).toISOString();
+}
+
+/**
+ * True when two ISO timestamps name the same instant, whatever their
+ * rendering. PostgREST returns a timestamptz as "2026-09-20T14:00:00+00:00"
+ * while `Date#toISOString()` gives "2026-09-20T14:00:00.000Z" — comparing
+ * those as strings reports a change on every save. Null-safe: both null is
+ * "the same (absent) instant"; one null is a change.
+ */
+export function isSameInstant(a: string | null | undefined, b: string | null | undefined): boolean {
+  const aMissing = a === null || a === undefined;
+  const bMissing = b === null || b === undefined;
+  if (aMissing || bMissing) return aMissing && bMissing;
+  return new Date(a).getTime() === new Date(b).getTime();
 }

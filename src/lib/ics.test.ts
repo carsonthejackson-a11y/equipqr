@@ -122,6 +122,42 @@ describe("buildIcsEvent", () => {
     expect(lines).toContain(`SUMMARY:${longTitle}`);
   });
 
+  // RFC 5545 folds at 75 OCTETS, not 75 JS string units. Slicing by UTF-16
+  // index used to cut a surrogate pair in half (two lone halves encode as
+  // U+FFFD) and let a 2-byte-per-character line run to ~150 bytes.
+  it("folds by UTF-8 octets and never splits a surrogate pair (emoji title)", () => {
+    const title = "😀".repeat(40);
+    const ics = buildIcsEvent({
+      uid: "u7",
+      title,
+      startIso: "2026-01-01T00:00:00.000Z",
+      durationMinutes: 30,
+    });
+    const encoder = new TextEncoder();
+    const rawLines = ics.split("\r\n").filter(Boolean);
+    expect(rawLines.every((l) => encoder.encode(l).length <= 75)).toBe(true);
+    // Going through real bytes is what turns a lone surrogate into U+FFFD.
+    const roundTripped = new TextDecoder().decode(encoder.encode(ics));
+    expect(roundTripped).not.toContain("\uFFFD");
+    expect(parseLines(roundTripped)).toContain(`SUMMARY:${title}`);
+  });
+
+  it("folds by UTF-8 octets for 2-byte characters (accented title)", () => {
+    const title = "é".repeat(120);
+    const ics = buildIcsEvent({
+      uid: "u8",
+      title,
+      startIso: "2026-01-01T00:00:00.000Z",
+      durationMinutes: 30,
+    });
+    const encoder = new TextEncoder();
+    const rawLines = ics.split("\r\n").filter(Boolean);
+    expect(rawLines.every((l) => encoder.encode(l).length <= 75)).toBe(true);
+    const roundTripped = new TextDecoder().decode(encoder.encode(ics));
+    expect(roundTripped).not.toContain("\uFFFD");
+    expect(parseLines(roundTripped)).toContain(`SUMMARY:${title}`);
+  });
+
   it("ends every physical line with CRLF", () => {
     const ics = buildIcsEvent({
       uid: "u6",

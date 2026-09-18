@@ -504,13 +504,20 @@ export async function closeServiceRequest(id: string, formData: FormData) {
     }
   }
 
+  // "Edit close-out" on an already-resolved request keeps the original
+  // resolved_at and logs an internal note, rather than re-stamping the
+  // close date and appending a second customer-visible "Resolved". A
+  // reopened-then-reclosed request (status no longer resolved) still gets a
+  // fresh stamp and the normal status change.
+  const editingCloseOut = serviceRequest.status === "resolved";
+
   const { error } = await supabase
     .from("service_requests")
     .update({
       status: "resolved",
       resolution_summary: summary,
       resolution_recommendations: recommendations || null,
-      resolved_at: new Date().toISOString(),
+      ...(editingCloseOut && serviceRequest.resolved_at ? {} : { resolved_at: new Date().toISOString() }),
       closed_by: profile.id,
       ...(emailSentAt ? { resolution_email_sent_at: emailSentAt } : {}),
     })
@@ -520,15 +527,27 @@ export async function closeServiceRequest(id: string, formData: FormData) {
     return { error: error.message };
   }
 
-  await emitRequestActivity(supabase, {
-    companyId: serviceRequest.company_id,
-    serviceRequestId: id,
-    kind: "status_change",
-    visibility: "customer",
-    body: "Resolved",
-    authorKind: "staff",
-    authorUserId: profile.id,
-  });
+  if (editingCloseOut) {
+    await emitRequestActivity(supabase, {
+      companyId: serviceRequest.company_id,
+      serviceRequestId: id,
+      kind: "note",
+      visibility: "internal",
+      body: "Close-out summary updated",
+      authorKind: "staff",
+      authorUserId: profile.id,
+    });
+  } else {
+    await emitRequestActivity(supabase, {
+      companyId: serviceRequest.company_id,
+      serviceRequestId: id,
+      kind: "status_change",
+      visibility: "customer",
+      body: "Resolved",
+      authorKind: "staff",
+      authorUserId: profile.id,
+    });
+  }
 
   if (emailSentAt) {
     await emitRequestActivity(supabase, {

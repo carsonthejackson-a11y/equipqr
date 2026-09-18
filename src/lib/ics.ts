@@ -41,16 +41,42 @@ function toIcsUtcStamp(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 }
 
-/** RFC 5545 §3.1 line folding: continuation lines start with a single space, wrapped at 75 octets. ASCII-only content here, so octets == characters. */
+/** UTF-8 size of one code point — the unit RFC 5545 folds by. */
+function utf8ByteLength(codePoint: number): number {
+  if (codePoint < 0x80) return 1;
+  if (codePoint < 0x800) return 2;
+  if (codePoint < 0x10000) return 3;
+  return 4;
+}
+
+/**
+ * RFC 5545 §3.1 line folding: continuation lines start with a single space,
+ * and no physical line may exceed 75 OCTETS — bytes of UTF-8, not JS string
+ * units. The content is customer-typed (a title with an emoji, an accented
+ * street name), so this walks the line by code point and counts bytes:
+ * slicing at 75 UTF-16 units used to cut a surrogate pair in half, leaving
+ * two lone halves that encode as U+FFFD and corrupt the event's SUMMARY.
+ */
 function foldLine(line: string): string {
-  if (line.length <= 75) return line;
-  const parts: string[] = [line.slice(0, 75)];
-  let rest = line.slice(75);
-  while (rest.length > 0) {
-    parts.push(" " + rest.slice(0, 74));
-    rest = rest.slice(74);
+  const parts: string[] = [];
+  let current = "";
+  let currentBytes = 0;
+  // The first physical line gets all 75 octets; each continuation line
+  // spends one on its leading space.
+  let limit = 75;
+  for (const ch of line) {
+    const bytes = utf8ByteLength(ch.codePointAt(0) ?? 0);
+    if (currentBytes + bytes > limit) {
+      parts.push(current);
+      current = "";
+      currentBytes = 0;
+      limit = 74;
+    }
+    current += ch;
+    currentBytes += bytes;
   }
-  return parts.join("\r\n");
+  parts.push(current);
+  return parts.map((part, i) => (i === 0 ? part : ` ${part}`)).join("\r\n");
 }
 
 /** Builds a complete `.ics` file (VCALENDAR wrapping one VEVENT) as a CRLF-terminated string. */

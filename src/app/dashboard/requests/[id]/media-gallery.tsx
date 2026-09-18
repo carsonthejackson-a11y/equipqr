@@ -1,3 +1,4 @@
+import { formatCompanyDate } from "@/lib/format";
 import type { MediaKind, ServiceRequestMedia } from "@/lib/types";
 
 // ---- Next roadmap (migration 0019 / workstream A) ----
@@ -43,9 +44,12 @@ function MediaGrid({ items }: { items: MediaItem[] }) {
 export function MediaGallery({
   items,
   signature,
+  timeZone,
 }: {
   items: MediaItem[];
   signature?: MediaGallerySignature | null;
+  /** Company IANA zone (ctx.fmt.timeZone) — this is a server component, so a bare toLocaleDateString() would render the sign-off date in the server's own zone. */
+  timeZone: string;
 }) {
   const staffItems = items.filter((item) => item.origin === "staff");
   const customerItems = items.filter((item) => item.origin !== "staff");
@@ -76,7 +80,7 @@ export function MediaGallery({
           <img src={signature.url} alt="Customer signature" className="h-24 rounded-md border bg-white object-contain" />
           <p className="text-sm text-muted-foreground">
             Signed by {signature.signedByName ?? "the customer"}
-            {signature.signedAt ? ` on ${new Date(signature.signedAt).toLocaleDateString()}` : ""}
+            {signature.signedAt ? ` on ${formatCompanyDate(signature.signedAt, timeZone, { year: "always" })}` : ""}
           </p>
         </div>
       )}

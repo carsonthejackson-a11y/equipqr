@@ -66,6 +66,14 @@ export function ActivityFeed({
           isCustomerMessage && typeof item.metadata?.author_name === "string"
             ? (item.metadata.author_name as string)
             : null;
+        // Vendor rows (kind "dispatch", written by migration 0025's /v/<token>
+        // RPCs) have no author_user_id — the vendor's name travels in
+        // metadata.vendor_name. Without this branch they fell through to
+        // "Staff".
+        const vendorName =
+          item.author_kind === "vendor" && typeof item.metadata?.vendor_name === "string"
+            ? (item.metadata.vendor_name as string)
+            : null;
         const author = isCustomerMessage
           ? customerAuthorName
             ? `Customer · ${customerAuthorName}`
@@ -74,7 +82,11 @@ export function ActivityFeed({
             ? "Customer"
             : item.author_kind === "system"
               ? "System"
-              : (item.author_user_id && staffNameById.get(item.author_user_id)) || "Staff";
+              : item.author_kind === "vendor"
+                ? vendorName
+                  ? `Vendor · ${vendorName}`
+                  : "Vendor"
+                : (item.author_user_id && staffNameById.get(item.author_user_id)) || "Staff";
 
         return (
           <li

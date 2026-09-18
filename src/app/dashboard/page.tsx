@@ -9,7 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { StatusBadge } from "@/components/status-badge";
 import { formatRelativeTime } from "@/lib/format";
-import { addDaysToDateOnly, todayInTimeZone, zonedWallTimeToUtcIso } from "@/lib/schedule";
+import {
+  addDaysToDateOnly,
+  startOfMonth,
+  startOfPreviousMonth,
+  todayInTimeZone,
+  zonedWallTimeToUtcIso,
+} from "@/lib/schedule";
 import { applyOpen, REQUEST_BUCKETS } from "@/lib/request-queries";
 import { GettingStartedChecklist, type ChecklistItem } from "./getting-started-checklist";
 import { requiredChecklistItemsDone } from "@/lib/onboarding-checklist";
@@ -28,10 +34,7 @@ type MonthlyRequestRow = { created_at: string; resolved_at: string | null };
 function getDateWindows() {
   const now = new Date();
   return {
-    sixtyDaysAgoIso: new Date(now.getTime() - 60 * 86_400_000).toISOString(),
     thirtyDaysAgoIso: new Date(now.getTime() - 30 * 86_400_000).toISOString(),
-    startOfThisMonth: new Date(now.getFullYear(), now.getMonth(), 1),
-    startOfLastMonth: new Date(now.getFullYear(), now.getMonth() - 1, 1),
   };
 }
 
@@ -59,7 +62,7 @@ export default async function DashboardOverviewPage() {
   const isOwnerKind = company.kind === "equipment_owner";
   const vocab = vocabFor(company.kind);
 
-  const { sixtyDaysAgoIso, thirtyDaysAgoIso, startOfThisMonth, startOfLastMonth } = getDateWindows();
+  const { thirtyDaysAgoIso } = getDateWindows();
   // Overview for daily use (docs/QOL-CONTINUITY-BRIEF.md item 5): today's
   // and the PM-due window's boundaries, in the company's own timezone
   // (src/lib/schedule.ts — the same helpers src/app/dashboard/maintenance/page.tsx
@@ -68,6 +71,11 @@ export default async function DashboardOverviewPage() {
   const todayStartIso = zonedWallTimeToUtcIso(today, "00:00", company.timezone);
   const tomorrowStartIso = zonedWallTimeToUtcIso(addDaysToDateOnly(today, 1), "00:00", company.timezone);
   const pmDueByDate = addDaysToDateOnly(today, 7);
+  // "This month" card boundaries, in the company's timezone as well — the
+  // server's own `new Date().getMonth()` can be a month off from the
+  // company's for the first/last hours of a month.
+  const thisMonthStartIso = zonedWallTimeToUtcIso(startOfMonth(today), "00:00", company.timezone);
+  const lastMonthStartIso = zonedWallTimeToUtcIso(startOfPreviousMonth(today), "00:00", company.timezone);
 
   // Request-bucket counts run in their own batch: the bucket appliers are
   // generic over PostgREST's filter-builder type, and inferring a single
@@ -134,7 +142,12 @@ export default async function DashboardOverviewPage() {
     supabase
       .from("service_requests")
       .select("created_at, resolved_at")
-      .gte("created_at", sixtyDaysAgoIso)
+      // Everything created since the start of LAST month (both "requests"
+      // counts) OR resolved since the start of this month — a request opened
+      // months ago and closed this month still counts as resolved now. A
+      // fixed 60-day window used to drop day 1 of last month after two
+      // 31-day months.
+      .or(`created_at.gte.${lastMonthStartIso},resolved_at.gte.${thisMonthStartIso}`)
       .returns<MonthlyRequestRow[]>(),
     getEntitlements(),
     supabase.from("locations").select("*", { count: "exact", head: true }).eq("active", true),
@@ -193,15 +206,19 @@ export default async function DashboardOverviewPage() {
   const assigneeNameById = new Map((recentAssignees ?? []).map((p) => [p.id, p.full_name]));
 
   // "This month" / "last month" / "resolved this month", counted in TS from
-  // a single 60-day fetch rather than a dedicated RPC.
+  // the single fetch above rather than a dedicated RPC. Compare instants
+  // (ms), never the strings — PostgREST renders timestamps as "+00:00",
+  // toISOString() as ".000Z".
+  const thisMonthStartMs = new Date(thisMonthStartIso).getTime();
+  const lastMonthStartMs = new Date(lastMonthStartIso).getTime();
   let requestsThisMonth = 0;
   let requestsLastMonth = 0;
   let resolvedThisMonth = 0;
   for (const r of monthlyRequests ?? []) {
-    const created = new Date(r.created_at);
-    if (created >= startOfThisMonth) requestsThisMonth++;
-    else if (created >= startOfLastMonth) requestsLastMonth++;
-    if (r.resolved_at && new Date(r.resolved_at) >= startOfThisMonth) resolvedThisMonth++;
+    const createdMs = new Date(r.created_at).getTime();
+    if (createdMs >= thisMonthStartMs) requestsThisMonth++;
+    else if (createdMs >= lastMonthStartMs) requestsLastMonth++;
+    if (r.resolved_at && new Date(r.resolved_at).getTime() >= thisMonthStartMs) resolvedThisMonth++;
   }
 
   const memberCount = entitlements?.member_count ?? 1;
